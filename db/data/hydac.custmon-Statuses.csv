@@ -1,0 +1,13 @@
+code;text;icon;group
+000;New;sap-icon://pending;OPEN
+010;New Ship-To Party;sap-icon://pending;OPEN
+110;Customer Assignment Changed;sap-icon://pending;OPEN
+120;Converted to New Customer;sap-icon://pending;OPEN
+130;Duplicate – Customer Assigned;sap-icon://pending;OPEN
+140;Error Modifying Contact Person;sap-icon://error;ERROR
+150;Error Creating New Customer;sap-icon://error;ERROR
+160;Error Creating Ship-To Party;sap-icon://error;ERROR
+899;Rejected;sap-icon://decline;REJECTED
+997;Automatically Completed;sap-icon://complete;DONE
+998;Manually Completed;sap-icon://complete;DONE
+999;Completed;sap-icon://complete;DONE

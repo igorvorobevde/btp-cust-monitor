@@ -1,0 +1,327 @@
+# 03 – Service-Vertrag (CAP, OData V4)
+
+Dieser Vertrag gilt für Phase 1 (Mock) **und** Phase 2 (Delegation an S/4) unverändert. Änderungen nur nach Abstimmung (siehe CLAUDE.md).
+
+- Service: `CustomerMonitorService`, Pfad `/odata/v4/monitor`
+- Sprache der Texte: über `Accept-Language` (CAP `localized`), Fallback EN
+
+---
+
+## 1. Glossar ABAP → CDS
+
+| ABAP (ZEC_CUSTOMER / Payload) | CDS-Element | Bemerkung |
+|---|---|---|
+| GUID | `ID` | UUID |
+| PROC_TYPE | `processType` | |
+| STATUS | `status_code` (Assoziation `status`) | |
+| SOURCE | `source` | |
+| KUNNR | `customer` | Debitor |
+| PARTNER | `businessPartner` | Geschäftspartner |
+| KUNNR_WE | `shipToCustomer` | Warenempfänger |
+| PARNR | `contactPersonNumber` | Ansprechpartner (KNVK) |
+| MAGENTO_COMPANY / _CUSTOMER / _ADDRESS | `magentoCompany` / `magentoCustomer` / `magentoAddress` | |
+| VKORG / VTWEG / SPART | `salesOrganization` / `distributionChannel` / `division` | |
+| VKGRP / VKBUR / KDGRP / BZIRK | `salesGroup` / `salesOffice` / `customerGroup` / `salesDistrict` | |
+| ORDER_EXISTS / ORDER_VOLUME / CURRENCY | `orderExists` / `orderVolume` / `currency` | |
+| CREDITCARD | `creditCardPayment` | |
+| RELEASED / RELPROC / RELUSR / RELDAT+RELTIM | `released` / `releaseProcedure` / `releasedBy` / `releasedAt` | |
+| IN_CLARIFICATION / CLARI_COMMEND | `inClarification` / `clarificationComment` | |
+| CRUSR/CRDAT/CRTIM, CHUSR/CHDAT/CHTIM | `createdBy`/`createdAt`, `modifiedBy`/`modifiedAt` | `modifiedAt` = ETag |
+| STCEG / STCD2 / SEARCHTERM2 / BRSCH / DUNS | `vatNumber` / `taxNumber2` / `searchTerm2` / `industrySector` / `duns` | |
+| PARH4 | `shopRole` | Webshop-Rolle des Ansprechpartners |
+| Schritt (STEP) | `step` | Codes unverändert (`CREATE`, `AP_MODIFY`, …) |
+
+## 2. Datenmodell (`db/schema.cds`, Entwurf)
+
+> Feldlisten basieren auf den Entitäten von `ZEC_CUSTOMER_CREATE_SRV` und der ABAP-Analyse. Die exakten Bildschirmfelder der Altstrukturen `ZECSTR_CUSTOMER_MAIN_DYN`, `_ADMIN_DYN`, `_SALES_DYN`, `ZECSTR_CUSTOMER_SHIPTO` sind noch per SE11-Export abzugleichen (Backlog F-01).
+
+```cds
+namespace hydac.custmon;
+using { managed, cuid } from '@sap/cds/common';
+
+type ProcessType : String(6)  enum { CR_DEB; CH_DEB; CR_AP; CH_AP; CR_WE; };
+type StatusCode  : String(3);
+type StepCode    : String(10);
+type ReleaseProc : String(10) enum { NOT_REL; AUTOMATIC; MANUAL; };
+type StepInput   : String(20) enum { NONE; CONFIRM; BUSINESS_PARTNER; TEXT; };
+
+entity Requests : cuid, managed {            // managed: createdAt/By, modifiedAt/By
+  processType          : ProcessType;
+  source               : String(10);
+  status               : Association to Statuses;
+  // Zuordnung (read-only für die UI)
+  customer             : String(10);
+  businessPartner      : String(10);
+  shipToCustomer       : String(10);
+  contactPersonNumber  : String(10);
+  magentoCompany       : String(10);
+  magentoCustomer      : String(10);
+  magentoAddress       : String(10);
+  // Listen-/Steuerfelder (read-only)
+  salesOrganization    : String(4);
+  orderExists          : Boolean;
+  orderVolume          : Decimal(15,2);
+  currency             : String(5);
+  creditCardPayment    : Boolean;
+  released             : Boolean;
+  releaseProcedure     : ReleaseProc;
+  releasedBy           : String(255);
+  releasedAt           : Timestamp;
+  inClarification      : Boolean;
+  clarificationComment : String(100);
+  // Hauptdaten (editierbar)
+  title                : String(4);
+  name                 : String(40);
+  name2                : String(40);
+  name3                : String(40);
+  name4                : String(40);
+  street               : String(60);
+  houseNumber          : String(10);
+  street4              : String(40);
+  street5              : String(40);
+  postalCode           : String(10);
+  city                 : String(40);
+  country              : String(3);
+  language             : String(2);
+  telephone            : String(30);
+  email                : String(241);
+  vatNumber            : String(20);
+  taxNumber2           : String(18);
+  searchTerm2          : String(20);
+  industrySector       : String(4);
+  duns                 : String(11);
+  // Kompositionen
+  salesData            : Composition of one SalesData      on salesData.request = $self;
+  admin                : Composition of one ContactPersons on admin.request     = $self;
+  shipTo               : Composition of one ShipToParties  on shipTo.request    = $self;
+  log                  : Composition of many LogEntries    on log.request       = $self;
+  // berechnet
+  virtual isEditable   : Boolean;            // Status offen (0xx/1xx) und freigegeben
+}
+
+entity SalesData : cuid {
+  request              : Association to Requests;
+  salesOrganization    : String(4);
+  distributionChannel  : String(2);
+  division             : String(2);
+  salesGroup           : String(3);
+  salesOffice          : String(4);
+  customerGroup        : String(2);
+  salesDistrict        : String(6);
+  incoterms1           : String(3);
+  incoterms2           : String(28);
+}
+
+entity ContactPersons : cuid {
+  request              : Association to Requests;
+  contactPersonNumber  : String(10);        // read-only
+  businessPartner      : String(10);        // read-only
+  magentoCustomer      : String(10);        // read-only
+  shopRole             : String(2);
+  title                : String(4);
+  firstName            : String(40);
+  lastName             : String(40);
+  function             : String(2);
+  department           : String(4);
+  language             : String(2);
+  telephone            : String(30);
+  email                : String(241);
+}
+
+entity ShipToParties : cuid {
+  request              : Association to Requests;
+  shipToCustomer       : String(10);        // read-only
+  businessPartner      : String(10);        // read-only
+  magentoAddress       : String(10);        // read-only
+  addressUsedInOrder   : Boolean;           // read-only
+  name                 : String(40);
+  name2                : String(40);
+  name3                : String(40);
+  name4                : String(40);
+  street               : String(60);
+  houseNumber          : String(10);
+  street4              : String(40);
+  street5              : String(40);
+  postalCode           : String(10);
+  city                 : String(40);
+  country              : String(3);
+  vatNumber            : String(20);
+}
+
+entity LogEntries {
+  key request          : Association to Requests;
+  key line             : Integer;
+  messageType          : String(1);         // S I W E A
+  messageClass         : String(20);
+  messageNumber        : String(3);
+  messageText          : String(255);       // serverseitig aufgelöst
+  step                 : StepCode;
+  fieldName            : String(30);
+  oldValue             : String(255);
+  newValue             : String(255);
+  createdBy            : String(255);
+  createdAt            : Timestamp;
+}
+
+// Customizing (read-only, Texte sprachabhängig)
+entity Statuses     { key code : StatusCode;  text : localized String(60); icon : String(30); group : String(10); /* OPEN|ERROR|REJECTED|DONE */ }
+entity ProcessTypes { key code : ProcessType; text : localized String(60); }
+entity Steps        { key code : StepCode;    text : localized String(60); successStatus : StatusCode; errorStatus : StatusCode; input : StepInput; }
+entity ProcessSteps { key source : String(10); key processType : ProcessType; key status : StatusCode; key step : StepCode; }   // nur Mock, nicht exponiert
+entity ApprovalRules { key processType : ProcessType; key source : String(10); key salesOrganization : String(4);
+                       limit : Decimal(15,2); currency : String(5); creditCard : Boolean; notRequired : Boolean; }       // nur Mock, nicht exponiert
+```
+
+## 3. Service (`srv/monitor-service.cds`, Entwurf)
+
+```cds
+using hydac.custmon as db from '../db/schema';
+
+service CustomerMonitorService @(path: '/odata/v4/monitor') {
+
+  @(Capabilities: { InsertRestrictions.Insertable: false, DeleteRestrictions.Deletable: false })
+  entity Requests as projection on db.Requests actions {
+    function availableSteps() returns array of StepOption;
+    action   executeStep(step : db.StepCode,
+                         businessPartner : String(10),
+                         text : String(100),
+                         force : Boolean) returns Requests;
+  };
+
+  entity SalesData      as projection on db.SalesData;
+  entity ContactPersons as projection on db.ContactPersons;
+  entity ShipToParties  as projection on db.ShipToParties;
+  @readonly entity LogEntries   as projection on db.LogEntries;
+  @readonly entity Statuses     as projection on db.Statuses;
+  @readonly entity ProcessTypes as projection on db.ProcessTypes;
+  @readonly entity Steps        as projection on db.Steps;
+
+  type StepOption {
+    step          : db.StepCode;
+    text          : String(60);
+    input         : db.StepInput;
+    textMaxLength : Integer;      // nur bei input = TEXT
+    destructive   : Boolean;      // REJECT, RESET → UI zeigt Warn-Styling
+  }
+}
+```
+
+- `Requests`: kein CREATE/DELETE (Eingang kommt nur aus Magento). Muss serverseitig mit 405 abgelehnt werden, unabhängig von der Annotation.
+- `@odata.etag` auf `modifiedAt` (Requests). Jede PATCH-/Action-Anfrage ohne passendes `If-Match` → 412 (auch bei fehlendem Header; CAPs generisches 428 wird auf 412 abgebildet).
+- **Ergänzung (entschieden 19.10.2026):** Auch `SalesData`, `ContactPersons` und `ShipToParties` tragen ein read-only `modifiedAt` mit `@odata.etag`, damit PATCH auf Kind-Entitäten optimistisch gesperrt ist (CLAUDE.md Regel 6). Eine Kind-Änderung erhöht zusätzlich `Requests.modifiedAt` – erst vor dem Commit, damit PATCHes desselben Changesets nicht gegeneinander 412 erzeugen; ein danach mit altem ETag gesendetes `executeStep` erhält 412.
+- Read-only-Felder per `@readonly` / `@Core.Computed` annotieren (siehe Kommentare im Modell).
+- Updates auf Requests sind nur erlaubt, wenn `isEditable = true` (sonst 409 `NOT_EDITABLE`). Gilt auch für Kind-Entitäten; `admin` nur bei Prozessart ≠ CR_WE, `shipTo` nur bei CR_WE.
+- **`isEditable` berücksichtigt die Rolle (entschieden 19.10.2026):** `true` nur bei offenem Status, freigegebenem Vorgang **und** Rolle `MonitorEditor`. Die UI blendet „Bearbeiten“ allein über `isEditable` ein – kein separater User-Info-Endpunkt.
+- Sichtbarkeit: VKORG aus Benutzerattribut `SalesOrg`, nicht freigegebene Vorgänge nur mit `MonitorReleaser` (Mock: Handler-Filter, 02 §5).
+
+## 4. `availableSteps()`
+
+Liefert die erlaubten Schritte in dieser Logik (identisch Altsystem `get_functions`):
+
+0. Ohne Rolle `MonitorEditor` → leeres Array (UI zeigt „Keine Schritte verfügbar“).
+1. Status 8xx/9xx → nur `RESET`.
+2. Nicht freigegeben → nur `RELEASE`, `REJECT` (`RELEASE` nur mit Rolle `MonitorReleaser`).
+3. Status 000 und nicht in Klärung → `CLARIFY`.
+4. Plus alle `ProcessSteps` für (source, processType, status).
+
+Texte der fest programmierten Funktionen `RESET`, `RELEASE`, `CLARIFY` stehen wie die Customizing-Schritte in `Steps` (sprachabhängig).
+
+Eingabeart je Schritt:
+
+| step | input | textMaxLength | destructive |
+|---|---|---|---|
+| RELEASE | CONFIRM | | |
+| REJECT | TEXT | 100 | ✔ |
+| CLARIFY | TEXT | 100 | |
+| RESET | CONFIRM | | ✔ |
+| CREATE, CREATE_WE, AP_MODIFY | CONFIRM (E-09; Altsystem: NONE) | | |
+| CHNG_OLD, CNG_DEBI | BUSINESS_PARTNER | | |
+| CNG_NEW, MANUAL_OK | CONFIRM | | |
+
+## 5. `executeStep(step, businessPartner, text, force)`
+
+Gebunden an einen Request, ETag Pflicht. Rückgabe: aktualisierter Request (UI liest Status, Felder, Log neu).
+
+### 5.1 Ergebnisse
+
+| Fall | HTTP | Fehlercode (`error.code`) | Wirkung |
+|---|---|---|---|
+| Erfolg | 200 | – | Erfolgsstatus, Log; Meldungen als `sap-messages` (Typ success/info) |
+| Schritt ausgeführt, fachlicher Fehler mit Fehlerstatus (CREATE→150, CREATE_WE→160, AP_MODIFY→140) | **200** | – | Fehlerstatus gesetzt, Meldungen als `sap-messages` Typ error/warning |
+| Schritt nicht erlaubt | 400 | `STEP_NOT_ALLOWED` | keine Änderung |
+| Eingabe fehlt / zu lang | 400 | `INPUT_REQUIRED` / `INPUT_TOO_LONG` | keine Änderung |
+| BP unbekannt | 400 | `BP_NOT_FOUND` | keine Änderung |
+| BP ohne Debitorrolle | 400 | `BP_NOT_CUSTOMER` | keine Änderung (Altsystem ließ das zu, siehe 07 R-06) |
+| Rückfrage nötig (CNG_DEBI: Debitor gehört anderer Magento-Company) | 409 | `CONFIRM_REQUIRED` | keine Änderung; UI fragt nach, wiederholt mit `force = true` |
+| Harte Vorbedingung (z. B. VKORG 2000 ohne CRM-Nummer) | 422 | `STEP_ABORTED` | keine Änderung, Meldung im Log **und** in der Antwort (07 R-04) |
+| ETag veraltet | 412 | – | UI: „Vorgang wurde zwischenzeitlich geändert“ → neu laden |
+| Keine Berechtigung | 403 | – | |
+
+Hinweis Mock/CAP: Bei HTTP 200 können `sap-messages` nur bis Schweregrad *warning* transportiert werden; Meldungen eines Fehlerstatus (140/150/160) kommen daher als Warnung. Die UI wertet zusätzlich die Statusgruppe `ERROR` aus (04 §4.2).
+
+Fehlerantworten enthalten `error.message` (übersetzt) und optional `error.details[]` (weitere Meldungen). `CONFIRM_REQUIRED` enthält in `error.message` die Rückfrage (z. B. „Debitor 4711 ist bereits Magento-Company 999 zugeordnet. Trotzdem übernehmen?“).
+
+### 5.2 Wirkung je Schritt
+
+Siehe [01_fachkonzept.md §6](01_fachkonzept.md#6-schritte). Zusätzlich im Mock und als Ziel für Phase 2:
+
+- **CNG_NEW** führt die Freigabeprüfung erneut aus (07 R-02). Ergebnis kann `released = false` sein.
+- **CHNG_OLD** prüft wie CNG_DEBI die bestehende Magento-Zuordnung (07 R-06).
+- Jeder Schritt schreibt mindestens einen Logeintrag und aktualisiert `modifiedAt/By`.
+
+## 6. Bearbeiten (PATCH)
+
+- Bearbeitbar: Hauptdaten (Requests), `salesData`, `admin` (nicht bei CR_WE), `shipTo` (nur bei CR_WE).
+- UI sendet geänderte Felder gesammelt in **einem** `$batch` (Gruppe `changes`).
+- Server protokolliert je geändertem Feld einen Logeintrag (`fieldName`, `oldValue`, `newValue`).
+
+## 7. Mock-Verhalten (Phase 1)
+
+Implementiert in `srv/monitor-service.js` + `srv/lib/status-machine.js`.
+
+**Testdaten** (`db/data/*.csv`): mindestens ein Vorgang je Kombination
+
+| # | processType | status | Besonderheit |
+|---|---|---|---|
+| 1 | CR_DEB | 000 | freigegeben, VKORG 2000 |
+| 2 | CR_DEB | 000 | **nicht** freigegeben, VKORG 7050 |
+| 3 | CR_DEB | 150 | Name enthält „FEHLER“ (CREATE schlägt erneut fehl) |
+| 4 | CH_DEB | 000 | VKORG 2000, Debitor **ohne** CRM-Nummer (AP_MODIFY → STEP_ABORTED) |
+| 5 | CH_DEB | 130 | |
+| 6 | CR_AP | 000 | |
+| 7 | CR_AP | 140 | |
+| 8 | CR_WE | 010 | VKORG 7050, nicht freigegeben |
+| 9 | CR_WE | 160 | |
+| 10 | CH_AP | 997 | |
+| 11 | CR_DEB | 899 | ohne Debitor (RESET → CR_DEB/120) |
+| 12 | CH_DEB | 999 | Bestellung vorhanden, Volumen 12.500 EUR |
+| 13 | CH_DEB | 000 | in Klärung, mit Kommentar |
+| 14 | CR_DEB | 000 | VKORG 0001, Kreditkarte → automatisch freigegeben, Bestellung 3.400 EUR |
+| 15 | CR_DEB | 120 | nach CNG_NEW, manuell freigegeben |
+| 16 | CH_DEB | 110 | Zuordnung geändert, Feldänderungen im Protokoll |
+| 17 | CH_DEB | 140 | Admin-Nachname „Fehlermann“ (AP_MODIFY schlägt erneut fehl) |
+| 18 | CR_DEB | 000 | VKORG 7050, **nicht** freigegeben, 25.000 EUR, in Klärung |
+| 19 | CR_AP | 000 | VKORG 7050, **nicht** freigegeben |
+| 20 | CR_WE | 010 | VKORG 0001, freigegeben, Adresse in Auftrag verwendet |
+| 21 | CR_WE | 999 | Warenempfänger 4200021 angelegt (RESET → 010) |
+| 22 | CR_DEB | 998 | manuell erledigt |
+| 23 | CH_DEB | 899 | abgelehnt, mit Debitor (RESET → CH_DEB/000) |
+| 24 | CR_DEB | 999 | Debitor angelegt (RESET → CH_DEB/000) |
+| 25 | CH_AP | 997 | VKORG 2000 |
+| 26 | CH_DEB | 000 | für CNG_DEBI: BP 1000030 frei, 1000002 Rückfrage, 1000031 ohne Debitorrolle |
+
+#1–#13 sind die Pflicht-Kombinationen (Tests referenzieren sie), #14–#26 Demo-Daten; Drehbuch: [08_demo_szenarien.md](08_demo_szenarien.md).
+
+Customizing-CSV = Kopie der Systemtabellen (Stand 19.10.2026, siehe 01).
+
+**Mock-Stammdaten** (`db/data/hydac.custmon-MockBusinessPartners.csv`, nicht exponiert): BP-Nummer, Debitor, `hasCustomerRole`, `crmNumber`, `magentoCompany` – für BP-Prüfungen.
+Wichtige BPs für Schritte mit BP-Eingabe: `1000030` (Debitor 4000030, frei → keine Rückfrage), `1000002` (Debitor 4000002, Magento-Company 999 → `CONFIRM_REQUIRED`), `1000003` / `1000031` (keine Debitorrolle → `BP_NOT_CUSTOMER`), jede andere Nummer → `BP_NOT_FOUND`.
+
+**Simulation:**
+- CREATE / CREATE_WE: Name enthält „FEHLER“ → Fehlerstatus + Meldung; sonst neue Nummern (Debitor 4xxxxxxx, BP 1xxxxxxx, AP 0xxxxxxxxx) und 999.
+- AP_MODIFY: VKORG 2000 und Debitor ohne `crmNumber` → 422 `STEP_ABORTED`.
+- `MOCK_LATENCY_MS` (env) verzögert jede Action, um Busy-Zustände zu testen.
+- BP-Nummern werden ohne führende Nullen verglichen (`0001000002` = `1000002`).
+- Meldungstexte (Fehler, `sap-messages`, Protokoll) aus `_i18n/messages*.properties` (EN/DE), Sprache aus `Accept-Language`.
+- `STEP_ABORTED` schreibt den Protokolleintrag (Typ `A`) in einer eigenen Transaktion nach dem Rollback.
+- Profil `opa` (`npm run start:test`): Auth `dummy` (privilegierter Benutzer, alle Rollen, alle VKORG) für Headless-Browsertests.

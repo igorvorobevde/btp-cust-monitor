@@ -1,0 +1,11 @@
+locale;code;text
+de;CR_DEB;Neuer Debitor
+en;CR_DEB;New Customer
+de;CH_DEB;Bestehender Debitor
+en;CH_DEB;Existing Customer
+de;CR_AP;Neuer Ansprechpartner
+en;CR_AP;New Contact Person
+de;CH_AP;Änderung Ansprechpartner
+en;CH_AP;Contact Person Change
+de;CR_WE;Neuer Warenempfänger
+en;CR_WE;New Ship-To Party

@@ -1,0 +1,12 @@
+code;text;successStatus;errorStatus;input
+AP_MODIFY;Create/Change Contact Person;999;140;CONFIRM
+CHNG_OLD;Duplicate – Assign Customer;130;;BUSINESS_PARTNER
+CNG_DEBI;Change Customer Assignment;110;;BUSINESS_PARTNER
+CNG_NEW;Convert to New Customer;120;;CONFIRM
+CREATE;Create Customer and Admin;999;150;CONFIRM
+CREATE_WE;Create Ship-To Party;999;160;CONFIRM
+MANUAL_OK;Manually Completed;998;;CONFIRM
+REJECT;Reject Request;899;;TEXT
+RESET;Process Again;;;CONFIRM
+RELEASE;Release;;;CONFIRM
+CLARIFY;In Clarification;;;TEXT

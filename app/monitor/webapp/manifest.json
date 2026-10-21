@@ -1,0 +1,121 @@
+{
+	"_version": "2.0.0",
+	"sap.app": {
+		"id": "hydac.custmon",
+		"type": "application",
+		"i18n": {
+			"bundleName": "hydac.custmon.i18n.i18n",
+			"supportedLocales": ["", "de"],
+			"fallbackLocale": ""
+		},
+		"title": "{{appTitle}}",
+		"description": "{{appDescription}}",
+		"applicationVersion": {
+			"version": "0.1.0"
+		},
+		"dataSources": {
+			"mainService": {
+				"uri": "/odata/v4/monitor/",
+				"type": "OData",
+				"settings": {
+					"odataVersion": "4.0"
+				}
+			}
+		}
+	},
+	"sap.ui": {
+		"technology": "UI5",
+		"deviceTypes": {
+			"desktop": true,
+			"tablet": true,
+			"phone": false
+		}
+	},
+	"sap.ui5": {
+		"rootView": {
+			"viewName": "hydac.custmon.view.App",
+			"type": "XML",
+			"id": "app"
+		},
+		"dependencies": {
+			"minUI5Version": "1.148.12",
+			"libs": {
+				"sap.ui.core": {},
+				"sap.m": {},
+				"sap.f": {},
+				"sap.uxap": {},
+				"sap.ui.layout": {}
+			}
+		},
+		"contentDensities": {
+			"compact": true,
+			"cozy": true
+		},
+		"handleValidation": true,
+		"models": {
+			"i18n": {
+				"type": "sap.ui.model.resource.ResourceModel",
+				"settings": {
+					"bundleName": "hydac.custmon.i18n.i18n",
+					"supportedLocales": ["", "de"],
+					"fallbackLocale": ""
+				}
+			},
+			"": {
+				"dataSource": "mainService",
+				"preload": true,
+				"settings": {
+					"operationMode": "Server",
+					"autoExpandSelect": true,
+					"earlyRequests": true
+				}
+			}
+		},
+		"resources": {
+			"css": [
+				{
+					"uri": "css/style.css"
+				}
+			]
+		},
+		"routing": {
+			"config": {
+				"routerClass": "sap.f.routing.Router",
+				"type": "View",
+				"viewType": "XML",
+				"path": "hydac.custmon.view",
+				"controlId": "fcl",
+				"transition": "slide"
+			},
+			"routes": [
+				{
+					"name": "list",
+					"pattern": "",
+					"target": ["list"]
+				},
+				{
+					"name": "detail",
+					"pattern": "requests/{id}",
+					"target": ["list", "detail"]
+				},
+				{
+					"name": "detailFull",
+					"pattern": "requests/{id}/full",
+					"target": ["list", "detail"]
+				}
+			],
+			"targets": {
+				"list": {
+					"id": "list",
+					"name": "List",
+					"controlAggregation": "beginColumnPages"
+				},
+				"detail": {
+					"id": "detail",
+					"name": "Detail",
+					"controlAggregation": "midColumnPages"
+				}
+			}
+		}
+	}
+}

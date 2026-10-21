@@ -1,0 +1,38 @@
+<core:FragmentDefinition
+	xmlns:core="sap.ui.core"
+	xmlns="sap.m">
+	<Dialog
+		id="stepTextDialog"
+		title="{view>/stepDialog/title}"
+		type="Message"
+		state="{= ${view>/stepDialog/destructive} ? 'Warning' : 'None' }"
+		contentWidth="30rem"
+		afterClose=".onStepDialogAfterClose">
+		<content>
+			<Label text="{i18n>step.dialog.text.label}" labelFor="stepTextArea" required="true"/>
+			<TextArea
+				id="stepTextArea"
+				value="{view>/stepDialog/text}"
+				maxLength="{view>/stepDialog/maxLength}"
+				showExceededText="true"
+				valueLiveUpdate="true"
+				growing="true"
+				rows="4"
+				width="100%"
+				valueState="{view>/stepDialog/valueState}"
+				liveChange=".onStepInputChange"
+				required="true"/>
+		</content>
+		<beginButton>
+			<Button
+				id="stepTextOk"
+				text="{i18n>common.ok}"
+				type="Emphasized"
+				enabled="{view>/stepDialog/valid}"
+				press=".onStepDialogConfirm"/>
+		</beginButton>
+		<endButton>
+			<Button id="stepTextCancel" text="{i18n>common.cancel}" press=".onStepDialogCancel"/>
+		</endButton>
+	</Dialog>
+</core:FragmentDefinition>

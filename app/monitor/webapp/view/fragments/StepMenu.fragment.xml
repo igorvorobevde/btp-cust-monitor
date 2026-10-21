@@ -1,0 +1,15 @@
+<core:FragmentDefinition
+	xmlns:core="sap.ui.core"
+	xmlns="sap.m">
+	<Menu
+		id="stepMenu"
+		itemSelected=".onStepSelected"
+		items="{path: 'view>/steps', templateShareable: false}">
+		<MenuItem
+			text="{view>text}"
+			key="{view>step}"
+			icon="{= ${view>destructive} ? 'sap-icon://warning' : '' }"
+			startsSection="{view>startsSection}"
+			enabled="{= ${view>step} !== '' }"/>
+	</Menu>
+</core:FragmentDefinition>

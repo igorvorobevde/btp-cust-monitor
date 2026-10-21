@@ -1,0 +1,205 @@
+<mvc:View
+	controllerName="hydac.custmon.controller.Detail"
+	xmlns:mvc="sap.ui.core.mvc"
+	xmlns:core="sap.ui.core"
+	xmlns:uxap="sap.uxap"
+	xmlns:l="sap.ui.layout"
+	xmlns="sap.m">
+	<uxap:ObjectPageLayout
+		id="objectPage"
+		showTitleInHeaderContent="true"
+		upperCaseAnchorBar="false"
+		alwaysShowContentHeader="false"
+		busy="{view>/busy}"
+		busyIndicatorDelay="0"
+		showFooter="{= ${message>/}.length > 0 }">
+		<uxap:headerTitle>
+			<uxap:ObjectPageDynamicHeaderTitle id="headerTitle">
+				<uxap:expandedHeading>
+					<Title text="{name}" wrapping="true" level="H2"/>
+				</uxap:expandedHeading>
+				<uxap:snappedHeading>
+					<HBox alignItems="Center">
+						<Title text="{name}" wrapping="true" level="H2" class="sapUiSmallMarginEnd"/>
+						<ObjectStatus
+							text="{parts: ['status_code', 'appView>/statuses'], formatter: '.formatter.statusText'}"
+							icon="{parts: ['status_code', 'appView>/statuses'], formatter: '.formatStatusIcon'}"
+							state="{parts: ['status_code', 'appView>/statuses'], formatter: '.formatStatusState'}"/>
+					</HBox>
+				</uxap:snappedHeading>
+				<uxap:expandedContent>
+					<Text text="{parts: ['processType', 'appView>/processTypeTexts', 'magentoCompany'], formatter: '.formatSubtitle'}"/>
+				</uxap:expandedContent>
+				<uxap:snappedContent>
+					<Text text="{parts: ['processType', 'appView>/processTypeTexts', 'magentoCompany'], formatter: '.formatSubtitle'}"/>
+				</uxap:snappedContent>
+				<uxap:actions>
+					<Button
+						id="editButton"
+						text="{i18n>detail.action.edit}"
+						type="Emphasized"
+						visible="{= !${view>/editMode} &amp;&amp; !!${path: 'isEditable', targetType: 'any'} }"
+						press=".onEdit"/>
+					<Button
+						id="saveButton"
+						text="{i18n>detail.action.save}"
+						type="Emphasized"
+						visible="{view>/editMode}"
+						press=".onSave"/>
+					<Button
+						id="cancelButton"
+						text="{i18n>detail.action.cancel}"
+						visible="{view>/editMode}"
+						press=".onCancel"/>
+					<Button
+						id="stepButton"
+						text="{i18n>detail.action.step}"
+						icon="sap-icon://slim-arrow-down"
+						iconFirst="false"
+						visible="{= !${view>/editMode} }"
+						enabled="{= !${view>/hasPendingChanges} }"
+						tooltip="{= ${view>/hasPendingChanges} ? ${i18n>detail.action.step.pendingTooltip} : ${i18n>detail.action.step} }"
+						ariaHasPopup="Menu"
+						press=".onOpenStepMenu"/>
+					<OverflowToolbarButton
+						id="detailRefreshButton"
+						icon="sap-icon://refresh"
+						text="{i18n>common.refresh}"
+						tooltip="{i18n>common.refresh}"
+						press=".onRefresh"/>
+				</uxap:actions>
+				<uxap:navigationActions>
+					<OverflowToolbarButton
+						id="enterFullScreenButton"
+						type="Transparent"
+						icon="sap-icon://full-screen"
+						tooltip="{i18n>detail.action.fullScreen}"
+						visible="{= ${appView>/layout} !== 'MidColumnFullScreen' }"
+						press=".onToggleFullScreen"/>
+					<OverflowToolbarButton
+						id="exitFullScreenButton"
+						type="Transparent"
+						icon="sap-icon://exit-full-screen"
+						tooltip="{i18n>detail.action.exitFullScreen}"
+						visible="{= ${appView>/layout} === 'MidColumnFullScreen' }"
+						press=".onToggleFullScreen"/>
+					<OverflowToolbarButton
+						id="closeButton"
+						type="Transparent"
+						icon="sap-icon://decline"
+						tooltip="{i18n>detail.action.close}"
+						press=".onClose"/>
+				</uxap:navigationActions>
+			</uxap:ObjectPageDynamicHeaderTitle>
+		</uxap:headerTitle>
+
+		<uxap:headerContent>
+			<VBox width="100%">
+				<MessageStrip
+					id="clarificationStrip"
+					type="Warning"
+					showIcon="true"
+					visible="{= !!${path: 'inClarification', targetType: 'any'} }"
+					text="{parts: ['i18n>detail.clarification', 'clarificationComment'], formatter: '.formatter.formatMessage'}"
+					class="sapUiSmallMarginBottom"/>
+				<FlexBox wrap="Wrap">
+					<VBox class="custmonHeaderBlock">
+						<Label text="{i18n>detail.header.status}"/>
+						<ObjectStatus
+							id="headerStatus"
+							text="{parts: ['status_code', 'appView>/statuses'], formatter: '.formatter.statusText'}"
+							icon="{parts: ['status_code', 'appView>/statuses'], formatter: '.formatStatusIcon'}"
+							state="{parts: ['status_code', 'appView>/statuses'], formatter: '.formatStatusState'}"
+							inverted="true"/>
+						<Label text="{i18n>detail.header.release}" class="sapUiSmallMarginTop"/>
+						<ObjectStatus
+							id="headerRelease"
+							text="{parts: [{path: 'released', targetType: 'any'}, {path: 'releaseProcedure', targetType: 'any'}, 'i18n>detail.release.automatic', 'i18n>detail.release.manual', 'i18n>detail.release.notRequired', 'i18n>detail.release.notReleased'], formatter: '.formatter.releaseText'}"
+							state="{path: 'released', targetType: 'any', formatter: '.formatter.releaseState'}"/>
+					</VBox>
+					<VBox class="custmonHeaderBlock">
+						<ObjectAttribute title="{i18n>field.customer}" text="{customer}"/>
+						<ObjectAttribute title="{i18n>field.businessPartner}" text="{businessPartner}"/>
+						<ObjectAttribute title="{i18n>field.salesOrganization}" text="{salesOrganization}"/>
+						<ObjectAttribute
+							title="{i18n>field.orderExists}"
+							text="{= ${path: 'orderExists', targetType: 'any'} ? ${i18n>common.yes} : ${i18n>common.no} }"/>
+						<ObjectNumber number="{orderVolume}" unit="{currency}"/>
+					</VBox>
+					<VBox class="custmonHeaderBlock">
+						<ObjectAttribute title="{i18n>field.createdBy}" text="{createdBy}"/>
+						<ObjectAttribute title="{i18n>field.createdAt}" text="{createdAt}"/>
+						<ObjectAttribute title="{i18n>field.modifiedBy}" text="{modifiedBy}"/>
+						<ObjectAttribute title="{i18n>field.modifiedAt}" text="{modifiedAt}"/>
+					</VBox>
+				</FlexBox>
+			</VBox>
+		</uxap:headerContent>
+
+		<uxap:sections>
+			<uxap:ObjectPageSection id="sectionMain" titleUppercase="false" title="{i18n>detail.section.main}">
+				<uxap:subSections>
+					<uxap:ObjectPageSubSection>
+						<core:Fragment fragmentName="hydac.custmon.view.fragments.DetailMainData" type="XML"/>
+					</uxap:ObjectPageSubSection>
+				</uxap:subSections>
+			</uxap:ObjectPageSection>
+			<uxap:ObjectPageSection
+				id="sectionAdmin"
+				titleUppercase="false"
+				title="{i18n>detail.section.admin}"
+				visible="{= ${path: 'processType', targetType: 'any'} !== 'CR_WE' }">
+				<uxap:subSections>
+					<uxap:ObjectPageSubSection>
+						<core:Fragment fragmentName="hydac.custmon.view.fragments.DetailAdmin" type="XML"/>
+					</uxap:ObjectPageSubSection>
+				</uxap:subSections>
+			</uxap:ObjectPageSection>
+			<uxap:ObjectPageSection id="sectionSales" titleUppercase="false" title="{i18n>detail.section.sales}">
+				<uxap:subSections>
+					<uxap:ObjectPageSubSection>
+						<core:Fragment fragmentName="hydac.custmon.view.fragments.DetailSales" type="XML"/>
+					</uxap:ObjectPageSubSection>
+				</uxap:subSections>
+			</uxap:ObjectPageSection>
+			<uxap:ObjectPageSection
+				id="sectionShipTo"
+				titleUppercase="false"
+				title="{i18n>detail.section.shipTo}"
+				visible="{= ${path: 'processType', targetType: 'any'} === 'CR_WE' }">
+				<uxap:subSections>
+					<uxap:ObjectPageSubSection>
+						<core:Fragment fragmentName="hydac.custmon.view.fragments.DetailShipTo" type="XML"/>
+					</uxap:ObjectPageSubSection>
+				</uxap:subSections>
+			</uxap:ObjectPageSection>
+			<uxap:ObjectPageSection id="sectionAssignment" titleUppercase="false" title="{i18n>detail.section.assignment}">
+				<uxap:subSections>
+					<uxap:ObjectPageSubSection>
+						<core:Fragment fragmentName="hydac.custmon.view.fragments.DetailAssignment" type="XML"/>
+					</uxap:ObjectPageSubSection>
+				</uxap:subSections>
+			</uxap:ObjectPageSection>
+			<uxap:ObjectPageSection id="sectionLog" titleUppercase="false" title="{i18n>detail.section.log}">
+				<uxap:subSections>
+					<uxap:ObjectPageSubSection>
+						<core:Fragment fragmentName="hydac.custmon.view.fragments.DetailLog" type="XML"/>
+					</uxap:ObjectPageSubSection>
+				</uxap:subSections>
+			</uxap:ObjectPageSection>
+		</uxap:sections>
+
+		<uxap:footer>
+			<OverflowToolbar>
+				<Button
+					id="messagePopoverButton"
+					icon="sap-icon://message-popup"
+					text="{= ${message>/}.length }"
+					type="{path: 'message>/', formatter: '.formatMessageButtonType'}"
+					tooltip="{i18n>detail.messages}"
+					press=".onOpenMessagePopover"/>
+				<ToolbarSpacer/>
+			</OverflowToolbar>
+		</uxap:footer>
+	</uxap:ObjectPageLayout>
+</mvc:View>

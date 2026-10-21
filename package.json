@@ -1,0 +1,41 @@
+{
+  "name": "kundenmonitor-btp",
+  "version": "0.1.0",
+  "description": "Kundenmonitor BTP – Rebuild of ZEC_CUSTOMER_MONITOR (CAP + freestyle SAPUI5)",
+  "private": true,
+  "engines": {
+    "node": ">=20.11"
+  },
+  "workspaces": [
+    "app/*"
+  ],
+  "dependencies": {
+    "@sap/cds": "9.9.3",
+    "express": "4.21.2"
+  },
+  "devDependencies": {
+    "@cap-js/cds-test": "1.0.2",
+    "@cap-js/sqlite": "2.4.3",
+    "cds-plugin-ui5": "0.17.4",
+    "jest": "30.5.2"
+  },
+  "scripts": {
+    "start": "cds-serve",
+    "watch": "cds watch",
+    "lint": "npm run lint --workspace app/monitor",
+    "lint:ui5": "npm run lint:ui5 --workspace app/monitor",
+    "lint:js": "npm run lint:js --workspace app/monitor",
+    "test": "npm run test:srv && npm run test:unit && npm run test:opa",
+    "test:srv": "jest --runInBand",
+    "test:unit": "npm run test:unit --workspace app/monitor",
+    "test:opa": "npm run test:opa --workspace app/monitor",
+    "start:test": "cds-serve --profile opa --port 4004"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "testMatch": [
+      "<rootDir>/test/**/*.test.js"
+    ],
+    "testTimeout": 20000
+  }
+}

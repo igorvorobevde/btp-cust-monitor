@@ -1,0 +1,92 @@
+<core:FragmentDefinition
+	xmlns:core="sap.ui.core"
+	xmlns:f="sap.ui.layout.form"
+	xmlns="sap.m">
+	<f:Form id="formMain" editable="{view>/editMode}">
+		<f:layout>
+			<f:ColumnLayout columnsM="2" columnsL="3" columnsXL="3"/>
+		</f:layout>
+		<f:formContainers>
+			<f:FormContainer title="{i18n>detail.group.name}">
+				<f:formElements>
+					<f:FormElement label="{i18n>field.title}">
+						<f:fields><Input id="mainTitle" value="{title}" editable="{view>/editMode}"/></f:fields>
+					</f:FormElement>
+					<f:FormElement label="{i18n>field.name}">
+						<f:fields><Input id="mainName" value="{name}" editable="{view>/editMode}"/></f:fields>
+					</f:FormElement>
+					<f:FormElement label="{i18n>field.name2}">
+						<f:fields><Input id="mainName2" value="{name2}" editable="{view>/editMode}"/></f:fields>
+					</f:FormElement>
+					<f:FormElement label="{i18n>field.name3}">
+						<f:fields><Input value="{name3}" editable="{view>/editMode}"/></f:fields>
+					</f:FormElement>
+					<f:FormElement label="{i18n>field.name4}">
+						<f:fields><Input value="{name4}" editable="{view>/editMode}"/></f:fields>
+					</f:FormElement>
+				</f:formElements>
+			</f:FormContainer>
+			<f:FormContainer title="{i18n>detail.group.address}">
+				<f:formElements>
+					<f:FormElement label="{i18n>field.streetHouseNumber}">
+						<f:fields>
+							<Input value="{street}" editable="{view>/editMode}">
+								<layoutData><f:ColumnElementData cellsLarge="8"/></layoutData>
+							</Input>
+							<Input value="{houseNumber}" editable="{view>/editMode}"/>
+						</f:fields>
+					</f:FormElement>
+					<f:FormElement label="{i18n>field.street4}">
+						<f:fields><Input value="{street4}" editable="{view>/editMode}"/></f:fields>
+					</f:FormElement>
+					<f:FormElement label="{i18n>field.street5}">
+						<f:fields><Input value="{street5}" editable="{view>/editMode}"/></f:fields>
+					</f:FormElement>
+					<f:FormElement label="{i18n>field.postalCodeCity}">
+						<f:fields>
+							<Input value="{postalCode}" editable="{view>/editMode}">
+								<layoutData><f:ColumnElementData cellsLarge="3"/></layoutData>
+							</Input>
+							<Input value="{city}" editable="{view>/editMode}"/>
+						</f:fields>
+					</f:FormElement>
+					<f:FormElement label="{i18n>field.country}">
+						<f:fields><Input value="{country}" editable="{view>/editMode}"/></f:fields>
+					</f:FormElement>
+				</f:formElements>
+			</f:FormContainer>
+			<f:FormContainer title="{i18n>detail.group.communication}">
+				<f:formElements>
+					<f:FormElement label="{i18n>field.language}">
+						<f:fields><Input value="{language}" editable="{view>/editMode}"/></f:fields>
+					</f:FormElement>
+					<f:FormElement label="{i18n>field.telephone}">
+						<f:fields><Input value="{telephone}" type="Tel" editable="{view>/editMode}"/></f:fields>
+					</f:FormElement>
+					<f:FormElement label="{i18n>field.email}">
+						<f:fields><Input value="{email}" type="Email" editable="{view>/editMode}"/></f:fields>
+					</f:FormElement>
+				</f:formElements>
+			</f:FormContainer>
+			<f:FormContainer title="{i18n>detail.group.tax}">
+				<f:formElements>
+					<f:FormElement label="{i18n>field.vatNumber}">
+						<f:fields><Input value="{vatNumber}" editable="{view>/editMode}"/></f:fields>
+					</f:FormElement>
+					<f:FormElement label="{i18n>field.taxNumber2}">
+						<f:fields><Input value="{taxNumber2}" editable="{view>/editMode}"/></f:fields>
+					</f:FormElement>
+					<f:FormElement label="{i18n>field.searchTerm2}">
+						<f:fields><Input value="{searchTerm2}" editable="{view>/editMode}"/></f:fields>
+					</f:FormElement>
+					<f:FormElement label="{i18n>field.industrySector}">
+						<f:fields><Input value="{industrySector}" editable="{view>/editMode}"/></f:fields>
+					</f:FormElement>
+					<f:FormElement label="{i18n>field.duns}">
+						<f:fields><Input value="{duns}" editable="{view>/editMode}"/></f:fields>
+					</f:FormElement>
+				</f:formElements>
+			</f:FormContainer>
+		</f:formContainers>
+	</f:Form>
+</core:FragmentDefinition>

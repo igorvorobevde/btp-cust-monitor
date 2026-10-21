@@ -1,0 +1,48 @@
+{
+  "requires": {
+    "db": {
+      "kind": "sqlite",
+      "credentials": {
+        "url": ":memory:"
+      }
+    },
+    "[development]": {
+      "auth": {
+        "kind": "mocked",
+        "users": {
+          "alice": {
+            "password": "alice",
+            "roles": [
+              "MonitorViewer",
+              "MonitorEditor",
+              "MonitorReleaser"
+            ],
+            "attr": {
+              "SalesOrg": [
+                "0001",
+                "2000",
+                "7050"
+              ]
+            }
+          },
+          "bob": {
+            "password": "bob",
+            "roles": [
+              "MonitorViewer"
+            ],
+            "attr": {
+              "SalesOrg": [
+                "0001"
+              ]
+            }
+          }
+        }
+      }
+    },
+    "[opa]": {
+      "auth": {
+        "kind": "dummy"
+      }
+    }
+  }
+}

@@ -1,0 +1,49 @@
+locale;code;text
+de;000;Neu
+en;000;New
+fr;000;Nouveau
+it;000;Nuovo
+de;010;Warenempfänger neu
+en;010;New Ship-To Party
+fr;010;Nouveau destinataire
+it;010;Nuovo destinatario merci
+de;110;Zuordnung zu Debitor geändert
+en;110;Customer Assignment Changed
+fr;110;Affectation au client modifiée
+it;110;Assegnazione al cliente modificata
+de;120;Umgewandelt in Neukunde
+en;120;Converted to New Customer
+fr;120;Converti en nouveau client
+it;120;Convertito in nuovo cliente
+de;130;Dublette – Debitor zugeordnet
+en;130;Duplicate – Customer Assigned
+fr;130;Doublon – client affecté
+it;130;Duplicato – cliente assegnato
+de;140;Fehler Modify Ansprechpartner
+en;140;Error Modifying Contact Person
+fr;140;Erreur modification interlocuteur
+it;140;Errore modifica interlocutore
+de;150;Fehler Anlage Neukunde
+en;150;Error Creating New Customer
+fr;150;Erreur création nouveau client
+it;150;Errore creazione nuovo cliente
+de;160;Fehler Anlage Warenempfänger
+en;160;Error Creating Ship-To Party
+fr;160;Erreur création destinataire
+it;160;Errore creazione destinatario merci
+de;899;Abgelehnt
+en;899;Rejected
+fr;899;Refusé
+it;899;Rifiutato
+de;997;Automatisch erledigt
+en;997;Automatically Completed
+fr;997;Terminé automatiquement
+it;997;Completato automaticamente
+de;998;Manuell erledigt
+en;998;Manually Completed
+fr;998;Terminé manuellement
+it;998;Completato manualmente
+de;999;Erledigt
+en;999;Completed
+fr;999;Terminé
+it;999;Completato

@@ -1,0 +1,57 @@
+<core:FragmentDefinition
+	xmlns:core="sap.ui.core"
+	xmlns:f="sap.ui.layout.form"
+	xmlns="sap.m">
+	<f:Form id="formAssignment" editable="false">
+		<f:layout>
+			<f:ColumnLayout columnsM="2" columnsL="3" columnsXL="3"/>
+		</f:layout>
+		<f:formContainers>
+			<f:FormContainer title="{i18n>detail.group.sapNumbers}">
+				<f:formElements>
+					<f:FormElement label="{i18n>field.customer}">
+						<f:fields><Text id="assignmentCustomer" text="{customer}"/></f:fields>
+					</f:FormElement>
+					<f:FormElement label="{i18n>field.businessPartner}">
+						<f:fields><Text text="{businessPartner}"/></f:fields>
+					</f:FormElement>
+					<f:FormElement label="{i18n>field.shipToCustomer}">
+						<f:fields><Text text="{shipToCustomer}"/></f:fields>
+					</f:FormElement>
+					<f:FormElement label="{i18n>field.contactPersonNumber}">
+						<f:fields><Text text="{contactPersonNumber}"/></f:fields>
+					</f:FormElement>
+				</f:formElements>
+			</f:FormContainer>
+			<f:FormContainer title="{i18n>detail.group.magento}">
+				<f:formElements>
+					<f:FormElement label="{i18n>field.magentoCompany}">
+						<f:fields><Text text="{magentoCompany}"/></f:fields>
+					</f:FormElement>
+					<f:FormElement label="{i18n>field.magentoCustomer}">
+						<f:fields><Text text="{magentoCustomer}"/></f:fields>
+					</f:FormElement>
+					<f:FormElement label="{i18n>field.magentoAddress}">
+						<f:fields><Text text="{magentoAddress}"/></f:fields>
+					</f:FormElement>
+					<f:FormElement label="{i18n>field.source}">
+						<f:fields><Text text="{source}"/></f:fields>
+					</f:FormElement>
+				</f:formElements>
+			</f:FormContainer>
+			<f:FormContainer title="{i18n>detail.group.release}">
+				<f:formElements>
+					<f:FormElement label="{i18n>field.releaseProcedure}">
+						<f:fields><Text text="{releaseProcedure}"/></f:fields>
+					</f:FormElement>
+					<f:FormElement label="{i18n>field.releasedBy}">
+						<f:fields><Text text="{releasedBy}"/></f:fields>
+					</f:FormElement>
+					<f:FormElement label="{i18n>field.releasedAt}">
+						<f:fields><Text text="{releasedAt}"/></f:fields>
+					</f:FormElement>
+				</f:formElements>
+			</f:FormContainer>
+		</f:formContainers>
+	</f:Form>
+</core:FragmentDefinition>

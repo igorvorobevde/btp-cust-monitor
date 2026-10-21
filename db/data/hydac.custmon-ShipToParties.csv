@@ -1,0 +1,5 @@
+ID;request_ID;modifiedAt;shipToCustomer;businessPartner;magentoAddress;addressUsedInOrder;name;name2;name3;name4;street;houseNumber;street4;street5;postalCode;city;country;vatNumber
+d1b2c3d4-0000-4000-8000-000000000008;a1b2c3d4-0000-4000-8000-000000000008;2026-10-08T09:15:00.000Z;;;MA108;false;Scandi Hydraulics Lager Nord;;;;Lagerweg;8;;;21100;Malmö;SE;
+d1b2c3d4-0000-4000-8000-000000000009;a1b2c3d4-0000-4000-8000-000000000009;2026-10-09T15:15:00.000Z;;;MA109;false;Klein Ventile Werk 2;;;;Lagerweg;9;;;21100;Dresden;DE;
+d1b2c3d4-0000-4000-8000-000000000020;a1b2c3d4-0000-4000-8000-000000000020;2026-10-14T09:15:00.000Z;;;MA120;true;Vogel Antriebe Außenlager Hafen;;;;Lagerweg;20;;;21100;Bremen;DE;
+d1b2c3d4-0000-4000-8000-000000000021;a1b2c3d4-0000-4000-8000-000000000021;2026-09-28T11:15:00.000Z;4200021;;MA121;false;Saar Stahlbau Baustelle Dillingen;;;;Lagerweg;21;;;21100;Völklingen;DE;

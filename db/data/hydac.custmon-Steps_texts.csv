@@ -1,0 +1,67 @@
+locale;code;text
+de;AP_MODIFY;Ansprechpartner anlegen/ändern
+en;AP_MODIFY;Create/Change Contact Person
+fr;AP_MODIFY;Créer/modifier interlocuteur
+it;AP_MODIFY;Creare/modificare interlocutore
+nl;AP_MODIFY;Contactpersoon aanmaken/wijzigen
+sv;AP_MODIFY;Skapa/ändra kontaktperson
+de;CHNG_OLD;Dublette – Debitor zuordnen
+en;CHNG_OLD;Duplicate – Assign Customer
+fr;CHNG_OLD;Doublon – affecter client
+it;CHNG_OLD;Duplicato – assegnare cliente
+nl;CHNG_OLD;Duplicaat – klant toewijzen
+sv;CHNG_OLD;Dubblett – tilldela kund
+de;CNG_DEBI;Zuordnung zu Debitor ändern
+en;CNG_DEBI;Change Customer Assignment
+fr;CNG_DEBI;Modifier l'affectation client
+it;CNG_DEBI;Modificare assegnazione cliente
+nl;CNG_DEBI;Klanttoewijzing wijzigen
+sv;CNG_DEBI;Ändra kundtilldelning
+de;CNG_NEW;Umwandeln in Neukunde
+en;CNG_NEW;Convert to New Customer
+fr;CNG_NEW;Convertir en nouveau client
+it;CNG_NEW;Convertire in nuovo cliente
+nl;CNG_NEW;Omzetten naar nieuwe klant
+sv;CNG_NEW;Konvertera till ny kund
+de;CREATE;Debitor und Admin anlegen
+en;CREATE;Create Customer and Admin
+fr;CREATE;Créer client et administrateur
+it;CREATE;Creare cliente e amministratore
+nl;CREATE;Klant en beheerder aanmaken
+sv;CREATE;Skapa kund och administratör
+de;CREATE_WE;Warenempfänger anlegen
+en;CREATE_WE;Create Ship-To Party
+fr;CREATE_WE;Créer destinataire
+it;CREATE_WE;Creare destinatario merci
+nl;CREATE_WE;Afleveradres aanmaken
+sv;CREATE_WE;Skapa godsmottagare
+de;MANUAL_OK;Manuell erledigt
+en;MANUAL_OK;Manually Completed
+fr;MANUAL_OK;Terminé manuellement
+it;MANUAL_OK;Completato manualmente
+nl;MANUAL_OK;Handmatig afgehandeld
+sv;MANUAL_OK;Manuellt klar
+de;REJECT;Anfrage ablehnen
+en;REJECT;Reject Request
+fr;REJECT;Refuser la demande
+it;REJECT;Rifiutare richiesta
+nl;REJECT;Aanvraag afwijzen
+sv;REJECT;Avvisa förfrågan
+de;RESET;Erneut bearbeiten
+en;RESET;Process Again
+fr;RESET;Retraiter
+it;RESET;Rielaborare
+nl;RESET;Opnieuw verwerken
+sv;RESET;Bearbeta igen
+de;RELEASE;Freigeben
+en;RELEASE;Release
+fr;RELEASE;Libérer
+it;RELEASE;Rilasciare
+nl;RELEASE;Vrijgeven
+sv;RELEASE;Frisläpp
+de;CLARIFY;In Klärung
+en;CLARIFY;In Clarification
+fr;CLARIFY;En clarification
+it;CLARIFY;In chiarimento
+nl;CLARIFY;In opheldering
+sv;CLARIFY;Under utredning

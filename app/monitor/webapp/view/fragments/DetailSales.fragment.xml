@@ -1,0 +1,51 @@
+<core:FragmentDefinition
+	xmlns:core="sap.ui.core"
+	xmlns:f="sap.ui.layout.form"
+	xmlns="sap.m">
+	<f:Form id="formSales" editable="{view>/editMode}">
+		<f:layout>
+			<f:ColumnLayout columnsM="2" columnsL="3" columnsXL="3"/>
+		</f:layout>
+		<f:formContainers>
+			<f:FormContainer title="{i18n>detail.group.salesArea}">
+				<f:formElements>
+					<f:FormElement label="{i18n>field.salesOrganization}">
+						<f:fields><Text text="{salesData/salesOrganization}"/></f:fields>
+					</f:FormElement>
+					<f:FormElement label="{i18n>field.distributionChannel}">
+						<f:fields><Input value="{salesData/distributionChannel}" editable="{view>/editMode}"/></f:fields>
+					</f:FormElement>
+					<f:FormElement label="{i18n>field.division}">
+						<f:fields><Input value="{salesData/division}" editable="{view>/editMode}"/></f:fields>
+					</f:FormElement>
+				</f:formElements>
+			</f:FormContainer>
+			<f:FormContainer title="{i18n>detail.group.salesOrgData}">
+				<f:formElements>
+					<f:FormElement label="{i18n>field.salesGroup}">
+						<f:fields><Input id="salesGroup" value="{salesData/salesGroup}" editable="{view>/editMode}"/></f:fields>
+					</f:FormElement>
+					<f:FormElement label="{i18n>field.salesOffice}">
+						<f:fields><Input value="{salesData/salesOffice}" editable="{view>/editMode}"/></f:fields>
+					</f:FormElement>
+					<f:FormElement label="{i18n>field.customerGroup}">
+						<f:fields><Input value="{salesData/customerGroup}" editable="{view>/editMode}"/></f:fields>
+					</f:FormElement>
+					<f:FormElement label="{i18n>field.salesDistrict}">
+						<f:fields><Input value="{salesData/salesDistrict}" editable="{view>/editMode}"/></f:fields>
+					</f:FormElement>
+				</f:formElements>
+			</f:FormContainer>
+			<f:FormContainer title="{i18n>detail.group.incoterms}">
+				<f:formElements>
+					<f:FormElement label="{i18n>field.incoterms1}">
+						<f:fields><Input value="{salesData/incoterms1}" editable="{view>/editMode}"/></f:fields>
+					</f:FormElement>
+					<f:FormElement label="{i18n>field.incoterms2}">
+						<f:fields><Input value="{salesData/incoterms2}" editable="{view>/editMode}"/></f:fields>
+					</f:FormElement>
+				</f:formElements>
+			</f:FormContainer>
+		</f:formContainers>
+	</f:Form>
+</core:FragmentDefinition>
