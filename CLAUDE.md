@@ -18,12 +18,15 @@ We are rebuilding the SAP GUI report `ZEC_CUSTOMER_MONITOR` (HYDAC B2B shop: Mag
 | Code style, folder layout, i18n, tests | `docs/05_ui5_konventionen.md` |
 | What to build next + acceptance criteria | `docs/06_backlog.md` |
 | Known legacy defects that the new solution must avoid | `docs/07_anforderungen_aus_altsystem.md` |
+| Migration to Fiori Elements (decisions, contract changes, FE design, backlog F-11…F-22) | `docs/09_migration_fiori_elements.md` |
 
 If code and docs disagree, **stop and ask** instead of silently picking one. If a backlog item needs a decision that the docs don't cover, propose it and wait for confirmation.
 
 ## Hard rules
 
-1. **Freestyle UI5 in JavaScript.** No Fiori Elements, no TypeScript, no React/other frameworks. Use `sap.m`, `sap.f`, `sap.uxap`, `sap.ui.layout`. Do **not** use `sap.ui.comp` or `sap.ui.table` unless the UI spec says so.
+> **Migration note (decided 2026-10-22):** the frontend moves to **SAP Fiori Elements for OData V4** per `docs/09_migration_fiori_elements.md`. Rule 1 below applies to the existing freestyle app only until backlog item F-15; from then on the FE app in `app/monitor-fe` (later `app/monitor`) follows docs/09: `sap.fe.templates`, JavaScript extensions only, annotations in `srv/monitor-annotations.cds` (contract) and `app/monitor/annotations.cds` (layout). Rules 4–6 are read as in docs/09 §2 (labels in `_i18n`, `can*` flags + `Core.OperationAvailable`, ETag on `draftEdit`/draft PATCH/actions plus draft lock, strict handling). This file is rewritten with F-21.
+
+1. **Freestyle UI5 in JavaScript.** No Fiori Elements, no TypeScript, no React/other frameworks. Use `sap.m`, `sap.f`, `sap.uxap`, `sap.ui.layout`. Do **not** use `sap.ui.comp` or `sap.ui.table` unless the UI spec says so. *(Superseded for the FE app — see migration note.)*
 2. **OData V4 model only** (`sap.ui.model.odata.v4.ODataModel`), configured in `manifest.json`. No manual `fetch`/`jQuery.ajax` to the service. Bound actions go through `oContext.getModel().bindContext(...)` / `ODataContextBinding#invoke`.
 3. **Async everywhere:** `sap.ui.define`, `async: true` in manifest, no sync XHR, no deprecated globals (`jQuery.sap.*`, `sap.ui.getCore()` when a module API exists). Code must pass `ui5lint` (@ui5/linter) without errors.
 4. **All UI texts in i18n** (`i18n.properties` = English fallback, `i18n_de.properties` German). No hard-coded user-visible strings in XML or JS. Status and step texts come from the service, not from i18n.

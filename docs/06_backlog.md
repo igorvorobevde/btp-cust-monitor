@@ -53,16 +53,69 @@ Leerzustände, Busy-Indikatoren, Tastaturbedienung, Tooltips für Icon-Spalten, 
 - F-01: Vertragsergänzungen ETag auf Kind-Entitäten und rollenabhängiges `isEditable` (siehe 03 §3).
 - F-09: Jest 47 Tests (Statusmaschine + Service), QUnit 16, OPA 9 (Liste/Filter, Deep-Link, Bearbeiten inkl. Kind-Feld, 412-Konflikt, REJECT, CONFIRM_REQUIRED + force).
 
+## Phase 1b – Migration auf SAP Fiori Elements (Entscheidung 22.10.2026, siehe [09](09_migration_fiori_elements.md))
+
+Backend-Items zuerst (F-11–F-15, additiv bis auf F-12), FE-App parallel in `app/monitor-fe`, Cutover in F-21. Spike S1–S14 aus 09 §8 läuft auf einem Wegwerf-Branch parallel zu F-11/F-12 und ist Voraussetzung für F-16. F-10 wird mit F-22 abgeschlossen.
+
+### F-11 Vertrag: Codelisten, berechnete Felder, Wertehilfen — offen
+`db/schema.cds`: `processTypeRef`, `releaseStateRef`, `statusGroup`, `statusCriticality`, `orderCriticality`, `releaseCriticality`, `releaseState` (stored), `LogEntries.criticality`, `Statuses.criticality`; Entitäten `StatusGroups`, `ReleaseStates` (+ `_texts` DE/EN); Service: `StatusGroups`, `ReleaseStates`, `SalesOrganizations` (`@restrict where`), `Sources` (`@cds.redirection.target: false`); CSV gemäß 09 §4.5; 03 §2/§3/§8.
+**AK:** `cds compile srv` fehlerfrei; `GET /Requests?$filter=statusGroup eq 'OPEN'&$orderby=statusCriticality desc&$expand=processTypeRef,releaseStateRef` liefert Texte je `Accept-Language`; `releaseState` #1 = `NOT_REL`, #2 = `NOT_RELEASED`, #3 = `AUTOMATIC`; `SalesOrganizations` für `bob` nur `0001`; bestehende Jest-Tests grün.
+
+### F-12 Draft-Bearbeitung (E-12) — offen
+`@odata.draft.enabled` auf `Requests`, `@UI.UpdateHidden: editHidden`, `log` als Assoziation, `before EDIT` (`NOT_EDITABLE`), `before NEW` (405), Änderungsprotokoll bei Aktivierung (Root + Kinder, deep), manuelle If-Match-Prüfung entfernt, `cds.fiori`-Timeouts, DE-Texte für `DRAFT_*`, Mock-User `carol`; Jest „Draft editing“, „Draft lock“, „Edit guards“; 03 §3/§6, 02 E-05/E-12/§2.
+**AK:** `$metadata`: Key `ID,IsActiveEntity`, `Common.DraftRoot`, keine `LogEntries_drafts`; `draftEdit` #6 (mit If-Match) → 201, PATCH `name` + `salesData/salesGroup` auf dem Draft, `draftActivate` → 200 mit je Feld einem Logeintrag, Drafts gelöscht, `modifiedAt` von Vorgang und `salesData` erhöht; `draftEdit` ohne If-Match → 412; #12 → 409 `NOT_EDITABLE`; `carol`: `draftEdit` → 409 `DRAFT_ALREADY_EXISTS`, PATCH → 403 `DRAFT_LOCKED_BY_ANOTHER_USER`; `POST /Requests` → 405.
+
+### F-13 Gebundene Aktionen je Schritt, Flags, Dispatcher — offen
+11 Aktionen gemäß 09 §4.1, `can*`/`isEditable`/`editHidden` im `after READ` auf `[Requests, Requests.drafts]` und im Aktionsergebnis, generischer `on`-Handler mit Draft-Guards, `@restrict`-Grants, `executeStep`/`availableSteps`/`StepOption` entfernt; `status-machine.js` unverändert; Tests umgebaut; 03 §4/§5, 02 E-04.
+**AK:** `$metadata` enthält die 11 Aktionen mit `Core.OperationAvailable Path="in/can…"` und `Common.SideEffects`; Flags #1 = `canClarify, canCreateCustomer, canAssignExistingCustomer, canCompleteManually, canReject` true, alle anderen false; `bob` → alle Flags false, Aktion → 403; jeder Schritt aus 01 §6 ist über seine Aktion ausführbar (Jest je Prozessart); Aktion auf Draft → 400 `STEP_NOT_ALLOWED`; Aktion auf aktivem Vorgang mit fremdem Draft → 409 `DRAFT_ALREADY_EXISTS` und alle Flags false; 412 bei veraltetem If-Match (ohne `Preference-Applied`).
+
+### F-14 Strict Handling, Meldungen, Fehlerziele — offen
+`force = !strict`, 412 + `Preference-Applied: handling=strict` + `details[]` für `CONFIRM_REQUIRED`; `req.notify` (genau eine Erfolgsmeldung) / `req.warn` (Fehlerstatus); `target` für BP-Fehler; `ASSERT_MANDATORY` statt `INPUT_REQUIRED`; `on('error')` für 428/412; 03 §5.1/§5.3.
+**AK:** `changeCustomerAssignment` #5 mit BP 1000002 und `Prefer: handling=strict` → 412, Header `preference-applied: handling=strict`, `details[0].@Common.numericSeverity = 3`; ohne `Prefer` → 200 und Status 110; im `$batch` identisch; `rejectRequest` ohne `reason` → 400 `ASSERT_MANDATORY`, `target = reason`; Erfolg → genau eine `sap-messages`-Meldung mit `numericSeverity 1`; CREATE bei „FEHLER“ → 200, Status 150, Warnungen.
+
+### F-15 Labels und semantische Annotationen im Service — offen
+`srv/monitor-annotations.cds` (`@title` für alle Elemente/Parameter, `Common.Text`, Wertehilfen, Kritikalität, `@cds.search`), `_i18n/i18n.properties` + `_i18n/i18n_de.properties` (Übernahme der `field.*`-Schlüssel), `action.*`/`param.*`/`log.*`; App-Bundle bereinigt; CLAUDE.md-Hinweis Regel 1/4/5/6; 02 E-13.
+**AK:** `GET $metadata` mit `Accept-Language: de` zeigt `Common.Label="Debitor"` für `customer`, `Common.Text`, `Common.ValueList`, `UI.UpdateHidden Path="editHidden"`; kein `field.*`-Schlüssel mehr im App-Bundle; Jest prüft zwei Labels in beiden Sprachen.
+
+### F-16 FE-App-Gerüst und Liste — offen
+`app/monitor-fe`: Component (`sap.fe.core.AppComponent`), manifest gemäß 09 §5.2, `annotations.cds` (SelectionFields, SelectionPresentationVariant #Default, LineItem mit FieldGroup-Spalten und Kritikalität), Hinweis-Spalte als Custom Column, i18n; `ui5.yaml` mountPath `/monitor-fe`; 05 §1–§3.
+**AK:** App startet unter `/monitor-fe/index.html`; Standardfilter `statusGroup = OPEN,ERROR` vorbelegt, 18 Vorgänge initial geladen; alle 13 Filterfelder wirken (Prozessart/Status/Statusgruppe als Dropdown mit Text); Spalten inkl. Hinweis-Icons und Zeilen-Highlight (Bestellung) wie 04 §2.2; Sortierung `createdAt` aufsteigend; Popin unterhalb Desktop; `npm run lint` grün.
+
+### F-17 Object Page lesend — offen
+HeaderInfo, HeaderFacets (DataPoints Status/Freigabe, Kennzahlen, Verwaltung), Klärungs-Strip als Custom Header Facet, Facets inkl. Kompositionen, `UI.Hidden` je Prozessart, Protokoll-Tabelle sortiert, FCL-Vollbild/Schließen (FE-Standard).
+**AK:** Zeilenklick öffnet Detail in `TwoColumnsMidExpanded`; für CR_WE ist „Ansprechpartner“ ausgeblendet und „Warenempfänger“ sichtbar, sonst umgekehrt; Deep-Link `#/Requests(ID=…,IsActiveEntity=true)` lädt direkt; Protokoll neueste zuerst; Klärungs-Strip nur bei `inClarification`.
+
+### F-18 Schritte als Aktionsgruppe in der UI — offen
+`UI.Identification` mit `DataFieldForActionGroup #Steps` (11 Aktionen, destruktive zuletzt), i18n-Labels, Bestätigungstext für `reset`, Custom Action „Aktualisieren“ + Controller-Extension.
+**AK:** Menü „Schritt ausführen“ zeigt nur Aktionen mit Flag = true aktiv; `rejectRequest` öffnet FE-Parameterdialog (Pflichttext ≤ 100 Zeichen mit Zähler); `changeCustomerAssignment` mit BP 1000002 zeigt Strict-Handling-Rückfrage und wiederholt nach Bestätigen; Fehlerstatus-Schritt zeigt Meldungsdialog; Erfolg zeigt Toast; Status/Protokoll/Kopfdaten aktualisieren sich ohne Reload; Listenzeile zeigt neuen Status.
+
+### F-19 Draft-Bearbeitung in der UI — offen
+`onBeforeEdit`-Refresh, `UI.ConnectedFields` (Straße/Hausnummer, PLZ/Ort), `$editState`-Filter ausgeblendet; 04 §4.1.
+**AK:** Bearbeiten nur bei `isEditable`; Feldänderungen in Hauptdaten und Ansprechpartner; Sichern erzeugt je Feld einen Logeintrag; Abbrechen mit Rückfrage verwirft; Navigation mit ungesichertem Draft zeigt FE-Datenverlust-Dialog; zweiter Benutzer (`carol`) sieht „gesperrt von alice“; Schritte sind gesperrt, solange ein Draft existiert.
+
+### F-20 OPA-Journeys mit `sap.fe.test` — offen
+JourneyRunner, Page Objects (ListReport/ObjectPage), drei Journeys (Liste/Filter; Deep-Link + Bearbeiten + Protokoll; Schritt mit Rückfrage); `test:opa` auf neue Testseite, ggf. Test Starter.
+**AK:** `npm run test:opa` grün gegen `start:test`; Journeys decken die AK von F-16–F-19 ab.
+
+### F-21 Cutover — offen
+`app/monitor` (Freestyle) löschen, `app/monitor-fe` → `app/monitor`, mountPath `/monitor`, Skripte/README, 04 als FE-Spezifikation, 05, 08; QUnit entfernt; CLAUDE.md-Regeln final.
+**AK:** `npm install && cds watch` startet nur noch die FE-App unter `/monitor`; `npm run lint`, `npm test` grün; Docs ohne Verweise auf Freestyle-Artefakte (`availableSteps`, `executeStep`, `FilterBuilder`, `StepService` nur noch historisch in 06).
+
+### F-22 Feinschliff — offen
+Spaltenbreiten, Popin-Layout, Tooltips, Leerzustände (FE Illustrated Message), Tastaturbedienung, Deep-Link-Doku, Hinweis zur Draft-Sperre (15 min) in der Benutzerdoku; schließt F-10 ab.
+**AK:** Visueller Abgleich mit 04 §2/§3; keine Konsolenfehler.
+
 ## Phase 2 – S/4-Anbindung (Vorschau, wird detailliert wenn Phase 1 steht)
 
-- B-01 Entscheidung E-07 (RAP vs. SEGW) und Schnittstellenentwurf S/4.
+- B-01 Entscheidung E-07 (RAP vs. SEGW) und Schnittstellenentwurf S/4 (inkl. Delta-Lesen „geändert seit“, Versionszähler).
 - B-02 Refactoring Schrittklassen: Popups → Eingabeparameter (`ZIF_EC_CUSTOMER` erweitern).
-- B-03 S/4-Service: Liste, Detail, Update mit Änderungsprotokoll, `availableSteps`, `executeStep`, Versionszähler für ETag.
-- B-04 CAP-Delegation (`cds import` des S/4-Service, Remote-Service-Handler), Destination, Cloud Connector, Principal Propagation.
+- B-03 S/4-Service: Liste, Detail, `change_data` mit Änderungsprotokoll, `get_functions` (→ `can*`-Flags), `execute_function` (← Aktions-Dispatcher, Rückfrage → Strict Handling), Versionszähler für ETag.
+- B-04 CAP-Fassade (`cds import` des S/4-Service, Remote-Service-Handler), Destination, Cloud Connector, Principal Propagation.
 - B-05 Wertehilfen, Link „Geschäftspartner anzeigen“.
+- B-06 Replikation und Delta-Sync (E-14): lokale HANA-Replik von `Requests` + Kindern + Protokoll, Write-through nach `execute_function`/`change_data`, Delta-Pull beim Listenlesen, Versionsabgleich → 412; `draftEdit`/ETag/Flags laufen unverändert auf der Replik. **AK:** Schrittaktion → S/4-Aufruf → lokaler Datensatz aktualisiert; Draft-Aktivierung → `change_data` → lokale Aktualisierung; veraltete Version → 412.
 
 ## Phase 3 – Betrieb (Vorschau)
 
 - O-01 `xs-security.json` (Rollen, Attribut SalesOrg), Rollen-Collections.
-- O-02 `mta.yaml`, HTML5 Repo, Managed Approuter, Work-Zone-Kachel.
+- O-02 `mta.yaml`, HTML5 Repo, Managed Approuter, Work-Zone-Kachel, SAP HANA Cloud (HDI-Container für Drafts und Replik, E-12/E-14).
 - O-03 Logging/Monitoring, Transportweg (CTMS o. ä.).

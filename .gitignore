@@ -7,3 +7,5 @@ gen/
 coverage/
 default-env.json
 .cdsrc-private.json
+# reference project (Jowat), kept locally only – see docs/09 §1
+jowat-webshop-registration-main/

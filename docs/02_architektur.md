@@ -5,9 +5,10 @@
 ```mermaid
 flowchart LR
   U((Sachbearbeiter)) --> WZ[SAP Build Work Zone<br/>bzw. Approuter]
-  WZ --> UI[UI5 App<br/>Freestyle, JS]
+  WZ --> UI[Fiori-Elements-App<br/>OData V4, JS-Extensions]
   UI -->|OData V4| CAP[CAP Service<br/>CustomerMonitorService]
   CAP -->|Phase 1| MOCK[(SQLite / In-Memory<br/>Mock-Daten + Customizing-CSV)]
+  CAP -->|Phase 2| HANA[(HANA Cloud<br/>Drafts + Replik, E-14)]
   CAP -->|Phase 2| DEST[Destination S4_HYDAC]
   DEST --> CC[Cloud Connector]
   CC --> S4[S/4HANA<br/>neuer Monitor-Service]
@@ -18,8 +19,8 @@ flowchart LR
 
 | Komponente | Rolle |
 |---|---|
-| UI5 App (`app/monitor`) | Liste, Detail, Bearbeitung, Schrittausführung. Keine Geschäftslogik. |
-| CAP Service (`srv/`) | Stabiler OData-V4-Vertrag für die UI; Phase 1 Mock, Phase 2 Fassade zu S/4 (Delegation). Berechtigungsprüfung (VKORG), Fehler-Mapping. |
+| Fiori-Elements-App (`app/monitor`) | Liste, Detail, Bearbeitung (Draft), Schrittausführung – annotationsgetrieben, ~300 Zeilen eigene Extensions. Keine Geschäftslogik. Siehe [09](09_migration_fiori_elements.md). |
+| CAP Service (`srv/`) | Stabiler OData-V4-Vertrag für die UI inkl. UI-Semantik (Annotationen, E-13); Phase 1 Mock, Phase 2 Fassade zu S/4 mit lokaler Replik (E-14). Berechtigungsprüfung (VKORG), Fehler-Mapping. |
 | S/4HANA | Bleibt System of Record: Tabellen `ZEC_CUSTOMER*`, Customizing, Schrittklassen, Stammdatenanlage, Notifications an Magento. |
 | Magento | Unverändert: Eingang über `ZEC_CUSTOMER_CREATE_SRV`, Notifications. |
 
@@ -27,25 +28,29 @@ flowchart LR
 
 | Phase | Inhalt | Ergebnis |
 |---|---|---|
-| **1 – Frontend** | UI5 App + CAP-Mock mit Customizing-CSV und simulierter Statuslogik | Vollständig klickbare App lokal (`cds watch`) |
-| 2 – S/4-Anbindung | Neuer Remote-Service in S/4 (Liste, Detail, Update, `executeStep`, `availableSteps`), CAP-Delegation per Destination + Cloud Connector, Principal Propagation | App arbeitet auf Echtdaten (Q-System) |
-| 3 – Betrieb | XSUAA-Rollen, VKORG-Attribut, MTA, HTML5 Repo, Work Zone, Monitoring | Produktiv |
+| **1 – Frontend** | Freestyle-UI5-App + CAP-Mock mit Customizing-CSV und simulierter Statuslogik (erledigt) | Vollständig klickbare App lokal (`cds watch`) |
+| **1b – Fiori Elements** | Migration auf Fiori Elements V4 gemäß [09](09_migration_fiori_elements.md): Aktionen je Schritt, Draft, Annotationen als Vertrag (F-11–F-22) | FE-App gegen den Mock, Freestyle-App entfernt |
+| 2 – S/4-Anbindung | Neuer Remote-Service in S/4 (Liste mit Delta, Detail, `change_data`, `get_functions`, `execute_function`), CAP-Fassade mit HANA-Replik (E-14) per Destination + Cloud Connector, Principal Propagation | App arbeitet auf Echtdaten (Q-System) |
+| 3 – Betrieb | XSUAA-Rollen, VKORG-Attribut, MTA, HTML5 Repo, Work Zone, HANA Cloud, Monitoring | Produktiv |
 
 ## 3. Entscheidungen
 
 | ID | Entscheidung | Status |
 |---|---|---|
 | E-01 | Datenzugriff der UI ausschließlich über CAP OData V4 | entschieden |
-| E-02 | UI: Freestyle SAPUI5, JavaScript | entschieden |
+| E-02 | UI: **SAP Fiori Elements für OData V4** (`sap.fe.templates`, List Report + Object Page, FCL) mit JavaScript-Extensions; ersetzt Freestyle SAPUI5 (Phase 1). Begründung und Design: [09](09_migration_fiori_elements.md) | entschieden (22.10.2026) |
 | E-03 | Phase 1 gegen CAP-Mock, Vertrag identisch zu Phase 2 | entschieden |
-| E-04 | Schrittausführung generisch über `executeStep(step, …)`; erlaubte Schritte liefert `availableSteps()` (backend-getrieben, wie Customizing im Altsystem) | vorgeschlagen |
-| E-05 | Optimistische Sperre per ETag statt Enqueue-Sperre im Bearbeitungsmodus (HTTP ist zustandslos) | vorgeschlagen |
+| E-04 | Schrittausführung über **je eine gebundene Aktion pro Schritt** (`release`, `rejectRequest`, `clarify`, `reset`, `createCustomer`, `createShipTo`, `modifyContact`, `convertToNewCustomer`, `completeManually`, `assignExistingCustomer`, `changeCustomerAssignment`); erlaubte Schritte liefert das Backend als Flags `can*` (`Core.OperationAvailable`, aus Customizing `ZEC_CUST_PROCESS` + Rollen); Rückfragen per OData Strict Handling (`Prefer: handling=strict` → 412). Ersetzt `executeStep`/`availableSteps`. | entschieden (22.10.2026) |
+| E-05 | ETag bei `draftEdit` (Bearbeitungsbeginn), bei PATCH auf dem Draft und bei Schrittaktionen am aktiven Vorgang; während der Bearbeitung pessimistische Draft-Sperre (15 min, verlängert bei jeder Änderung); Schritte sind gesperrt, solange ein Draft existiert. Ersetzt „ETag statt Sperre“. | angepasst (22.10.2026) |
 | E-06 | Logik bleibt in S/4 (`ZCL_EC_CUSTOMER`, Schrittklassen). CAP reimplementiert **keine** Stammdatenanlage. | vorgeschlagen |
 | E-07 | S/4-Service-Technik: RAP (OData V4) oder SEGW (OData V2) | **offen** – Phase 2 |
 | E-08 | Statusmaschine im Mock aus CSV-Kopie des Customizings (`ZEC_CUST_PROCESS`, `ZEC_CUST_STEPS`) | vorgeschlagen |
 | E-09 | Bestätigungsdialog auch für CREATE / CREATE_WE / AP_MODIFY (Altsystem: ohne) | vorgeschlagen, mit Fachbereich klären |
 | E-10 | Namespace / App-ID `hydac.custmon` | vorgeschlagen |
-| E-11 | Bearbeiten nur bei offenem Status (0xx/1xx) und freigegebenem Vorgang (`isEditable`) | vorgeschlagen, mit Fachbereich klären |
+| E-11 | Bearbeiten nur bei offenem Status (0xx/1xx) und freigegebenem Vorgang (`isEditable`); geprüft bei `draftEdit` | vorgeschlagen, mit Fachbereich klären |
+| E-12 | `Requests` ist **draft-enabled** (`@odata.draft.enabled`): Fiori Elements V4 bietet Bearbeiten/Sichern/Abbrechen nur für Draft-Entitäten; Protokoll (`log`) bleibt Assoziation ohne Draft. Drafts benötigen ab Phase 2 eine persistente Datenbank (HANA Cloud). | entschieden (22.10.2026) |
+| E-13 | Annotationen in `srv/monitor-annotations.cds` (Labels, Texte, Wertehilfen, Kritikalität, Side Effects, Edit-Sichtbarkeit) sind **Teil des Service-Vertrags**; `app/monitor/annotations.cds` enthält nur Layout. | entschieden (22.10.2026) |
+| E-14 | Phase 2: CAP hält eine **HANA-Replik** von `Requests` (+ Kinder, Protokoll) mit Write-through nach jedem S/4-Aufruf und Delta-Pull beim Listenlesen; S/4 bleibt System of Record (E-06). Notwendig, weil CAPs generische ETag-Prüfung für gebundene Aktionen und die Draft-Sperre lokale Tabellen voraussetzen. | entschieden (22.10.2026) |
 
 ## 4. Repository-Struktur
 
@@ -60,12 +65,15 @@ kundenmonitor-btp/
 │   ├── schema.cds
 │   └── data/               # CSV: Mock-Vorgänge + Customizing-Kopie
 ├── srv/
-│   ├── monitor-service.cds
-│   ├── monitor-service.js  # Mock-Implementierung (Phase 1)
-│   └── lib/                # status-machine.js, errors.js
+│   ├── monitor-service.cds       # Entitäten (Draft-Root), Aktionen je Schritt, Capabilities, @restrict
+│   ├── monitor-annotations.cds   # Vertrags-Semantik: Labels, Common.Text, Wertehilfen, Side Effects (E-13)
+│   ├── monitor-service.js        # Mock-Implementierung (Phase 1): Flags, Dispatcher, Strict Handling, Draft-Guards
+│   └── lib/                      # status-machine.js (unverändert), errors.js
+├── _i18n/                        # i18n*.properties (Labels), messages*.properties (Meldungen)
 ├── app/
-│   └── monitor/            # UI5 App (eigene package.json, ui5.yaml)
-│       └── webapp/
+│   └── monitor/                  # Fiori-Elements-App (eigene package.json, ui5.yaml)
+│       ├── annotations.cds       # Layout: SelectionFields, LineItem, HeaderInfo, Facets, Aktionsgruppe
+│       └── webapp/               # Component, manifest, ext/ (Fragments, Controller-Extension), i18n, test/
 ├── test/                   # Service-Tests
 ├── xs-security.json        # Phase 3
 └── mta.yaml                # Phase 3
@@ -87,8 +95,8 @@ kundenmonitor-btp/
 
 Der S/4-Service muss den CAP-Vertrag ([03](03_service_vertrag.md)) bedienen können:
 
-- Lesen `ZEC_CUSTOMER` + strukturierte Arbeitsdaten aus `PAYLOAD_CHNG` (Haupt-, Vertriebs-, Admin-, WE-Daten) + Protokoll.
-- Ändern der Arbeitsdaten inkl. Änderungsprotokoll (`check_changes`/`change_data`/`log_changes`).
-- `availableSteps` = Logik `get_functions`; `executeStep` = `execute_function` ohne SAP-GUI-Popups (Eingaben kommen als Parameter).
-- ETag-fähiges Änderungskennzeichen (heute nur `CHDAT`/`CHTIM` sekundengenau → besser Versionszähler).
+- Lesen `ZEC_CUSTOMER` + strukturierte Arbeitsdaten aus `PAYLOAD_CHNG` (Haupt-, Vertriebs-, Admin-, WE-Daten) + Protokoll; zusätzlich **Delta-Lesen** („geändert seit“) für die Replik (E-14).
+- Ändern der Arbeitsdaten inkl. Änderungsprotokoll (`check_changes`/`change_data`/`log_changes`); wird von der CAP-Fassade bei der Draft-Aktivierung aufgerufen.
+- `get_functions` → Flags `can*` je Aktion; `execute_function(step, …)` ← Aktions-Dispatcher der Fassade, ohne SAP-GUI-Popups (Eingaben kommen als Parameter); Rückfragen als Nachricht, die die Fassade als Strict-Handling-412 zurückgibt.
+- ETag-fähiges Änderungskennzeichen (heute nur `CHDAT`/`CHTIM` sekundengenau → besser Versionszähler), das die Fassade auf `modifiedAt` der Replik abbildet.
 - Die Popups in den Schrittklassen (`POPUP_TO_CONFIRM`, `POPUP_GET_VALUES*`, `ZEC_CUST_POPUP_DECLINE`) müssen durch Parameter ersetzt werden → Refactoring der Schrittklassen (Interface um Eingabestruktur erweitern).
