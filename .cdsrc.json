@@ -1,4 +1,8 @@
 {
+  "fiori": {
+    "draft_lock_timeout": "15min",
+    "draft_deletion_timeout": "7d"
+  },
   "requires": {
     "db": {
       "kind": "sqlite",
@@ -33,6 +37,20 @@
             "attr": {
               "SalesOrg": [
                 "0001"
+              ]
+            }
+          },
+          "carol": {
+            "password": "carol",
+            "roles": [
+              "MonitorViewer",
+              "MonitorEditor"
+            ],
+            "attr": {
+              "SalesOrg": [
+                "0001",
+                "2000",
+                "7050"
               ]
             }
           }

@@ -94,7 +94,7 @@ entity Requests : cuid, managed {            // managed: createdAt/By, modifiedA
   salesData            : Composition of one SalesData      on salesData.request = $self;
   admin                : Composition of one ContactPersons on admin.request     = $self;
   shipTo               : Composition of one ShipToParties  on shipTo.request    = $self;
-  log                  : Composition of many LogEntries    on log.request       = $self;
+  log                  : Association to many LogEntries    on log.request       = $self;   // Assoziation: kein Draft-Zustand (E-12)
   // Codelisten-Navigation (unmanaged, keine neuen Spalten) – F-11
   processTypeRef       : Association to ProcessTypes  on processTypeRef.code  = processType;
   releaseStateRef      : Association to ReleaseStates on releaseStateRef.code = releaseState;
@@ -105,7 +105,8 @@ entity Requests : cuid, managed {            // managed: createdAt/By, modifiedA
   releaseCriticality   : Integer    = case when released = true then 3 else 2 end;
   releaseState         : String(12) = (case when released = true then releaseProcedure else 'NOT_RELEASED' end) stored;
   // berechnet
-  virtual isEditable   : Boolean;            // Status offen (0xx/1xx) und freigegeben
+  virtual isEditable   : Boolean;            // Status offen (0xx/1xx), freigegeben und Rolle MonitorEditor; auf eigenem Entwurf true
+  virtual editHidden   : Boolean;            // = !isEditable → UI.UpdateHidden (Sichtbarkeit „Bearbeiten“, E-12)
 }
 
 entity SalesData : cuid {
@@ -228,12 +229,12 @@ service CustomerMonitorService @(path: '/odata/v4/monitor') {
 }
 ```
 
-- `Requests`: kein CREATE/DELETE (Eingang kommt nur aus Magento). Muss serverseitig mit 405 abgelehnt werden, unabhängig von der Annotation.
-- `@odata.etag` auf `modifiedAt` (Requests). Jede PATCH-/Action-Anfrage ohne passendes `If-Match` → 412 (auch bei fehlendem Header; CAPs generisches 428 wird auf 412 abgebildet).
-- **Ergänzung (entschieden 19.10.2026):** Auch `SalesData`, `ContactPersons` und `ShipToParties` tragen ein read-only `modifiedAt` mit `@odata.etag`, damit PATCH auf Kind-Entitäten optimistisch gesperrt ist (CLAUDE.md Regel 6). Eine Kind-Änderung erhöht zusätzlich `Requests.modifiedAt` – erst vor dem Commit, damit PATCHes desselben Changesets nicht gegeneinander 412 erzeugen; ein danach mit altem ETag gesendetes `executeStep` erhält 412.
+- `Requests`: kein CREATE/DELETE (Eingang kommt nur aus Magento). Muss serverseitig mit 405 abgelehnt werden, unabhängig von der Annotation; mit Draft ist `POST /Requests` das Ereignis `NEW` auf dem Entwurf und wird ebenfalls mit 405 abgelehnt.
+- **Draft (E-12, entschieden 22.10.2026):** `Requests` ist `@odata.draft.enabled`. Schlüssel `Requests(ID=…,IsActiveEntity=true|false)`, Felder `HasActiveEntity`, `HasDraftEntity`, Navigation `DraftAdministrativeData`, Aktionen `draftEdit` / `draftPrepare` / `draftActivate` (CAP-generisch). `SalesData`, `ContactPersons`, `ShipToParties` sind Draft-Knoten; `log` ist eine Assoziation ohne Draft (wird nicht in den Entwurf kopiert).
+- `@odata.etag` auf `modifiedAt` (Requests und Kind-Entitäten). Pflicht-`If-Match`: bei `draftEdit` (ETag des aktiven Vorgangs), bei PATCH auf Entwurf/Kind-Entwurf (ETag des Entwurfs) und bei jeder Schrittaktion am aktiven Vorgang. Fehlendes oder veraltetes `If-Match` → 412 (CAPs generisches 428 wird auf 412 abgebildet); `If-Match: *` wird bei Schrittaktionen nicht akzeptiert. `draftActivate` schreibt den aktiven Vorgang ohne erneute ETag-Prüfung – die Nebenläufigkeit sichert die Draft-Sperre.
 - Read-only-Felder per `@readonly` / `@Core.Computed` annotieren (siehe Kommentare im Modell).
-- Updates auf Requests sind nur erlaubt, wenn `isEditable = true` (sonst 409 `NOT_EDITABLE`). Gilt auch für Kind-Entitäten; `admin` nur bei Prozessart ≠ CR_WE, `shipTo` nur bei CR_WE.
-- **`isEditable` berücksichtigt die Rolle (entschieden 19.10.2026):** `true` nur bei offenem Status, freigegebenem Vorgang **und** Rolle `MonitorEditor`. Die UI blendet „Bearbeiten“ allein über `isEditable` ein – kein separater User-Info-Endpunkt.
+- Bearbeiten nur, wenn `isEditable = true`: `draftEdit` wird sonst mit 409 `NOT_EDITABLE` abgelehnt (E-11); dieselbe Prüfung läuft bei der Aktivierung. `admin` darf nur bei Prozessart ≠ CR_WE, `shipTo` nur bei CR_WE geändert werden (sonst 409 `NOT_EDITABLE` bei der Aktivierung).
+- **`isEditable` berücksichtigt die Rolle (entschieden 19.10.2026):** `true` nur bei offenem Status, freigegebenem Vorgang **und** Rolle `MonitorEditor`. Die UI blendet „Bearbeiten“ über `editHidden` (= `!isEditable`, `@UI.UpdateHidden`) ein – kein separater User-Info-Endpunkt.
 - Sichtbarkeit: VKORG aus Benutzerattribut `SalesOrg`, nicht freigegebene Vorgänge nur mit `MonitorReleaser` (Mock: Handler-Filter, 02 §5).
 - Wertehilfen `SalesOrganizations` / `Sources` (F-11): Distinct-Werte aus `Requests`, nur Codes. `SalesOrganizations` ist deklarativ auf `$user.SalesOrg` eingeschränkt; die `released`-Einschränkung für Nicht-Freigeber gilt hier bewusst nicht (keine Vorgangsdaten).
 
@@ -292,11 +293,13 @@ Siehe [01_fachkonzept.md §6](01_fachkonzept.md#6-schritte). Zusätzlich im Mock
 - **CHNG_OLD** prüft wie CNG_DEBI die bestehende Magento-Zuordnung (07 R-06).
 - Jeder Schritt schreibt mindestens einen Logeintrag und aktualisiert `modifiedAt/By`.
 
-## 6. Bearbeiten (PATCH)
+## 6. Bearbeiten (Draft, E-12)
 
 - Bearbeitbar: Hauptdaten (Requests), `salesData`, `admin` (nicht bei CR_WE), `shipTo` (nur bei CR_WE).
-- UI sendet geänderte Felder gesammelt in **einem** `$batch` (Gruppe `changes`).
-- Server protokolliert je geändertem Feld einen Logeintrag (`fieldName`, `oldValue`, `newValue`).
+- Ablauf (Fiori Elements): `draftEdit` (mit `If-Match` des aktiven Vorgangs, 409 `NOT_EDITABLE` wenn nicht bearbeitbar) → PATCH auf `Requests(ID,IsActiveEntity=false)` bzw. `…/salesData`, `…/admin`, `…/shipTo` (jeweils mit ETag des Entwurfs; jede Änderung erhöht `modifiedAt` des Entwurfs) → `draftActivate` (mit ETag des Entwurfs) → aktiver Vorgang wird deep aktualisiert, Entwurf gelöscht, `modifiedAt` von Vorgang und Kindern erhöht. Abbrechen = Entwurf löschen (`DELETE` auf dem Entwurf, CAP-generisch).
+- Server protokolliert **bei der Aktivierung** je geändertem Feld einen Logeintrag (`fieldName` mit Präfix `salesData.` / `admin.` / `shipTo.`, `oldValue`, `newValue`); unveränderte Felder (auch leer ↔ null) erzeugen keinen Eintrag.
+- Sperre: Während ein Entwurf existiert, ist der Vorgang für andere Benutzer gesperrt – `draftEdit` → 409 `DRAFT_ALREADY_EXISTS`, PATCH auf fremden Entwurf → 403 `DRAFT_LOCKED_BY_ANOTHER_USER`; Schrittaktionen am aktiven Vorgang sind solange gesperrt (siehe §5). Sperrdauer `draft_lock_timeout` = 15 min, verlängert bei jeder Änderung; verwaiste Entwürfe werden nach `draft_deletion_timeout` = 7 Tage beim nächsten `draftEdit` entfernt (Konfiguration in `.cdsrc.json` → `fiori`).
+- Texte der Draft-Fehler (`DRAFT_*`, `ENTITY_LOCKED`) kommen aus `_i18n/messages*.properties` (EN/DE).
 
 ## 7. Mock-Verhalten (Phase 1)
 
@@ -348,6 +351,8 @@ Wichtige BPs für Schritte mit BP-Eingabe: `1000030` (Debitor 4000030, frei → 
 - Meldungstexte (Fehler, `sap-messages`, Protokoll) aus `_i18n/messages*.properties` (EN/DE), Sprache aus `Accept-Language`.
 - `STEP_ABORTED` schreibt den Protokolleintrag (Typ `A`) in einer eigenen Transaktion nach dem Rollback.
 - Profil `opa` (`npm run start:test`): Auth `dummy` (privilegierter Benutzer, alle Rollen, alle VKORG) für Headless-Browsertests.
+- Entwürfe liegen in Phase 1 in der In-Memory-Datenbank und gehen bei jedem Neustart von `cds watch` verloren; ab Phase 2 ist eine persistente Datenbank (HANA Cloud) erforderlich (02 §2, E-14).
+- Mock-User für Sperrtests: `carol` (MonitorViewer + MonitorEditor, VKORG 0001/2000/7050).
 
 ## 8. Codelisten, Texte, Kritikalität (F-11, siehe [09](09_migration_fiori_elements.md) §4.5)
 

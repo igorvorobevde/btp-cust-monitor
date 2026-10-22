@@ -82,7 +82,8 @@ entity Requests : cuid, managed {
                            on admin.request = $self;
   shipTo               : Composition of one ShipToParties
                            on shipTo.request = $self;
-  log                  : Composition of many LogEntries
+  // Protokoll: Assoziation statt Komposition, damit es keinen Draft-Zustand hat (E-12)
+  log                  : Association to many LogEntries
                            on log.request = $self;
   // Codelisten-Navigation (unmanaged → keine neuen Spalten, OData-Namen bleiben) – F-11
   processTypeRef       : Association to ProcessTypes
@@ -98,6 +99,8 @@ entity Requests : cuid, managed {
   releaseState         : String(12) = (case when released = true then releaseProcedure else 'NOT_RELEASED' end) stored;
   // berechnet: Status offen (0xx/1xx), freigegeben und Benutzer hat Rolle MonitorEditor
   virtual isEditable   : Boolean;
+  // berechnet: !isEditable – steuert die Sichtbarkeit von „Bearbeiten“ (UI.UpdateHidden, E-12)
+  virtual editHidden   : Boolean;
 }
 
 /**

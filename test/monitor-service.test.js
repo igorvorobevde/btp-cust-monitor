@@ -8,8 +8,10 @@ const { GET, POST, PATCH } = server;
 const BASE = "/odata/v4/monitor";
 const ALICE = { auth: { username: "alice", password: "alice" } };
 const BOB = { auth: { username: "bob", password: "bob" } };
+const CAROL = { auth: { username: "carol", password: "carol" } };
 const id = (n) => `a1b2c3d4-0000-4000-8000-${String(n).padStart(12, "0")}`;
-const url = (n, path = "") => `${BASE}/Requests(${id(n)})${path}`;
+/** Draft-Keys: aktiver Vorgang (IsActiveEntity=true) oder Entwurf (false) */
+const url = (n, path = "", active = true) => `${BASE}/Requests(ID=${id(n)},IsActiveEntity=${active})${path}`;
 
 /** Fehlerantwort statt Exception (cds.test wirft bei 4xx/5xx) */
 async function failure(promise) {
@@ -24,6 +26,24 @@ async function failure(promise) {
 async function etag(n, user = ALICE) {
 	const { data } = await GET(url(n, "?$select=modifiedAt"), user);
 	return data["@odata.etag"];
+}
+
+/** Bearbeitung beginnen: draftEdit mit ETag des aktiven Vorgangs → 201 + Entwurf */
+async function edit(n, user = ALICE) {
+	return POST(url(n, "/CustomerMonitorService.draftEdit"), { PreserveChanges: true }, { ...user, headers: { "If-Match": await etag(n, user) } });
+}
+
+async function draftEtag(n, path = "", user = ALICE) {
+	const { data } = await GET(url(n, path + "?$select=modifiedAt", false), user);
+	return data["@odata.etag"];
+}
+
+async function patchDraft(n, path, body, user = ALICE) {
+	return PATCH(url(n, path, false), body, { ...user, headers: { "If-Match": await draftEtag(n, path, user) } });
+}
+
+async function activate(n, user = ALICE) {
+	return POST(url(n, "/CustomerMonitorService.draftActivate", false), {}, { ...user, headers: { "If-Match": await draftEtag(n, "", user) } });
 }
 
 async function executeStep(n, body, { user = ALICE, ifMatch } = {}) {
@@ -266,28 +286,61 @@ describe("Optimistic concurrency (412)", () => {
 		expect((await failure(POST(url(6, "/CustomerMonitorService.executeStep"), { step: "MANUAL_OK" }, ALICE))).status).toBe(412);
 	});
 
-	test("PATCH without ETag → 412; child change bumps parent ETag", async () => {
-		expect((await failure(PATCH(url(6), { name: "X" }, ALICE))).status).toBe(412);
-		const before = await etag(6);
-		const { data: sales } = await GET(url(6, "/salesData"), ALICE);
-		await PATCH(url(6, "/salesData"), { salesGroup: "999" }, { ...ALICE, headers: { "If-Match": sales["@odata.etag"] } });
-		expect(await etag(6)).not.toBe(before);
-		expect((await failure(executeStep(6, { step: "MANUAL_OK" }, { ifMatch: before }))).status).toBe(412);
-	});
 });
 
-describe("Editing (03 §6)", () => {
-	test("PATCH writes one log entry per changed field", async () => {
-		await PATCH(url(6), { name: "Neu GmbH", city: "Bonn" }, { ...ALICE, headers: { "If-Match": await etag(6) } });
-		const { data } = await GET(url(6, "/log?$orderby=line desc&$top=2"), ALICE);
-		expect(data.value.map((l) => l.fieldName).sort()).toEqual(["city", "name"]);
-		expect(data.value.find((l) => l.fieldName === "name")).toMatchObject({ oldValue: "Bauer Filtertechnik GmbH", newValue: "Neu GmbH" });
+describe("F-12 draft editing", () => {
+	test("$metadata declares the draft root without a log draft", async () => {
+		const { data } = await GET(`${BASE}/$metadata`, ALICE);
+		expect(data).toMatch(/Common.DraftRoot/);
+		expect(data).toMatch(/Name="IsActiveEntity"/);
+		expect(data).not.toMatch(/LogEntries_drafts/);
 	});
 
-	test("closed request is not editable → 409 NOT_EDITABLE", async () => {
-		const res = await failure(PATCH(url(12), { name: "X" }, { ...ALICE, headers: { "If-Match": await etag(12) } }));
-		expect(res.status).toBe(409);
-		expect(res.data.error.code).toBe("NOT_EDITABLE");
+	test("edit → patch root and child → activate writes one log entry per changed field", async () => {
+		const before = await etag(6);
+		expect((await edit(6)).status).toBe(201);
+		await patchDraft(6, "", { name: "Neu GmbH", city: "Bonn" });
+		await patchDraft(6, "/salesData", { salesGroup: "999" });
+		const { status, data } = await activate(6);
+		expect(status).toBe(200);
+		expect(data).toMatchObject({ name: "Neu GmbH", IsActiveEntity: true });
+		expect(await etag(6)).not.toBe(before);
+		const { data: log } = await GET(url(6, "/log?$orderby=line desc&$top=3"), ALICE);
+		expect(log.value.map((l) => l.fieldName).sort()).toEqual(["city", "name", "salesData.salesGroup"]);
+		expect(log.value.find((l) => l.fieldName === "name")).toMatchObject({ oldValue: "Bauer Filtertechnik GmbH", newValue: "Neu GmbH" });
+		expect((await failure(GET(url(6, "", false), ALICE))).status).toBe(404);
+	});
+
+	test("activation logs only changed fields", async () => {
+		await edit(6);
+		await patchDraft(6, "", { name2: null });
+		const { data: before } = await GET(url(6, "/log?$count=true&$top=0"), ALICE);
+		await activate(6);
+		const { data: after } = await GET(url(6, "/log?$count=true&$top=0"), ALICE);
+		expect(after["@odata.count"]).toBe(before["@odata.count"]);
+	});
+
+	test("edit guards: closed request, missing ETag, viewer, create", async () => {
+		const closed = await failure(edit(12));
+		expect(closed.status).toBe(409);
+		expect(closed.data.error.code).toBe("NOT_EDITABLE");
+		expect((await failure(POST(url(6, "/CustomerMonitorService.draftEdit"), { PreserveChanges: true }, ALICE))).status).toBe(412);
+		expect((await failure(edit(6, BOB))).status).toBe(403);
+		expect((await failure(POST(`${BASE}/Requests`, {}, ALICE))).status).toBe(405);
+	});
+
+	test("draft lock: second editor cannot edit or patch", async () => {
+		await edit(6);
+		const locked = await failure(edit(6, CAROL));
+		expect(locked.status).toBe(409);
+		expect(locked.data.error.code).toBe("DRAFT_ALREADY_EXISTS");
+		expect((await failure(PATCH(url(6, "", false), { name: "X" }, { ...CAROL, headers: { "If-Match": "*" } }))).status).toBe(403);
+	});
+
+	test("editHidden mirrors isEditable", async () => {
+		expect((await GET(url(6, "?$select=isEditable,editHidden"), ALICE)).data).toMatchObject({ isEditable: true, editHidden: false });
+		expect((await GET(url(12, "?$select=isEditable,editHidden"), ALICE)).data).toMatchObject({ isEditable: false, editHidden: true });
+		expect((await GET(url(6, "?$select=isEditable,editHidden"), BOB)).data).toMatchObject({ isEditable: false, editHidden: true });
 	});
 });
 

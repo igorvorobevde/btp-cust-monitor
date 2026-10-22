@@ -12,8 +12,32 @@ const LOG = cds.log("monitor");
 const NS = "hydac.custmon";
 
 // Felder, die per PATCH nicht geändert werden dürfen bzw. nicht protokolliert werden
-const TECHNICAL_FIELDS = new Set(["ID", "request_ID", "modifiedAt", "modifiedBy", "createdAt", "createdBy", "isEditable",
-	"releaseState", "statusGroup", "statusCriticality", "orderCriticality", "releaseCriticality"]);
+const TECHNICAL_FIELDS = new Set(["ID", "request_ID", "modifiedAt", "modifiedBy", "createdAt", "createdBy", "isEditable", "editHidden",
+	"releaseState", "statusGroup", "statusCriticality", "orderCriticality", "releaseCriticality",
+	"IsActiveEntity", "HasActiveEntity", "HasDraftEntity", "DraftAdministrativeData_DraftUUID"]);
+
+/** Feldvergleich für das Änderungsprotokoll: leer und null gelten als gleich */
+const normalize = (value) => (value === "" || value == null ? null : value);
+
+/**
+ * Geänderte Felder eines (Kind-)Datensatzes – nur fachliche, nicht read-only Elemente der Entität.
+ * @returns {Array<{field: string, fieldName: string, oldValue: string, newValue: string}>}
+ */
+function diffFields(prefix, oldRow, newRow, entity) {
+	if (!oldRow || !newRow) {
+		return [];
+	}
+	const elements = entity.elements;
+	return Object.keys(newRow)
+		.filter((f) => !TECHNICAL_FIELDS.has(f) && elements[f] && !elements[f].isAssociation && !elements[f]["@readonly"])
+		.filter((f) => normalize(oldRow[f]) !== normalize(newRow[f]))
+		.map((f) => ({
+			field: prefix + f,
+			fieldName: (prefix + f).slice(0, 30),
+			oldValue: oldRow[f] == null ? "" : String(oldRow[f]),
+			newValue: newRow[f] == null ? "" : String(newRow[f])
+		}));
+}
 
 // Nummernkreise für simulierte S/4-Anlagen (03 §7)
 const numberRanges = {
@@ -156,6 +180,10 @@ module.exports = class CustomerMonitorService extends cds.ApplicationService {
 		this.before(["CREATE", "DELETE"], [Requests, ...editableChildren], (req) => {
 			req.reject(405, t(req, "METHOD_NOT_ALLOWED"));
 		});
+		// POST /Requests ist mit Draft das Ereignis NEW auf dem Entwurf – Vorgänge kommen nur aus Magento
+		this.before("NEW", Requests.drafts, (req) => {
+			req.reject(405, t(req, "METHOD_NOT_ALLOWED"));
+		});
 
 		// ---------- Lesen ----------
 		this.before("READ", Requests, (req) => {
@@ -164,11 +192,13 @@ module.exports = class CustomerMonitorService extends cds.ApplicationService {
 			}
 		});
 
-		this.after("READ", Requests, async (result, req) => {
+		// isEditable/editHidden für aktive Vorgänge und eigene Entwürfe (Draft: Felder sind bearbeitbar)
+		this.after("READ", [Requests, Requests.drafts], async (result, req) => {
 			const rows = (Array.isArray(result) ? result : [result]).filter((r) => r && r.ID);
 			if (!rows.length) {
 				return;
 			}
+			const draft = !!req.target.isDraft;
 			const incomplete = rows.filter((r) => r.status_code === undefined || r.released === undefined);
 			const lookup = new Map();
 			if (incomplete.length) {
@@ -179,54 +209,54 @@ module.exports = class CustomerMonitorService extends cds.ApplicationService {
 			const { isEditor } = roles(req);
 			for (const row of rows) {
 				const state = lookup.get(row.ID) || row;
-				row.isEditable = sm.isEditable(state, isEditor);
+				row.isEditable = draft ? true : sm.isEditable(state, isEditor);
+				row.editHidden = !row.isEditable;
 			}
 		});
 
-		// ---------- Bearbeiten (03 §6) ----------
-		this.before("UPDATE", [Requests, ...editableChildren], async (req) => {
-			if (!req.headers["if-match"] || parseETag(req.headers["if-match"]) === "*") {
-				req.reject(412, t(req, "ETAG_REQUIRED"));
+		// ---------- Bearbeiten per Draft (03 §6, E-12) ----------
+		// draftEdit: ETag prüft CAP generisch (428 → 412); hier nur die fachliche Bearbeitbarkeit (E-11)
+		this.before("EDIT", Requests, async (req) => {
+			const request = await loadRequest(req, lastKey(req));
+			if (!sm.isEditable(request, roles(req).isEditor)) {
+				req.reject({ status: 409, code: ErrorCodes.NOT_EDITABLE, message: t(req, "NOT_EDITABLE") });
 			}
-			const old = await SELECT.one.from(req.subject);
+		});
+
+		// UPDATE auf dem aktiven Vorgang = Draft-Aktivierung (deep, inkl. salesData/admin/shipTo; Kind-Handler feuern nicht)
+		// oder programmatisch. Änderungsprotokoll je geändertem Feld, Prozessart-Regel für admin/shipTo.
+		this.before("UPDATE", Requests, async (req) => {
+			const ID = req.data.ID ?? lastKey(req);
+			const old = await SELECT.one.from(db.Requests, (r) => {
+				r`.*`;
+				r.salesData((s) => s`.*`);
+				r.admin((a) => a`.*`);
+				r.shipTo((s) => s`.*`);
+			}).where({ ID });
 			if (!old) {
 				req.reject(404);
 			}
-			const requestId = req.target === Requests ? old.ID : old.request_ID;
-			const request = await loadRequest(req, requestId);
-			const notEditable = !sm.isEditable(request, roles(req).isEditor) ||
-				(req.target === ContactPersons && request.processType === "CR_WE") ||
-				(req.target === ShipToParties && request.processType !== "CR_WE");
-			if (notEditable) {
+			if (!sm.isEditable(old, roles(req).isEditor)) {
 				req.reject({ status: 409, code: ErrorCodes.NOT_EDITABLE, message: t(req, "NOT_EDITABLE") });
 			}
-			if (!sameETag(req.headers["if-match"], old.modifiedAt)) {
-				req.reject(412, t(req, "ETAG_REQUIRED"));
+			const changes = [
+				...diffFields("", old, req.data, Requests),
+				...diffFields("salesData.", old.salesData, req.data.salesData, SalesData),
+				...diffFields("admin.", old.admin, req.data.admin, ContactPersons),
+				...diffFields("shipTo.", old.shipTo, req.data.shipTo, ShipToParties)
+			];
+			const forbidden = old.processType === "CR_WE" ? "admin." : "shipTo.";
+			if (changes.some((c) => c.field.startsWith(forbidden))) {
+				req.reject({ status: 409, code: ErrorCodes.NOT_EDITABLE, message: t(req, "NOT_EDITABLE") });
 			}
-
-			// Änderungsprotokoll je Feld
-			const prefix = { [Requests.name]: "", [SalesData.name]: "salesData.", [ContactPersons.name]: "admin.", [ShipToParties.name]: "shipTo." }[req.target.name];
-			const elements = req.target.elements;
-			const changes = Object.keys(req.data)
-				.filter((f) => !TECHNICAL_FIELDS.has(f) && elements[f] && !elements[f].isAssociation && !elements[f]["@readonly"])
-				.filter((f) => (old[f] ?? null) !== (req.data[f] ?? null));
-			await writeLog(req, requestId, changes.map((f) => ({
+			await writeLog(req, ID, changes.map((c) => ({
 				messageType: "S",
 				messageNumber: "040",
-				messageText: t(req, "LOG_FIELD_CHANGED", [prefix + f]),
-				fieldName: (prefix + f).slice(0, 30),
-				oldValue: old[f] == null ? "" : String(old[f]),
-				newValue: req.data[f] == null ? "" : String(req.data[f])
+				messageText: t(req, "LOG_FIELD_CHANGED", [c.field]),
+				fieldName: c.fieldName,
+				oldValue: c.oldValue,
+				newValue: c.newValue
 			})));
-
-			// Kind-Änderung → ETag des Vorgangs erst vor dem Commit erhöhen (nach allen PATCHes des Changesets),
-			// damit parallele Schritte 412 erhalten (03 §3)
-			if (req.target !== Requests) {
-				req.before("commit", () => UPDATE(db.Requests, requestId).with({
-					modifiedAt: new Date().toISOString(),
-					modifiedBy: req.user.id
-				}));
-			}
 		});
 
 		// ---------- availableSteps (03 §4) ----------

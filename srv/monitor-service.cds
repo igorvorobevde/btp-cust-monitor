@@ -3,6 +3,9 @@ using hydac.custmon as db from '../db/schema';
 @requires: 'MonitorViewer'
 service CustomerMonitorService @(path: '/odata/v4/monitor') {
 
+  // Draft (E-12): Fiori Elements V4 bearbeitet nur Draft-Entitäten; „Bearbeiten“ nur sichtbar, wenn editHidden = false
+  @odata.draft.enabled
+  @UI.UpdateHidden: editHidden
   @(Capabilities: {
     InsertRestrictions.Insertable: false,
     DeleteRestrictions.Deletable : false
@@ -132,6 +135,7 @@ annotate CustomerMonitorService.Requests with {
   releaseCriticality   @readonly;
   releaseState         @readonly;
   isEditable           @Core.Computed;
+  editHidden           @Core.Computed;
   email                @Communication.IsEmailAddress;
 };
 
