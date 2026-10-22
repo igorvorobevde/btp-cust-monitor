@@ -119,6 +119,17 @@ describe("F-11 calculated fields", () => {
 	});
 });
 
+describe("F-11 value helps", () => {
+	test("SalesOrganizations are distinct and restricted to the user's VKORG", async () => {
+		expect((await GET(`${BASE}/SalesOrganizations`, ALICE)).data.value.map((v) => v.salesOrganization).sort()).toEqual(["0001", "2000", "7050"]);
+		expect((await GET(`${BASE}/SalesOrganizations`, BOB)).data.value.map((v) => v.salesOrganization)).toEqual(["0001"]);
+	});
+
+	test("Sources are distinct", async () => {
+		expect((await GET(`${BASE}/Sources`, ALICE)).data.value.map((v) => v.source)).toEqual(["SHOP"]);
+	});
+});
+
 describe("Authorization", () => {
 	test("viewer sees only own VKORG and released requests, cannot edit or execute", async () => {
 		const { data } = await GET(`${BASE}/Requests?$select=salesOrganization,released,isEditable`, BOB);

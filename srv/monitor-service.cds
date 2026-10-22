@@ -67,6 +67,16 @@ service CustomerMonitorService @(path: '/odata/v4/monitor') {
   @readonly
   entity ReleaseStates  as projection on db.ReleaseStates;
 
+  // Wertehilfen mit Distinct-Werten (nur Codes, keine Vorgangsdaten) – F-11
+  @readonly
+  @cds.redirection.target: false
+  @restrict: [{ grant: 'READ', to: 'MonitorViewer', where: 'salesOrganization = $user.SalesOrg' }]
+  entity SalesOrganizations as select from db.Requests distinct { key salesOrganization };
+
+  @readonly
+  @cds.redirection.target: false
+  entity Sources            as select from db.Requests distinct { key source };
+
   type StepOption {
     step          : db.StepCode;
     text          : String(60);

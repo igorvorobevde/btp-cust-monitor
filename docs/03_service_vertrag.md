@@ -211,6 +211,13 @@ service CustomerMonitorService @(path: '/odata/v4/monitor') {
   @readonly entity StatusGroups  as projection on db.StatusGroups;   // F-11
   @readonly entity ReleaseStates as projection on db.ReleaseStates;  // F-11
 
+  // Wertehilfen (Distinct-Werte, nur Codes) – F-11
+  @readonly @cds.redirection.target: false
+  @restrict: [{ grant: 'READ', to: 'MonitorViewer', where: 'salesOrganization = $user.SalesOrg' }]
+  entity SalesOrganizations as select from db.Requests distinct { key salesOrganization };
+  @readonly @cds.redirection.target: false
+  entity Sources            as select from db.Requests distinct { key source };
+
   type StepOption {
     step          : db.StepCode;
     text          : String(60);
@@ -228,6 +235,7 @@ service CustomerMonitorService @(path: '/odata/v4/monitor') {
 - Updates auf Requests sind nur erlaubt, wenn `isEditable = true` (sonst 409 `NOT_EDITABLE`). Gilt auch für Kind-Entitäten; `admin` nur bei Prozessart ≠ CR_WE, `shipTo` nur bei CR_WE.
 - **`isEditable` berücksichtigt die Rolle (entschieden 19.10.2026):** `true` nur bei offenem Status, freigegebenem Vorgang **und** Rolle `MonitorEditor`. Die UI blendet „Bearbeiten“ allein über `isEditable` ein – kein separater User-Info-Endpunkt.
 - Sichtbarkeit: VKORG aus Benutzerattribut `SalesOrg`, nicht freigegebene Vorgänge nur mit `MonitorReleaser` (Mock: Handler-Filter, 02 §5).
+- Wertehilfen `SalesOrganizations` / `Sources` (F-11): Distinct-Werte aus `Requests`, nur Codes. `SalesOrganizations` ist deklarativ auf `$user.SalesOrg` eingeschränkt; die `released`-Einschränkung für Nicht-Freigeber gilt hier bewusst nicht (keine Vorgangsdaten).
 
 ## 4. `availableSteps()`
 
