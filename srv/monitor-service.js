@@ -12,7 +12,8 @@ const LOG = cds.log("monitor");
 const NS = "hydac.custmon";
 
 // Felder, die per PATCH nicht geändert werden dürfen bzw. nicht protokolliert werden
-const TECHNICAL_FIELDS = new Set(["ID", "request_ID", "modifiedAt", "modifiedBy", "createdAt", "createdBy", "isEditable"]);
+const TECHNICAL_FIELDS = new Set(["ID", "request_ID", "modifiedAt", "modifiedBy", "createdAt", "createdBy", "isEditable",
+	"releaseState", "statusGroup", "statusCriticality", "orderCriticality", "releaseCriticality"]);
 
 // Nummernkreise für simulierte S/4-Anlagen (03 §7)
 const numberRanges = {

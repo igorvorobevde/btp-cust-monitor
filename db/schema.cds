@@ -84,6 +84,18 @@ entity Requests : cuid, managed {
                            on shipTo.request = $self;
   log                  : Composition of many LogEntries
                            on log.request = $self;
+  // Codelisten-Navigation (unmanaged → keine neuen Spalten, OData-Namen bleiben) – F-11
+  processTypeRef       : Association to ProcessTypes
+                           on processTypeRef.code = processType;
+  releaseStateRef      : Association to ReleaseStates
+                           on releaseStateRef.code = releaseState;
+  // berechnet on-read (filter-/sortierbar): Statusgruppe und Kritikalität für Fiori Elements – F-11
+  statusGroup          : String(10) = status.group;
+  statusCriticality    : Integer    = status.criticality;
+  orderCriticality     : Integer    = case when orderExists = true then 5 else 0 end; // Zeilen-Highlight
+  releaseCriticality   : Integer    = case when released = true then 3 else 2 end;
+  // berechnet stored (Assoziation releaseStateRef braucht eine Spalte; Neuberechnung bei UPDATE) – F-11
+  releaseState         : String(12) = (case when released = true then releaseProcedure else 'NOT_RELEASED' end) stored;
   // berechnet: Status offen (0xx/1xx), freigegeben und Benutzer hat Rolle MonitorEditor
   virtual isEditable   : Boolean;
 }
@@ -158,6 +170,13 @@ entity LogEntries {
       newValue      : String(255);
       createdBy     : String(255);
       createdAt     : Timestamp;
+      // Kritikalität je Meldungstyp für die Protokolltabelle (S 3, W 2, E/A 1, I 5) – F-11
+      criticality   : Integer = case when messageType = 'S' then 3
+                                     when messageType = 'W' then 2
+                                     when messageType = 'E' then 1
+                                     when messageType = 'A' then 1
+                                     when messageType = 'I' then 5
+                                     else 0 end;
 }
 
 // Customizing (read-only, Texte sprachabhängig)

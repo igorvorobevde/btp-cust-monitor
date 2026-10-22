@@ -116,6 +116,11 @@ annotate CustomerMonitorService.Requests with {
   releasedAt           @readonly;
   inClarification      @readonly;
   clarificationComment @readonly;
+  statusGroup          @readonly;
+  statusCriticality    @readonly;
+  orderCriticality     @readonly;
+  releaseCriticality   @readonly;
+  releaseState         @readonly;
   isEditable           @Core.Computed;
   email                @Communication.IsEmailAddress;
 };

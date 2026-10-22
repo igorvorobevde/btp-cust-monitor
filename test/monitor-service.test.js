@@ -89,6 +89,36 @@ describe("F-11 code lists", () => {
 	});
 });
 
+describe("F-11 calculated fields", () => {
+	test("statusGroup / statusCriticality follow the status and are filterable and sortable", async () => {
+		const { data } = await GET(`${BASE}/Requests?$filter=statusGroup eq 'ERROR'&$orderby=statusCriticality desc&$select=status_code,statusGroup,statusCriticality`, ALICE);
+		expect(data.value.length).toBeGreaterThan(0);
+		expect(data.value.every((r) => ["140", "150", "160"].includes(r.status_code) && r.statusCriticality === 1)).toBe(true);
+		const open = await GET(`${BASE}/Requests?$filter=statusGroup eq 'OPEN' or statusGroup eq 'ERROR'&$count=true&$top=0`, ALICE);
+		expect(open.data["@odata.count"]).toBe(18);
+	});
+
+	test("releaseState is derived from released + releaseProcedure", async () => {
+		const state = async (n) => (await GET(url(n, "?$select=releaseState,releaseCriticality"), ALICE)).data;
+		expect(await state(1)).toMatchObject({ releaseState: "NOT_REL", releaseCriticality: 3 });
+		expect(await state(2)).toMatchObject({ releaseState: "NOT_RELEASED", releaseCriticality: 2 });
+		expect(await state(3)).toMatchObject({ releaseState: "AUTOMATIC", releaseCriticality: 3 });
+	});
+
+	test("processTypeRef and releaseStateRef expand with localized texts", async () => {
+		const { data } = await GET(url(1, "?$select=processType&$expand=processTypeRef($select=text),releaseStateRef($select=text)"), { ...ALICE, headers: { "Accept-Language": "de" } });
+		expect(data.processTypeRef.text).toBe("Neuer Debitor");
+		expect(data.releaseStateRef.text).toBe("Freigegeben (nicht erforderlich)");
+	});
+
+	test("orderCriticality and log criticality", async () => {
+		expect((await GET(url(2, "?$select=orderCriticality"), ALICE)).data.orderCriticality).toBe(5);
+		expect((await GET(url(1, "?$select=orderCriticality"), ALICE)).data.orderCriticality).toBe(0);
+		const { data } = await GET(url(1, "/log?$select=messageType,criticality&$top=1"), ALICE);
+		expect(data.value[0]).toMatchObject({ messageType: "S", criticality: 3 });
+	});
+});
+
 describe("Authorization", () => {
 	test("viewer sees only own VKORG and released requests, cannot edit or execute", async () => {
 		const { data } = await GET(`${BASE}/Requests?$select=salesOrganization,released,isEditable`, BOB);

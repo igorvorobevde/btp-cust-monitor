@@ -95,6 +95,15 @@ entity Requests : cuid, managed {            // managed: createdAt/By, modifiedA
   admin                : Composition of one ContactPersons on admin.request     = $self;
   shipTo               : Composition of one ShipToParties  on shipTo.request    = $self;
   log                  : Composition of many LogEntries    on log.request       = $self;
+  // Codelisten-Navigation (unmanaged, keine neuen Spalten) – F-11
+  processTypeRef       : Association to ProcessTypes  on processTypeRef.code  = processType;
+  releaseStateRef      : Association to ReleaseStates on releaseStateRef.code = releaseState;
+  // berechnet on-read, read-only, filter-/sortierbar – F-11 (siehe §8)
+  statusGroup          : String(10) = status.group;
+  statusCriticality    : Integer    = status.criticality;
+  orderCriticality     : Integer    = case when orderExists = true then 5 else 0 end;
+  releaseCriticality   : Integer    = case when released = true then 3 else 2 end;
+  releaseState         : String(12) = (case when released = true then releaseProcedure else 'NOT_RELEASED' end) stored;
   // berechnet
   virtual isEditable   : Boolean;            // Status offen (0xx/1xx) und freigegeben
 }
@@ -161,6 +170,7 @@ entity LogEntries {
   newValue             : String(255);
   createdBy            : String(255);
   createdAt            : Timestamp;
+  criticality          : Integer;           // berechnet aus messageType: S 3, W 2, E/A 1, I 5 – F-11
 }
 
 // Customizing (read-only, Texte sprachabhängig)
@@ -330,3 +340,20 @@ Wichtige BPs für Schritte mit BP-Eingabe: `1000030` (Debitor 4000030, frei → 
 - Meldungstexte (Fehler, `sap-messages`, Protokoll) aus `_i18n/messages*.properties` (EN/DE), Sprache aus `Accept-Language`.
 - `STEP_ABORTED` schreibt den Protokolleintrag (Typ `A`) in einer eigenen Transaktion nach dem Rollback.
 - Profil `opa` (`npm run start:test`): Auth `dummy` (privilegierter Benutzer, alle Rollen, alle VKORG) für Headless-Browsertests.
+
+## 8. Codelisten, Texte, Kritikalität (F-11, siehe [09](09_migration_fiori_elements.md) §4.5)
+
+Fiori Elements leitet Farben/Icons aus Kritikalitätswerten (`UI.CriticalityType`) und Texte aus Codelisten ab. Die UI rechnet nichts mehr um (CLAUDE.md Regel 7); alle Werte kommen aus dem Service.
+
+| Element | Quelle | Werte |
+|---|---|---|
+| `Statuses.criticality` | Customizing-CSV | 5 Information (Gruppe OPEN), 1 Negative (ERROR), 0 Neutral (REJECTED), 3 Positive (DONE) |
+| `Requests.statusGroup` | `status.group` (on-read) | OPEN, ERROR, REJECTED, DONE – filterbar (`$filter=statusGroup eq 'OPEN'`), Wertehilfe `StatusGroups` |
+| `Requests.statusCriticality` | `status.criticality` (on-read) | wie `Statuses.criticality`; sortierbar |
+| `Requests.orderCriticality` | `orderExists` (on-read) | 5 bei Bestellung (Zeilen-Highlight), sonst 0 |
+| `Requests.releaseState` | `released` + `releaseProcedure` (stored, neu berechnet bei UPDATE) | NOT_RELEASED (nicht freigegeben), NOT_REL / AUTOMATIC / MANUAL (freigegeben); Text über `releaseStateRef` aus `ReleaseStates` |
+| `Requests.releaseCriticality` | `released` (on-read) | 3 freigegeben, 2 nicht freigegeben |
+| `Requests.processTypeRef` | unmanaged Assoziation auf `ProcessTypes` | Text der Prozessart (`$expand=processTypeRef`), `processType` bleibt Enum |
+| `LogEntries.criticality` | `messageType` (on-read) | S 3, W 2, E/A 1, I 5 |
+
+Alle Elemente sind read-only; Texte folgen `Accept-Language` wie bei den übrigen Codelisten.
