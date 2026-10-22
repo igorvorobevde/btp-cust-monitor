@@ -162,10 +162,23 @@ entity LogEntries {
 
 // Customizing (read-only, Texte sprachabhängig)
 entity Statuses {
-  key code  : StatusCode;
-      text  : localized String(60);
-      icon  : String(30);
-      group : String(10); // OPEN | ERROR | REJECTED | DONE
+  key code        : StatusCode;
+      text        : localized String(60);
+      icon        : String(30);
+      group       : String(10); // OPEN | ERROR | REJECTED | DONE
+      criticality : Integer; // UI.CriticalityType: 0 neutral, 1 negative, 2 critical, 3 positive, 5 information
+}
+
+/** Statusgruppen als Codeliste (Filter „Statusgruppe“, Texte sprachabhängig) */
+entity StatusGroups {
+  key code : String(10); // OPEN | ERROR | REJECTED | DONE
+      text : localized String(60);
+}
+
+/** Freigabezustand als Codeliste (Kopfanzeige „Freigabe“) */
+entity ReleaseStates {
+  key code : String(12); // NOT_RELEASED | NOT_REL | AUTOMATIC | MANUAL
+      text : localized String(60);
 }
 
 entity ProcessTypes {

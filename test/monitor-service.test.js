@@ -72,6 +72,23 @@ describe("F-01 / F-02 metadata and data", () => {
 	});
 });
 
+describe("F-11 code lists", () => {
+	test("Statuses carry criticality", async () => {
+		expect((await GET(`${BASE}/Statuses('000')`, ALICE)).data.criticality).toBe(5);
+		expect((await GET(`${BASE}/Statuses('140')`, ALICE)).data.criticality).toBe(1);
+		expect((await GET(`${BASE}/Statuses('899')`, ALICE)).data.criticality).toBe(0);
+		expect((await GET(`${BASE}/Statuses('999')`, ALICE)).data.criticality).toBe(3);
+	});
+
+	test("StatusGroups and ReleaseStates are localized code lists", async () => {
+		const de = { ...ALICE, headers: { "Accept-Language": "de" } };
+		expect((await GET(`${BASE}/StatusGroups`, ALICE)).data.value.map((g) => g.code).sort()).toEqual(["DONE", "ERROR", "OPEN", "REJECTED"]);
+		expect((await GET(`${BASE}/StatusGroups('OPEN')`, de)).data.text).toBe("Offen");
+		expect((await GET(`${BASE}/ReleaseStates('MANUAL')`, de)).data.text).toBe("Freigegeben (manuell)");
+		expect((await GET(`${BASE}/ReleaseStates('NOT_RELEASED')`, ALICE)).data.text).toBe("Not released");
+	});
+});
+
 describe("Authorization", () => {
 	test("viewer sees only own VKORG and released requests, cannot edit or execute", async () => {
 		const { data } = await GET(`${BASE}/Requests?$select=salesOrganization,released,isEditable`, BOB);

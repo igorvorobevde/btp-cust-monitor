@@ -164,7 +164,10 @@ entity LogEntries {
 }
 
 // Customizing (read-only, Texte sprachabhängig)
-entity Statuses     { key code : StatusCode;  text : localized String(60); icon : String(30); group : String(10); /* OPEN|ERROR|REJECTED|DONE */ }
+entity Statuses     { key code : StatusCode;  text : localized String(60); icon : String(30); group : String(10); /* OPEN|ERROR|REJECTED|DONE */
+                      criticality : Integer; /* UI.CriticalityType: 5 Information (OPEN), 1 Negative (ERROR), 0 Neutral (REJECTED), 3 Positive (DONE) – F-11 */ }
+entity StatusGroups  { key code : String(10); text : localized String(60); }   // OPEN|ERROR|REJECTED|DONE – Codeliste für den Filter „Statusgruppe“ (F-11)
+entity ReleaseStates { key code : String(12); text : localized String(60); }   // NOT_RELEASED|NOT_REL|AUTOMATIC|MANUAL – Codeliste für die Kopfanzeige „Freigabe“ (F-11)
 entity ProcessTypes { key code : ProcessType; text : localized String(60); }
 entity Steps        { key code : StepCode;    text : localized String(60); successStatus : StatusCode; errorStatus : StatusCode; input : StepInput; }
 entity ProcessSteps { key source : String(10); key processType : ProcessType; key status : StatusCode; key step : StepCode; }   // nur Mock, nicht exponiert
@@ -195,6 +198,8 @@ service CustomerMonitorService @(path: '/odata/v4/monitor') {
   @readonly entity Statuses     as projection on db.Statuses;
   @readonly entity ProcessTypes as projection on db.ProcessTypes;
   @readonly entity Steps        as projection on db.Steps;
+  @readonly entity StatusGroups  as projection on db.StatusGroups;   // F-11
+  @readonly entity ReleaseStates as projection on db.ReleaseStates;  // F-11
 
   type StepOption {
     step          : db.StepCode;

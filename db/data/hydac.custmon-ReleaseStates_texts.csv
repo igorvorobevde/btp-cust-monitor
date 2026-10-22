@@ -1,0 +1,9 @@
+locale;code;text
+de;NOT_RELEASED;Nicht freigegeben
+en;NOT_RELEASED;Not released
+de;NOT_REL;Freigegeben (nicht erforderlich)
+en;NOT_REL;Released (not required)
+de;AUTOMATIC;Freigegeben (automatisch)
+en;AUTOMATIC;Released (automatic)
+de;MANUAL;Freigegeben (manuell)
+en;MANUAL;Released (manual)

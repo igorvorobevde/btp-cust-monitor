@@ -61,6 +61,12 @@ service CustomerMonitorService @(path: '/odata/v4/monitor') {
   @readonly
   entity Steps          as projection on db.Steps;
 
+  @readonly
+  entity StatusGroups   as projection on db.StatusGroups;
+
+  @readonly
+  entity ReleaseStates  as projection on db.ReleaseStates;
+
   type StepOption {
     step          : db.StepCode;
     text          : String(60);
