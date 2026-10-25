@@ -141,3 +141,294 @@ annotate service.Requests with @(
     {Value: modifiedBy}
   ]}
 );
+
+// ---------- Object Page (docs/04 §3) ----------
+annotate service.Requests with @(
+  UI.HeaderFacets              : [
+    {
+      $Type : 'UI.ReferenceFacet',
+      ID    : 'StatusPoint',
+      Target: '@UI.DataPoint#Status'
+    },
+    {
+      $Type : 'UI.ReferenceFacet',
+      ID    : 'ReleasePoint',
+      Target: '@UI.DataPoint#Release'
+    },
+    {
+      $Type : 'UI.ReferenceFacet',
+      ID    : 'KeyFigures',
+      Label : '{i18n>facet.keyFigures}',
+      Target: '@UI.FieldGroup#KeyFigures'
+    },
+    {
+      $Type : 'UI.ReferenceFacet',
+      ID    : 'AdminData',
+      Label : '{i18n>facet.adminData}',
+      Target: '@UI.FieldGroup#AdminData'
+    }
+  ],
+  UI.DataPoint #Status         : {
+    Value      : status_code,
+    Title      : '{i18n>facet.status}',
+    Criticality: statusCriticality
+  },
+  UI.DataPoint #Release        : {
+    Value      : releaseState,
+    Title      : '{i18n>facet.release}',
+    Criticality: releaseCriticality
+  },
+  UI.FieldGroup #KeyFigures    : {Data: [
+    {Value: customer},
+    {Value: businessPartner},
+    {Value: salesOrganization},
+    {Value: orderExists},
+    {Value: orderVolume}
+  ]},
+  UI.FieldGroup #AdminData     : {Data: [
+    {Value: createdBy},
+    {Value: createdAt},
+    {Value: modifiedBy},
+    {Value: modifiedAt}
+  ]},
+
+  // Abschnitte: Ansprechpartner nur bei Prozessart ≠ CR_WE, Warenempfänger nur bei CR_WE (UI.Hidden-Ausdruck, S4)
+  UI.Facets                    : [
+    {
+      $Type : 'UI.CollectionFacet',
+      ID    : 'MainSection',
+      Label : '{i18n>section.main}',
+      Facets: [
+        {
+          $Type : 'UI.ReferenceFacet',
+          ID    : 'MainName',
+          Label : '{i18n>group.name}',
+          Target: '@UI.FieldGroup#MainName'
+        },
+        {
+          $Type : 'UI.ReferenceFacet',
+          ID    : 'MainAddress',
+          Label : '{i18n>group.address}',
+          Target: '@UI.FieldGroup#MainAddress'
+        },
+        {
+          $Type : 'UI.ReferenceFacet',
+          ID    : 'MainComm',
+          Label : '{i18n>group.communication}',
+          Target: '@UI.FieldGroup#MainComm'
+        },
+        {
+          $Type : 'UI.ReferenceFacet',
+          ID    : 'MainTax',
+          Label : '{i18n>group.tax}',
+          Target: '@UI.FieldGroup#MainTax'
+        }
+      ]
+    },
+    {
+      $Type        : 'UI.ReferenceFacet',
+      ID           : 'AdminSection',
+      Label        : '{i18n>section.admin}',
+      Target       : 'admin/@UI.FieldGroup#Admin',
+      ![@UI.Hidden]: {$edmJson: {$Eq: [
+        {$Path: 'processType'},
+        'CR_WE'
+      ]}}
+    },
+    {
+      $Type : 'UI.ReferenceFacet',
+      ID    : 'SalesSection',
+      Label : '{i18n>section.sales}',
+      Target: 'salesData/@UI.FieldGroup#Sales'
+    },
+    {
+      $Type        : 'UI.ReferenceFacet',
+      ID           : 'ShipToSection',
+      Label        : '{i18n>section.shipTo}',
+      Target       : 'shipTo/@UI.FieldGroup#ShipTo',
+      ![@UI.Hidden]: {$edmJson: {$Ne: [
+        {$Path: 'processType'},
+        'CR_WE'
+      ]}}
+    },
+    {
+      $Type : 'UI.CollectionFacet',
+      ID    : 'AssignmentSection',
+      Label : '{i18n>section.assignment}',
+      Facets: [
+        {
+          $Type : 'UI.ReferenceFacet',
+          ID    : 'SapNumbers',
+          Label : '{i18n>group.sapNumbers}',
+          Target: '@UI.FieldGroup#SapNumbers'
+        },
+        {
+          $Type : 'UI.ReferenceFacet',
+          ID    : 'Magento',
+          Label : '{i18n>group.magento}',
+          Target: '@UI.FieldGroup#Magento'
+        },
+        {
+          $Type : 'UI.ReferenceFacet',
+          ID    : 'ReleaseGrp',
+          Label : '{i18n>group.release}',
+          Target: '@UI.FieldGroup#ReleaseGrp'
+        }
+      ]
+    },
+    {
+      $Type : 'UI.ReferenceFacet',
+      ID    : 'LogSection',
+      Label : '{i18n>section.log}',
+      Target: 'log/@UI.PresentationVariant#Log'
+    }
+  ],
+
+  UI.FieldGroup #MainName      : {Data: [
+    {Value: title},
+    {Value: name},
+    {Value: name2},
+    {Value: name3},
+    {Value: name4}
+  ]},
+  UI.FieldGroup #MainAddress   : {Data: [
+    {Value: street},
+    {Value: houseNumber},
+    {Value: street4},
+    {Value: street5},
+    {Value: postalCode},
+    {Value: city},
+    {Value: country}
+  ]},
+  UI.FieldGroup #MainComm      : {Data: [
+    {Value: language},
+    {Value: telephone},
+    {Value: email}
+  ]},
+  UI.FieldGroup #MainTax       : {Data: [
+    {Value: vatNumber},
+    {Value: taxNumber2},
+    {Value: searchTerm2},
+    {Value: industrySector},
+    {Value: duns}
+  ]},
+  UI.FieldGroup #SapNumbers    : {Data: [
+    {Value: customer},
+    {Value: businessPartner},
+    {Value: shipToCustomer},
+    {Value: contactPersonNumber}
+  ]},
+  UI.FieldGroup #Magento       : {Data: [
+    {Value: magentoCompany},
+    {Value: magentoCustomer},
+    {Value: magentoAddress},
+    {Value: source}
+  ]},
+  UI.FieldGroup #ReleaseGrp    : {Data: [
+    {Value: releaseProcedure},
+    {Value: releasedBy},
+    {Value: releasedAt}
+  ]}
+);
+
+// Kompositionen: Feldgruppen als Ziel der Facetten über die 1:1-Navigation
+annotate service.ContactPersons with @(UI.FieldGroup #Admin: {Data: [
+  {Value: contactPersonNumber},
+  {Value: businessPartner},
+  {Value: magentoCustomer},
+  {Value: shopRole},
+  {Value: title},
+  {Value: firstName},
+  {Value: lastName},
+  {Value: function},
+  {Value: department},
+  {Value: language},
+  {Value: telephone},
+  {Value: email}
+]});
+
+annotate service.SalesData with @(UI.FieldGroup #Sales: {Data: [
+  {Value: salesOrganization},
+  {Value: distributionChannel},
+  {Value: division},
+  {Value: salesGroup},
+  {Value: salesOffice},
+  {Value: customerGroup},
+  {Value: salesDistrict},
+  {Value: incoterms1},
+  {Value: incoterms2}
+]});
+
+annotate service.ShipToParties with @(UI.FieldGroup #ShipTo: {Data: [
+  {Value: shipToCustomer},
+  {Value: businessPartner},
+  {Value: magentoAddress},
+  {Value: addressUsedInOrder},
+  {Value: name},
+  {Value: name2},
+  {Value: name3},
+  {Value: name4},
+  {Value: street},
+  {Value: houseNumber},
+  {Value: street4},
+  {Value: street5},
+  {Value: postalCode},
+  {Value: city},
+  {Value: country},
+  {Value: vatNumber}
+]});
+
+// Protokoll: neueste zuerst
+annotate service.LogEntries with @(
+  UI.LineItem                 : [
+    {
+      $Type                    : 'UI.DataField',
+      Value                    : messageType,
+      Criticality              : criticality,
+      CriticalityRepresentation: #WithIcon,
+      ![@UI.Importance]        : #High
+    },
+    {
+      $Type            : 'UI.DataField',
+      Value            : createdAt,
+      ![@UI.Importance]: #Medium
+    },
+    {
+      $Type            : 'UI.DataField',
+      Value            : createdBy,
+      ![@UI.Importance]: #Medium
+    },
+    {
+      $Type            : 'UI.DataField',
+      Value            : step,
+      ![@UI.Importance]: #Medium
+    },
+    {
+      $Type            : 'UI.DataField',
+      Value            : messageText,
+      ![@UI.Importance]: #High
+    },
+    {
+      $Type            : 'UI.DataField',
+      Value            : fieldName,
+      ![@UI.Importance]: #Low
+    },
+    {
+      $Type            : 'UI.DataField',
+      Value            : oldValue,
+      ![@UI.Importance]: #Low
+    },
+    {
+      $Type            : 'UI.DataField',
+      Value            : newValue,
+      ![@UI.Importance]: #Low
+    }
+  ],
+  UI.PresentationVariant #Log : {
+    SortOrder     : [{
+      Property  : line,
+      Descending: true
+    }],
+    Visualizations: ['@UI.LineItem']
+  }
+);

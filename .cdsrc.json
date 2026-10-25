@@ -1,7 +1,8 @@
 {
   "fiori": {
     "draft_lock_timeout": "15min",
-    "draft_deletion_timeout": "7d"
+    "draft_deletion_timeout": "7d",
+    "draft_messages": false
   },
   "requires": {
     "db": {

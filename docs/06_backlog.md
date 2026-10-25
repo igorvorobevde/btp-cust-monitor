@@ -87,7 +87,7 @@ Backend-Items zuerst (F-11–F-15, additiv bis auf F-12), FE-App parallel in `ap
 `app/monitor-fe`: Component (`sap.fe.core.AppComponent`), manifest gemäß 09 §5.2, `annotations.cds` (SelectionFields, SelectionPresentationVariant #Default, LineItem mit FieldGroup-Spalten und Kritikalität), Hinweis-Spalte als Custom Column, i18n; `ui5.yaml` mountPath `/monitor-fe`; 05 §1–§3.
 **AK:** App startet unter `/monitor-fe/index.html`; Standardfilter `statusGroup = OPEN,ERROR` vorbelegt, 18 Vorgänge initial geladen; alle 13 Filterfelder wirken (Prozessart/Status/Statusgruppe als Dropdown mit Text); Spalten inkl. Hinweis-Icons und Zeilen-Highlight (Bestellung) wie 04 §2.2; Sortierung `createdAt` aufsteigend; Popin unterhalb Desktop; `npm run lint` grün.
 
-### F-17 Object Page lesend — offen
+### F-17 Object Page lesend — erledigt
 HeaderInfo, HeaderFacets (DataPoints Status/Freigabe, Kennzahlen, Verwaltung), Klärungs-Strip als Custom Header Facet, Facets inkl. Kompositionen, `UI.Hidden` je Prozessart, Protokoll-Tabelle sortiert, FCL-Vollbild/Schließen (FE-Standard).
 **AK:** Zeilenklick öffnet Detail in `TwoColumnsMidExpanded`; für CR_WE ist „Ansprechpartner“ ausgeblendet und „Warenempfänger“ sichtbar, sonst umgekehrt; Deep-Link `#/Requests(ID=…,IsActiveEntity=true)` lädt direkt; Protokoll neueste zuerst; Klärungs-Strip nur bei `inClarification`.
 

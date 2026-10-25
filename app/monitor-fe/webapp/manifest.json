@@ -160,7 +160,30 @@
 						"settings": {
 							"contextPath": "/Requests",
 							"editableHeaderContent": false,
-							"showRelatedApps": false
+							"showRelatedApps": false,
+							"content": {
+								"header": {
+									"facets": {
+										"ClarificationStrip": {
+											"template": "hydac.custmon.ext.fragment.ClarificationStrip",
+											"stashed": false,
+											"position": {
+												"placement": "Before",
+												"anchor": "StatusPoint"
+											}
+										}
+									}
+								}
+							},
+							"controlConfiguration": {
+								"log/@com.sap.vocabularies.UI.v1.LineItem": {
+									"tableSettings": {
+										"type": "ResponsiveTable",
+										"selectionMode": "None",
+										"personalization": false
+									}
+								}
+							}
 						}
 					}
 				}

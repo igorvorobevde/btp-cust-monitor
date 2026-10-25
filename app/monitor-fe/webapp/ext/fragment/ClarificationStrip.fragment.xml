@@ -1,0 +1,11 @@
+<core:FragmentDefinition
+	xmlns="sap.m"
+	xmlns:core="sap.ui.core">
+	<!-- Custom header facet (docs/04 §3.1): warning strip with the clarification comment while the request is in Klärung -->
+	<MessageStrip
+		type="Warning"
+		showIcon="true"
+		visible="{= !!${inClarification} }"
+		text="{= ${i18n>detail.clarificationPrefix} + (${clarificationComment} || '') }"
+		class="sapUiSmallMarginBottom"/>
+</core:FragmentDefinition>
