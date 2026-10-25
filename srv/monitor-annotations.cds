@@ -96,6 +96,9 @@ annotate S.Requests with {
   editHidden         @UI.Hidden;
   // relative Wartezeit ist virtuell: weder filter- noch sortierbar (sortiert wird über waitingSince)
   waitingText        @UI.HiddenFilter;
+  // Empfehlung (F-24): Code nur technisch, angezeigt wird der Text; beide virtuell, nicht filterbar
+  nextStep           @UI.Hidden;
+  nextStepText       @UI.HiddenFilter;
 };
 
 annotate S.Statuses with {
@@ -139,6 +142,8 @@ annotate S.Requests with {
   releasedAt           @title: '{i18n>field.releasedAt}';
   waitingSince         @title: '{i18n>field.waitingSince}';
   waitingText          @title: '{i18n>field.waitingText}';
+  nextStep             @title: '{i18n>field.nextStep}';
+  nextStepText         @title: '{i18n>field.nextStepText}';
   inClarification      @title: '{i18n>field.inClarification}';
   clarificationComment @title: '{i18n>field.clarificationComment}';
   title                @title: '{i18n>field.title}';

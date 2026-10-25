@@ -15,6 +15,7 @@ const NS = "hydac.custmon";
 // Felder, die per PATCH nicht geändert werden dürfen bzw. nicht protokolliert werden
 const TECHNICAL_FIELDS = new Set(["ID", "request_ID", "modifiedAt", "modifiedBy", "createdAt", "createdBy", "isEditable", "editHidden",
 	"releaseState", "statusGroup", "statusCriticality", "orderCriticality", "releaseCriticality", "waitingSince", "waitingText",
+	"nextStep", "nextStepText",
 	"IsActiveEntity", "HasActiveEntity", "HasDraftEntity", "DraftAdministrativeData_DraftUUID"]);
 
 // Schrittcode (Customizing) → gebundene Aktion (03 §5); Phase 2: execute_function(step)
@@ -301,11 +302,11 @@ module.exports = class CustomerMonitorService extends cds.ApplicationService {
 
 		/**
 		 * Abgeleitete Werte am Datensatz setzen: can*-Flags, isEditable und editHidden – nie null
-		 * (Fiori Elements zeigt null als sichtbar, aber deaktiviert) – sowie waitingText (F-24, Sprache des Requests).
-		 * Entwürfe und gesperrte Vorgänge: keine Schritte.
+		 * (Fiori Elements zeigt null als sichtbar, aber deaktiviert) – sowie waitingText und nextStep/nextStepText
+		 * (F-24, Sprache des Requests). Entwürfe und gesperrte Vorgänge: keine Schritte, keine Empfehlung.
 		 * ctx = { processSteps, steps, userRoles, req, now (ms) }
 		 */
-		const setDerived = (row, state, { processSteps, userRoles, req, now }, { draft = false, locked = false } = {}) => {
+		const setDerived = (row, state, { processSteps, steps, userRoles, req, now }, { draft = false, locked = false } = {}) => {
 			const codes = draft || locked ? [] : sm.availableStepCodes(state, processSteps, userRoles);
 			for (const [step, name] of Object.entries(STEP_FLAGS)) {
 				row[name] = codes.includes(step);
@@ -313,6 +314,9 @@ module.exports = class CustomerMonitorService extends cds.ApplicationService {
 			row.isEditable = draft ? true : sm.isEditable(state, userRoles.isEditor);
 			row.editHidden = !row.isEditable;
 			row.waitingText = waitingText(state.waitingSince, now, (key, args) => t(req, key, args));
+			const step = draft || locked ? null : sm.recommendedStep(state, processSteps, userRoles);
+			row.nextStep = step;
+			row.nextStepText = step ? ((steps.find((s) => s.code === step) || {}).text || step) : null;
 		};
 
 		// Flags für aktive Vorgänge und eigene Entwürfe; HasDraftEntity wird erst nach den Handlern gefüllt → eigene Abfrage
@@ -323,13 +327,14 @@ module.exports = class CustomerMonitorService extends cds.ApplicationService {
 			}
 			const draft = !!req.target.isDraft;
 			const incomplete = rows.filter((r) => FLAG_INPUT.some((f) => r[f] === undefined));
-			const [processSteps, drafted, found] = await Promise.all([
+			const [processSteps, steps, drafted, found] = await Promise.all([
 				SELECT.from(db.ProcessSteps),
+				SELECT.localized.from(db.Steps),
 				draft ? new Set() : hasDraft(rows.map((r) => r.ID)),
 				incomplete.length ? SELECT.from(db.Requests).columns(...FLAG_INPUT).where({ ID: { in: incomplete.map((r) => r.ID) } }) : []
 			]);
 			const lookup = new Map(found.map((f) => [f.ID, f]));
-			const ctx = { processSteps, steps: [], userRoles: roles(req), req, now: Date.now() };
+			const ctx = { processSteps, steps, userRoles: roles(req), req, now: Date.now() };
 			for (const row of rows) {
 				setDerived(row, lookup.get(row.ID) || row, ctx, { draft, locked: drafted.has(row.ID) });
 			}

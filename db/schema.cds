@@ -99,6 +99,9 @@ entity Requests : cuid, managed {
   // waitingText = relative Zeit dazu, im Service berechnet und lokalisiert
   waitingSince         : Timestamp;
   virtual waitingText  : String(40);
+  // empfohlener nächster Schritt (F-24, W-1) und sein lokalisierter Text, im Service aus der Statusmaschine berechnet
+  virtual nextStep     : StepCode;
+  virtual nextStepText : String(60);
   // berechnet stored (Assoziation releaseStateRef braucht eine Spalte; Neuberechnung bei UPDATE) – F-11
   releaseState         : String(12) = (case when released = true then releaseProcedure else 'NOT_RELEASED' end) stored;
   // berechnet: Status offen (0xx/1xx), freigegeben und Benutzer hat Rolle MonitorEditor

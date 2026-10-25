@@ -10,6 +10,8 @@ const { StepError, ErrorCodes } = require("./errors");
 const TEXT_MAX_LENGTH = 100;
 const DESTRUCTIVE_STEPS = new Set(["REJECT", "RESET"]);
 const SPECIAL_STEPS = { RESET: "RESET", RELEASE: "RELEASE", CLARIFY: "CLARIFY" };
+/** Empfehlungsreihenfolge (W-1): Freigabe, dann Happy-Path-Schritte, dann Dublettenauflösung; Korrekturschritte nie */
+const STEP_PRIORITY = ["RELEASE", "CREATE", "CREATE_WE", "AP_MODIFY", "CHNG_OLD", "CNG_DEBI", "CNG_NEW"];
 
 /** Statusgruppe aus dem Statuscode: 0xx/1xx offen, 8xx abgelehnt, 9xx erledigt */
 function isOpenStatus(status) {
@@ -87,6 +89,18 @@ function availableStepCodes(request, processSteps, roles) {
 			}
 		});
 	return codes;
+}
+
+/**
+ * Empfohlener nächster Schritt (F-24, 03 §4.1): erster erlaubter Schritt in STEP_PRIORITY, sonst null.
+ * @param {object} request
+ * @param {object[]} processSteps ProcessSteps-Customizing
+ * @param {{isEditor: boolean, isReleaser: boolean}} roles
+ * @returns {string|null} Schrittcode
+ */
+function recommendedStep(request, processSteps, roles) {
+	const codes = availableStepCodes(request, processSteps, roles);
+	return STEP_PRIORITY.find((s) => codes.includes(s)) || null;
 }
 
 /**
@@ -344,6 +358,7 @@ module.exports = {
 	isEditable,
 	checkRelease,
 	availableStepCodes,
+	recommendedStep,
 	toStepOptions,
 	validateInput,
 	normalizeBp,

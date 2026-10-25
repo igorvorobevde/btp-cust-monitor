@@ -108,6 +108,8 @@ entity Requests : cuid, managed {            // managed: createdAt/By, modifiedA
   waitingSince         : Timestamp;
   // berechnet
   virtual waitingText  : String(40);         // relative Zeit seit waitingSince, lokalisiert („3 Tage“); weder filter- noch sortierbar (§8)
+  virtual nextStep     : StepCode;           // empfohlener nächster Schritt (§4.1), null ohne Empfehlung
+  virtual nextStepText : String(60);         // lokalisierter Text des Schritts aus Steps (§4.1)
   virtual isEditable   : Boolean;            // Status offen (0xx/1xx), freigegeben und Rolle MonitorEditor; auf eigenem Entwurf true
   virtual editHidden   : Boolean;            // = !isEditable → UI.UpdateHidden (Sichtbarkeit „Bearbeiten“, E-12)
 }
@@ -227,7 +229,7 @@ service CustomerMonitorService @(path: '/odata/v4/monitor') {
     @Core.OperationAvailable: ( :in.canChangeCustomerAssignment )
     action changeCustomerAssignment(in : $self, @mandatory businessPartner : String(10)) returns Requests; // CNG_DEBI
   };
-  // Jede Aktion trägt @Common.SideEffects (Status, Flags, Zuordnung, modifiedAt, waitingSince/waitingText; log, admin, shipTo, salesData)
+  // Jede Aktion trägt @Common.SideEffects (Status, Flags, Zuordnung, modifiedAt, waitingSince/waitingText, nextStep/nextStepText; log, admin, shipTo, salesData)
 
   entity SalesData      as projection on db.SalesData;
   entity ContactPersons as projection on db.ContactPersons;
@@ -269,6 +271,24 @@ Das Backend liefert je Vorgang und Benutzer ein virtuelles Flag pro Schrittaktio
 5. Entwürfe und aktive Vorgänge, für die ein Entwurf existiert → alle Flags `false` (Schritte und Bearbeitung schließen sich aus, §6).
 
 Die Flags sind nie `null` und werden auch bei engem `$select` berechnet (fehlende Eingaben lädt der Service nach). Texte der Schritte stehen weiterhin in `Steps` (Protokoll, Phase 2); die Beschriftung der Aktionen kommt aus den Labels der Aktionen (`_i18n`, F-15).
+
+### 4.1 Empfohlener nächster Schritt (F-24)
+
+Der Service liefert je Vorgang und Benutzer `nextStep` (Schrittcode) und `nextStepText` (Text des Schritts aus `Steps`, lokalisiert je `Accept-Language`); berechnet beim Lesen und in der Antwort jeder Schrittaktion, die UI rechnet nichts.
+
+- **W-1:** Empfohlen wird der erste Schritt der Prioritätsliste `RELEASE`, `CREATE`, `CREATE_WE`, `AP_MODIFY`, `CHNG_OLD`, `CNG_DEBI`, `CNG_NEW`, der nach §4 erlaubt ist. `REJECT`, `MANUAL_OK`, `CLARIFY` und `RESET` werden nie empfohlen.
+- **W-2:** Ist kein empfehlbarer Schritt erlaubt, sind beide Felder `null`. Einen Text „Wartet auf Freigabe“ gibt es nicht: in Phase 1 sehen nur Freigeber nicht freigegebene Vorgänge.
+
+| Fall | `nextStep` | `nextStepText` (EN) |
+|---|---|---|
+| Nicht freigegeben, Benutzer ist Freigeber (#2) | `RELEASE` | Release |
+| CR_DEB 000 oder 150 (#1) | `CREATE` | Create Customer and Admin |
+| CR_WE 010 oder 160 | `CREATE_WE` | Create Ship-To Party |
+| CH_DEB 000 (#6), CR_AP 000 | `AP_MODIFY` | Create/Change Contact Person |
+| Nur Dublettenauflösung erlaubt | `CHNG_OLD` / `CNG_DEBI` / `CNG_NEW` | Text aus `Steps` |
+| Nur Korrekturschritte erlaubt (REJECT, MANUAL_OK, CLARIFY) | `null` | `null` |
+| Ohne Rolle `MonitorEditor` (bob), Status 8xx/9xx (#12) | `null` | `null` |
+| Entwurf oder aktiver Vorgang mit gültiger Entwurfssperre | `null` | `null` |
 
 ## 5. Schrittaktionen
 
@@ -404,6 +424,8 @@ Fiori Elements leitet Farben/Icons aus Kritikalitätswerten (`UI.CriticalityType
 | `Requests.releaseCriticality` | `released` (on-read) | 3 freigegeben, 2 nicht freigegeben |
 | `Requests.waitingSince` | gespeichert, gesetzt von Schritten mit Zustandsänderung (§5.2) | Zeitpunkt der letzten Zustandsänderung; sortierbar (`$orderby=waitingSince`), read-only |
 | `Requests.waitingText` | `waitingSince` (virtuell, beim Lesen und in der Aktionsantwort berechnet) | Texte `WAITING_NOW` (< 1 min, auch Zeitpunkt in der Zukunft), `WAITING_MINUTES` `{0} min`, `WAITING_HOURS` `{0} h`, `WAITING_DAY` „1 Tag“, `WAITING_DAYS` `{0} Tage` (abgerundet) aus `_i18n/messages*.properties` je `Accept-Language`; `null` ohne gültiges `waitingSince`. `@UI.HiddenFilter`; `$filter`/`$orderby` auf virtuelle Felder → 400 |
+| `Requests.nextStep` | Statusmaschine (virtuell, beim Lesen und in der Aktionsantwort berechnet, §4.1) | Schrittcode nach W-1 oder `null` (W-2); `@UI.Hidden`; `$filter`/`$orderby` → 400 |
+| `Requests.nextStepText` | `nextStep` + `Steps.text` (virtuell) | lokalisierter Schritttext je `Accept-Language`, `null` ohne Empfehlung; `@UI.HiddenFilter`; `$filter`/`$orderby` → 400 |
 | `Requests.processTypeRef` | unmanaged Assoziation auf `ProcessTypes` | Text der Prozessart (`$expand=processTypeRef`), `processType` bleibt Enum |
 | `LogEntries.criticality` | `messageType` (on-read) | S 3, W 2, E/A 1, I 5 |
 

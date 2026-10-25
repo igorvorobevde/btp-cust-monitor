@@ -545,3 +545,25 @@ describe("F-24 waiting time", () => {
 		expect(statuses).toEqual(filters.map(() => 200));
 	});
 });
+
+describe("F-24 next step", () => {
+	const next = async (n, user = ALICE, lang) => (await GET(url(n, "?$select=nextStep,nextStepText"), lang ? { ...user, headers: { "Accept-Language": lang } } : user)).data;
+	test("#1 → CREATE for alice (localized text), #6 → AP_MODIFY for alice and nothing for bob", async () => {
+		expect(await next(1)).toMatchObject({ nextStep: "CREATE", nextStepText: "Create Customer and Admin" });
+		expect((await next(1, ALICE, "de")).nextStepText).toBe("Debitor und Admin anlegen");
+		expect(await next(6)).toMatchObject({ nextStep: "AP_MODIFY" });
+		expect(await next(6, BOB)).toMatchObject({ nextStep: null, nextStepText: null });
+	});
+	test("#2 unreleased → RELEASE for alice; invisible to carol (no releaser role); closed #12 → nothing", async () => {
+		expect(await next(2)).toMatchObject({ nextStep: "RELEASE", nextStepText: "Release" });
+		expect((await failure(GET(url(2, "?$select=nextStep"), CAROL))).status).toBe(404);
+		expect(await next(12)).toMatchObject({ nextStep: null, nextStepText: null });
+	});
+	test("no recommendation on drafts and locked requests; the action response carries the new recommendation", async () => {
+		await edit(6);
+		expect((await GET(url(6, "?$select=nextStep", false), ALICE)).data.nextStep).toBeNull();
+		expect((await next(6, CAROL)).nextStep).toBeNull();
+		const { data } = await invoke(26, "changeCustomerAssignment", { businessPartner: "1000030" });
+		expect(data).toMatchObject({ status_code: "110", nextStep: "AP_MODIFY", nextStepText: "Create/Change Contact Person" });
+	});
+});

@@ -171,3 +171,22 @@ describe("waitingSince", () => {
 		expect(sm.stateChanged(request(), { status_code: "999" })).toBe(true);
 	});
 });
+
+describe("recommendedStep", () => {
+	test("happy path first: CREATE for CR_DEB 000, AP_MODIFY for CH_DEB 000, CREATE_WE for CR_WE 010, CREATE again on 150", () => {
+		expect(sm.recommendedStep(request(), processSteps, editor)).toBe("CREATE");
+		expect(sm.recommendedStep(request({ processType: "CH_DEB" }), processSteps, editor)).toBe("AP_MODIFY");
+		expect(sm.recommendedStep(request({ processType: "CR_WE", status_code: "010" }), processSteps, editor)).toBe("CREATE_WE");
+		expect(sm.recommendedStep(request({ status_code: "150" }), processSteps, editor)).toBe("CREATE");
+	});
+	test("release first; nothing for non-releasers, viewers, closed requests or correction-only customizing", () => {
+		expect(sm.recommendedStep(request({ released: false }), processSteps, editor)).toBe("RELEASE");
+		expect(sm.recommendedStep(request({ released: false }), processSteps, { isEditor: true, isReleaser: false })).toBeNull();
+		expect(sm.recommendedStep(request(), processSteps, { isEditor: false, isReleaser: false })).toBeNull();
+		expect(sm.recommendedStep(request({ status_code: "999" }), processSteps, editor)).toBeNull();
+		const onlyCorrections = [{ source: "SHOP", processType: "CR_DEB", status: "000", step: "MANUAL_OK" }, { source: "SHOP", processType: "CR_DEB", status: "000", step: "REJECT" }];
+		expect(sm.recommendedStep(request({ inClarification: true }), onlyCorrections, editor)).toBeNull();
+		const duplicateOnly = [{ source: "SHOP", processType: "CR_DEB", status: "000", step: "CHNG_OLD" }, ...onlyCorrections];
+		expect(sm.recommendedStep(request(), duplicateOnly, editor)).toBe("CHNG_OLD");
+	});
+});
