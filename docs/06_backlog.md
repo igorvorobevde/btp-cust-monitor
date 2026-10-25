@@ -57,25 +57,31 @@ Leerzustände, Busy-Indikatoren, Tastaturbedienung, Tooltips für Icon-Spalten, 
 
 Backend-Items zuerst (F-11–F-15, additiv bis auf F-12), FE-App parallel in `app/monitor-fe`, Cutover in F-21. Spike S1–S14 aus 09 §8 läuft auf einem Wegwerf-Branch parallel zu F-11/F-12 und ist Voraussetzung für F-16. F-10 wird mit F-22 abgeschlossen.
 
-### F-11 Vertrag: Codelisten, berechnete Felder, Wertehilfen — offen
+### F-11 Vertrag: Codelisten, berechnete Felder, Wertehilfen — erledigt
 `db/schema.cds`: `processTypeRef`, `releaseStateRef`, `statusGroup`, `statusCriticality`, `orderCriticality`, `releaseCriticality`, `releaseState` (stored), `LogEntries.criticality`, `Statuses.criticality`; Entitäten `StatusGroups`, `ReleaseStates` (+ `_texts` DE/EN); Service: `StatusGroups`, `ReleaseStates`, `SalesOrganizations` (`@restrict where`), `Sources` (`@cds.redirection.target: false`); CSV gemäß 09 §4.5; 03 §2/§3/§8.
 **AK:** `cds compile srv` fehlerfrei; `GET /Requests?$filter=statusGroup eq 'OPEN'&$orderby=statusCriticality desc&$expand=processTypeRef,releaseStateRef` liefert Texte je `Accept-Language`; `releaseState` #1 = `NOT_REL`, #2 = `NOT_RELEASED`, #3 = `AUTOMATIC`; `SalesOrganizations` für `bob` nur `0001`; bestehende Jest-Tests grün.
 
-### F-12 Draft-Bearbeitung (E-12) — offen
+### F-12 Draft-Bearbeitung (E-12) — erledigt
 `@odata.draft.enabled` auf `Requests`, `@UI.UpdateHidden: editHidden`, `log` als Assoziation, `before EDIT` (`NOT_EDITABLE`), `before NEW` (405), Änderungsprotokoll bei Aktivierung (Root + Kinder, deep), manuelle If-Match-Prüfung entfernt, `cds.fiori`-Timeouts, DE-Texte für `DRAFT_*`, Mock-User `carol`; Jest „Draft editing“, „Draft lock“, „Edit guards“; 03 §3/§6, 02 E-05/E-12/§2.
 **AK:** `$metadata`: Key `ID,IsActiveEntity`, `Common.DraftRoot`, keine `LogEntries_drafts`; `draftEdit` #6 (mit If-Match) → 201, PATCH `name` + `salesData/salesGroup` auf dem Draft, `draftActivate` → 200 mit je Feld einem Logeintrag, Drafts gelöscht, `modifiedAt` von Vorgang und `salesData` erhöht; `draftEdit` ohne If-Match → 412; #12 → 409 `NOT_EDITABLE`; `carol`: `draftEdit` → 409 `DRAFT_ALREADY_EXISTS`, PATCH → 403 `DRAFT_LOCKED_BY_ANOTHER_USER`; `POST /Requests` → 405.
 
-### F-13 Gebundene Aktionen je Schritt, Flags, Dispatcher — offen
+### F-13 Gebundene Aktionen je Schritt, Flags, Dispatcher — erledigt
 11 Aktionen gemäß 09 §4.1, `can*`/`isEditable`/`editHidden` im `after READ` auf `[Requests, Requests.drafts]` und im Aktionsergebnis, generischer `on`-Handler mit Draft-Guards, `@restrict`-Grants, `executeStep`/`availableSteps`/`StepOption` entfernt; `status-machine.js` unverändert; Tests umgebaut; 03 §4/§5, 02 E-04.
 **AK:** `$metadata` enthält die 11 Aktionen mit `Core.OperationAvailable Path="in/can…"` und `Common.SideEffects`; Flags #1 = `canClarify, canCreateCustomer, canAssignExistingCustomer, canCompleteManually, canReject` true, alle anderen false; `bob` → alle Flags false, Aktion → 403; jeder Schritt aus 01 §6 ist über seine Aktion ausführbar (Jest je Prozessart); Aktion auf Draft → 400 `STEP_NOT_ALLOWED`; Aktion auf aktivem Vorgang mit fremdem Draft → 409 `DRAFT_ALREADY_EXISTS` und alle Flags false; 412 bei veraltetem If-Match (ohne `Preference-Applied`).
 
-### F-14 Strict Handling, Meldungen, Fehlerziele — offen
+### F-14 Strict Handling, Meldungen, Fehlerziele — erledigt
 `force = !strict`, 412 + `Preference-Applied: handling=strict` + `details[]` für `CONFIRM_REQUIRED`; `req.notify` (genau eine Erfolgsmeldung) / `req.warn` (Fehlerstatus); `target` für BP-Fehler; `ASSERT_MANDATORY` statt `INPUT_REQUIRED`; `on('error')` für 428/412; 03 §5.1/§5.3.
 **AK:** `changeCustomerAssignment` #5 mit BP 1000002 und `Prefer: handling=strict` → 412, Header `preference-applied: handling=strict`, `details[0].@Common.numericSeverity = 3`; ohne `Prefer` → 200 und Status 110; im `$batch` identisch; `rejectRequest` ohne `reason` → 400 `ASSERT_MANDATORY`, `target = reason`; Erfolg → genau eine `sap-messages`-Meldung mit `numericSeverity 1`; CREATE bei „FEHLER“ → 200, Status 150, Warnungen.
 
-### F-15 Labels und semantische Annotationen im Service — offen
+### F-15 Labels und semantische Annotationen im Service — erledigt
 `srv/monitor-annotations.cds` (`@title` für alle Elemente/Parameter, `Common.Text`, Wertehilfen, Kritikalität, `@cds.search`), `_i18n/i18n.properties` + `_i18n/i18n_de.properties` (Übernahme der `field.*`-Schlüssel), `action.*`/`param.*`/`log.*`; App-Bundle bereinigt; CLAUDE.md-Hinweis Regel 1/4/5/6; 02 E-13.
 **AK:** `GET $metadata` mit `Accept-Language: de` zeigt `Common.Label="Debitor"` für `customer`, `Common.Text`, `Common.ValueList`, `UI.UpdateHidden Path="editHidden"`; kein `field.*`-Schlüssel mehr im App-Bundle; Jest prüft zwei Labels in beiden Sprachen.
+
+**Hinweise zur Umsetzung F-11–F-15 (25.10.2026):**
+- Backend-Vertrag für Fiori Elements vollständig (09 §4); Jest 75 Tests (57 Service + 18 Statusmaschine), `cds compile srv --to edmx` mit 11 `Core.OperationAvailable`, 114 `Common.Label`.
+- Abweichungen zum Plan: Flag-Namen über explizite Zuordnung Schritt → Flag (`rejectRequest` → `canReject`); virtuelle/berechnete Elemente werden beim Aktivierungsprotokoll ignoriert (Draft-Payload enthält die Flags).
+- `INPUT_REQUIRED` entfällt für OData-Aufrufe (CAP `ASSERT_MANDATORY` greift vor der Statusmaschine); `INPUT_TOO_LONG` bleibt.
+- Die Freestyle-App (`app/monitor`) ist seit F-12/F-13 nicht mehr lauffähig (Draft-Keys, Aktionen) und wird mit F-21 entfernt.
 
 ### F-16 FE-App-Gerüst und Liste — offen
 `app/monitor-fe`: Component (`sap.fe.core.AppComponent`), manifest gemäß 09 §5.2, `annotations.cds` (SelectionFields, SelectionPresentationVariant #Default, LineItem mit FieldGroup-Spalten und Kritikalität), Hinweis-Spalte als Custom Column, i18n; `ui5.yaml` mountPath `/monitor-fe`; 05 §1–§3.
