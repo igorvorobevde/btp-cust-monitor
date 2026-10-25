@@ -265,8 +265,9 @@ module.exports = class CustomerMonitorService extends cds.ApplicationService {
 			}
 		});
 
-		// Virtuelle Felder (waitingText, can*-Flags, …) existieren nicht in der DB: $filter/$orderby darauf → 400 statt 500
-		const VIRTUAL = new Set(Object.values(Requests.elements).filter((e) => e.virtual).map((e) => e.name));
+		// Virtuelle Felder (waitingText, can*-Flags, …) existieren nicht in der DB: $filter/$orderby darauf → 400 statt 500.
+		// Menge aus der DB-Entität: die Service-Entität enthält auch CAPs Draft-Elemente (HasDraftEntity, …), die FE filtert
+		const VIRTUAL = new Set(Object.values(db.Requests.elements).filter((e) => e.virtual).map((e) => e.name));
 		const virtualRef = (node) => {
 			if (Array.isArray(node)) {
 				return node.map(virtualRef).find(Boolean);

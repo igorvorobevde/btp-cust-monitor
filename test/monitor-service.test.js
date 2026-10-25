@@ -530,4 +530,18 @@ describe("F-24 waiting time", () => {
 		expect((await failure(GET(`${BASE}/Requests?$filter=waitingText eq 'x'`, ALICE))).status).toBe(400);
 		expect((await failure(GET(`${BASE}/Requests?$orderby=waitingText`, ALICE))).status).toBe(400);
 	});
+	test("Fiori Elements editing-status filters stay allowed (draft elements are not blocked by the virtual guard)", async () => {
+		const filters = [
+			"IsActiveEntity eq false or SiblingEntity/IsActiveEntity eq null", // Alle
+			"IsActiveEntity eq true and HasDraftEntity eq false", // Keine Änderungen
+			"IsActiveEntity eq true and SiblingEntity/IsActiveEntity eq null and DraftAdministrativeData/InProcessByUser ne ''", // Gesperrt
+			"IsActiveEntity eq false" // Ungesicherte Änderungen
+		];
+		const statuses = [];
+		for (const filter of filters) {
+			const request = GET(`${BASE}/Requests?$filter=${encodeURIComponent(filter)}&$select=ID`, ALICE);
+			statuses.push(await request.then((r) => r.status, (e) => e.response.status));
+		}
+		expect(statuses).toEqual(filters.map(() => 200));
+	});
 });
