@@ -1,39 +1,40 @@
-/* global QUnit */
-sap.ui.define([
-	"sap/ui/test/opaQunit"
-], function (opaTest) {
+sap.ui.define(["sap/ui/test/opaQunit"], function (opaTest) {
 	"use strict";
 
-	const REQUEST_1 = "a1b2c3d4-0000-4000-8000-000000000001";
+	const ID = (n) => `a1b2c3d4-0000-4000-8000-${String(n).padStart(12, "0")}`;
+	const active = (n) => `Requests(ID=${ID(n)},IsActiveEntity=true)`;
 
-	QUnit.module("Detail (F-05 – F-07)");
+	// F-17: Object Page read-only – sections per process type, log order, Klärung strip, old bookmarks
+	return {
+		run: function () {
+			QUnit.module("F-17 Object Page");
 
-	opaTest("Deep link opens the detail directly", function (Given, When, Then) {
-		Given.iStartMyUIComponent({
-			componentConfig: { name: "hydac.custmon", async: true },
-			hash: "requests/" + REQUEST_1
-		});
-		Then.onTheDetail.iShouldSeeTheTitle("Müller Hydraulik GmbH").and.iShouldSeeSectionsFor(false);
-	});
+			opaTest("deep link opens #20 (CR_WE) with the ship-to section and without the contact section", function (Given, When, Then) {
+				Given.iStartMyApp(active(20));
+				Then.onTheDetail.iSeeThisPage();
+				Then.onTheDetail.onHeader().iCheckTitle("Vogel Antriebe GmbH");
+				Then.onTheDetail.iSeeSectionWithTitle("Ship-To Party");
+				Then.onTheDetail.iDoNotSeeSectionWithTitle("Contact Person");
+				When.onTheDetail.iGoToSection("Log"); // sections load lazily – scroll the log table into view first
+				Then.onTheDetail.iSeeTheLogNewestFirst();
+				Then.iTeardownMyApp();
+			});
 
-	opaTest("Edit and save writes a log entry per field (F-06)", function (Given, When, Then) {
-		When.onTheDetail.iPressEdit().and.iEnterName2("Werk Saarbrücken").and.iEnterAdminFirstName("Johanna").and.iPressSave();
-		Then.onTheDetail.iShouldBeInDisplayMode()
-			.and.iShouldSeeALogEntryForField("name2", "Werk Saarbrücken")
-			.and.iShouldSeeALogEntryForField("admin.firstName", "Johanna");
-	});
+			opaTest("#13 shows the clarification strip, contact section visible", function (Given, When, Then) {
+				Given.iStartMyApp(active(13));
+				Then.onTheDetail.iSeeThisPage();
+				Then.onTheDetail.iSeeTheClarificationStrip("In Klärung");
+				Then.onTheDetail.iSeeSectionWithTitle("Contact Person");
+				Then.onTheDetail.iDoNotSeeSectionWithTitle("Ship-To Party");
+				Then.iTeardownMyApp();
+			});
 
-	opaTest("Parallel change leads to 412 dialog and reload (F-06)", function (Given, When, Then) {
-		When.onTheDetail.iPressEdit().and.iEnterName2("Wird verworfen").and.iSimulateAParallelChange(REQUEST_1).and.iPressSave();
-		Then.onTheDetail.iShouldSeeAMessageBoxContaining("changed in the meantime");
-		When.onTheDetail.iCloseTheMessageBoxWith("OK");
-		Then.onTheDetail.iShouldBeInDisplayMode().and.iShouldSeeName2("Werk Saarbrücken");
-	});
-
-	opaTest("Execute step REJECT with text (F-07)", function (Given, When, Then) {
-		When.onTheDetail.iOpenTheStepMenu().and.iSelectTheStep("Reject Request");
-		When.onTheDetail.iEnterTheStepText("Firma nicht verifizierbar").and.iConfirmTheStepDialog();
-		Then.onTheDetail.iShouldSeeTheStatus("Rejected");
-		Then.iTeardownMyUIComponent();
-	});
+			opaTest("old bookmark #/requests/<id> is rewritten to the draft key", function (Given, When, Then) {
+				Given.iStartMyApp(`/requests/${ID(20)}`);
+				Then.onTheDetail.iSeeThisPage();
+				Then.onTheDetail.onHeader().iCheckTitle("Vogel Antriebe GmbH");
+				Then.iTeardownMyApp();
+			});
+		}
+	};
 });

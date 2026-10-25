@@ -1,6 +1,6 @@
 # 05 – UI5-Konventionen (Fiori Elements V4, JavaScript)
 
-> Stand 25.10.2026: §1–§3 und §9 beschreiben die **Fiori-Elements-App** `app/monitor-fe` (ab F-16, [09](09_migration_fiori_elements.md)). §4–§8 gelten bis zum Cutover (F-21) noch für die Freestyle-App `app/monitor` und werden mit F-20/F-21 ersetzt.
+> Stand 25.10.2026 (F-21, Cutover): Konventionen der **Fiori-Elements-App** `app/monitor` ([09](09_migration_fiori_elements.md)).
 
 ## 1. Versionen und Bibliotheken
 
@@ -9,12 +9,12 @@
 - Theme `sap_horizon`.
 - Code muss UI5-2.0-tauglich sein: keine deprecated APIs (`ui5lint` meldet sie). Eigener Code nur in `ext/` (Fragmente, Controller-Extension) und `test/`.
 
-## 2. Projektstruktur `app/monitor-fe` (nach Cutover `app/monitor`)
+## 2. Projektstruktur `app/monitor`
 
 ```
-app/monitor-fe/
+app/monitor/
 ├── package.json            # ui5 tooling, linter, test-runner
-├── ui5.yaml                # cds-plugin-ui5 mountPath /monitor-fe
+├── ui5.yaml                # cds-plugin-ui5 mountPath /monitor
 ├── eslint.config.mjs
 ├── annotations.cds         # NUR Layout: SelectionFields, SelectionVariant, LineItem, HeaderInfo, Facets, Aktionsgruppe
 └── webapp/
@@ -33,7 +33,7 @@ app/monitor-fe/
         └── integration/    # OPA5 mit sap.fe.test: JourneyRunner, pages/, *Journey.js
 ```
 
-Vertrags-Semantik (Labels, `Common.Text`, Wertehilfen, Kritikalität, Side Effects, `UI.UpdateHidden`) liegt in `srv/monitor-annotations.cds` (E-13, [03 §8](03_service_vertrag.md)); `app/monitor-fe/annotations.cds` wird von CAP automatisch mitgeladen (`cds.resolve('*')`).
+Vertrags-Semantik (Labels, `Common.Text`, Wertehilfen, Kritikalität, Side Effects, `UI.UpdateHidden`) liegt in `srv/monitor-annotations.cds` (E-13, [03 §8](03_service_vertrag.md)); `app/monitor/annotations.cds` wird von CAP automatisch mitgeladen (`cds.resolve('*')`).
 
 ## 3. manifest.json (Kernpunkte)
 
@@ -78,52 +78,42 @@ Vertrags-Semantik (Labels, `Common.Text`, Wertehilfen, Kritikalität, Side Effec
 
 | Name | Typ | Zweck |
 |---|---|---|
-| `""` (default) | OData V4 | Service-Daten |
-| `i18n` | ResourceModel | UI-Texte |
-| `appView` | JSONModel (Component) | FCL-Layout, globale Busy-Flags |
-| `view` | JSONModel je View | Filterzustand (List), `editMode` (Detail) |
-| `message` | Messaging Message Model | MessagePopover |
+| `""` (default) | OData V4 (von FE verwaltet) | Service-Daten, Drafts, Aktionen |
+| `i18n` | ResourceModel (`webapp/i18n`) | App-Texte in Fragmenten/Manifest (`{i18n>…}`) |
+| FE-interne Modelle (`ui`, `internal`, `sap.fe.i18n`) | – | nicht direkt verwenden |
+
+Eigene JSON-Modelle gibt es nicht; Zustand (Filter, Bearbeitungsmodus, Layout) hält Fiori Elements.
 
 ## 5. OData-V4-Regeln
 
-- Kein manuelles HTTP. Lesen über Bindings; `autoExpandSelect` aktiv, `$expand`/`$select` nur wo nötig in Binding-Parametern.
-- **Bearbeiten:** Element-Binding mit `$$updateGroupId: 'changes'`; Sichern über `oModel.submitBatch('changes')`; Verwerfen `oModel.resetChanges('changes')`; Prüfen `oModel.hasPendingChanges('changes')`.
-- **Bound function** `availableSteps`:
-  ```js
-  const oOp = oModel.bindContext("CustomerMonitorService.availableSteps(...)", oRequestContext);
-  await oOp.invoke();                                   // ab UI5 1.123; ältere Versionen: execute()
-  const aSteps = oOp.getBoundContext().getObject().value;
-  ```
-- **Bound action** `executeStep`:
-  ```js
-  const oOp = oModel.bindContext("CustomerMonitorService.executeStep(...)", oRequestContext,
-                                 { $$inheritExpandSelect: true });
-  oOp.setParameter("step", sStep).setParameter("text", sText)
-     .setParameter("businessPartner", sBp).setParameter("force", bForce);
-  await oOp.invoke();                                   // sendet If-Match aus dem ETag des Kontexts
-  ```
-  Danach `oRequestContext.refresh()` für Log/Kompositionen und `requestSideEffects` bzw. Refresh der Listenzeile.
-- Fehler: `oError.status` (412, 409, 422 …) und `oError.error.code` (`CONFIRM_REQUIRED`, …) auswerten – ausschließlich in `StepService.js`, Controller bekommen ein normalisiertes Ergebnis `{ outcome: 'ok' | 'confirm' | 'conflict' | 'error', message }`.
-- ETag nie umgehen (kein `If-Match: *`).
-- **Typen in Ausdrücken/Formattern:** Das V4-Model konvertiert gebundene Werte in den Typ der Control-Property. Boolean/Enum-Werte in Expression Bindings oder Formattern daher mit `targetType: 'any'` binden (z. B. `${path: 'released', targetType: 'any'}`), sonst kommt `"false"` (truthy) bzw. ein Parse-Fehler an.
+- Kein manuelles HTTP, kein eigenes `bindContext`/`submitBatch`/`resetChanges` in Extensions: Lesen, Bearbeiten (Draft), Aktionen, Side Effects und Meldungen macht Fiori Elements anhand der Annotationen.
+- Extensions greifen über `this.base.getExtensionAPI()` zu (`refresh()`, `getSelectedContexts()`, `invokeAction()` bei Bedarf) und über `override.editFlow.*` auf die Lebenszyklus-Hooks (`onBeforeEdit`, `onBeforeSave`, …).
+- ETag/Draft-Sperre/Strict Handling laufen automatisch (03 §3/§5.3/§6); nie `If-Match: *` erzwingen, nie `disableStrictHandling`.
+- Nachladen nach Aktionen ausschließlich über `@Common.SideEffects` im Service, nicht per Code.
+- Fragmente binden auf den Seitenkontext (z. B. `{inClarification}`); Custom Columns deklarieren ihre benötigten Properties im Manifest (`properties`), damit sie im `$select` landen.
+- **Typen in Ausdrücken:** Boolean-Werte in Expression Bindings mit `!!${...}` bzw. `!${...}` auswerten (Fragmente ohne `targetType`).
 
 ## 6. Coding-Standards
 
 - Module ausschließlich per `sap.ui.define([...], function (...) { "use strict"; ... })`.
-- Controller erben von `BaseController`. Event-Handler `onXxx`, private Methoden `_xxx`.
-- Controls über `this.byId()`; keine globalen IDs, kein `sap.ui.getCore().byId()`.
-- Fragmente über `this.loadFragment({ name })`, einmal laden, wiederverwenden, beim Exit zerstören.
+- Controller-Extensions erben von `sap/ui/core/mvc/ControllerExtension`; Overrides im `override`-Block, eigene Handler `onXxx` (im Manifest als `.extension.<voller Name>.onXxx` referenziert).
+- Keine globalen IDs, kein `sap.ui.getCore()`; Controls nur über die FE-APIs oder Bindings.
 - Keine Inline-Styles; falls nötig `css/style.css` mit Präfix `custmon`.
-- Formatter: pure functions, je eine Unit-Test-Datei.
-- Strings: nur i18n. Platzhalter `{0}` via `ResourceBundle#getText(key, [args])`.
+- Keine Formatter (Kritikalität/Texte kommen aus dem Service). Expression Bindings nur für Sichtbarkeit/Verkettung in Fragmenten.
+- Strings: nur i18n (`{i18n>…}` im Fragment/Manifest, `{i18n>…}` in CDS für `_i18n`).
 - `async/await` statt Promise-Ketten, Fehler immer behandeln (kein unhandled rejection).
-- JSDoc für öffentliche Methoden von Services/Utils.
-- Busy-Zustände: Page-/Table-`busy` mit `busyIndicatorDelay = 0` für Aktionen.
+- JSDoc für Extension-Methoden.
+- Vor neuem Code prüfen, ob eine Annotation oder Manifest-Einstellung reicht (09 §5); jede Extension begründet sich in docs/04.
 
 ## 7. i18n-Schlüssel
 
-Schema `<bereich>.<element>[.<variante>]`, z. B. `list.title`, `list.filter.salesOrg`, `detail.section.admin`, `step.dialog.text.title`, `msg.saved`, `msg.conflict412`.
-Jeder neue Schlüssel in **beiden** Dateien. Keine Texte für Status/Schritte (kommen vom Service).
+| Bundle | Schlüssel | Beispiele |
+|---|---|---|
+| `_i18n/i18n*.properties` (Service, erscheinen in `$metadata`) | `field.*`, `param.*`, `action.*`, `log.*`, `section.*`, `group.*`, `facet.*`, `column.*`, `menu.*`, `request`/`requests` | `field.customer=Debitor`, `action.rejectRequest=Anfrage ablehnen`, `section.shipTo=Warenempfänger` |
+| `_i18n/messages*.properties` (Service, Laufzeitmeldungen) | Fehlercodes, `LOG_*`, `ACTION_DONE*`, `DRAFT_*` | 03 §5 |
+| `webapp/i18n/i18n*.properties` (App) | `appTitle`, `appDescription`, `list.col.*`, `list.hint.*`, `detail.*`, `common.*`, FE-Overrides `C_OPERATIONS_ACTION_CONFIRM_MESSAGE\|Requests\|<Aktion>` | `list.hint.orderExists=Bestellung vorhanden` |
+
+Jeder neue Schlüssel in **beiden** Sprachdateien des jeweiligen Bundles. Keine Texte für Status/Schritte/Prozessarten/Freigabe (Codelisten des Service). Hinweis: Properties-Dateien verlieren nachgestellte Leerzeichen – Trennzeichen im Ausdruck anhängen (siehe `ClarificationStrip`).
 
 ## 8. Qualität
 
@@ -157,7 +147,7 @@ Tool-Versionen sind in den `package.json` gepinnt (Stand 19.10.2026): `@sap/cds`
 
 ## 9. Lokale Entwicklung
 
-- Root: `cds watch` startet Service (Port 4004); `cds-plugin-ui5` served die Apps über UI5-Tooling-Middlewares → FE-App unter `http://localhost:4004/monitor-fe/index.html` (Mount-Pfad in `app/monitor-fe/ui5.yaml`; nach Cutover `/monitor`).
+- Root: `cds watch` startet Service (Port 4004); `cds-plugin-ui5` served die Apps über UI5-Tooling-Middlewares → FE-App unter `http://localhost:4004/monitor/index.html` (Mount-Pfad in `app/monitor/ui5.yaml`).
 - `ui5.yaml` hat bewusst keinen `framework`-Abschnitt: `index.html` und Testseiten laden SAPUI5 (inkl. `sap.fe.*`) vom CDN. `index.html` setzt `xx-component-preload="off"` und `flexibility-services` auf `SessionStorageConnector` (lokal keine Flex-404s; in Work Zone liefert das Launchpad den Flex-Service).
 - Mock-Benutzer: `alice` (Editor + Releaser, VKORG 0001/2000/7050), `bob` (Viewer, VKORG 0001), `carol` (Editor, Sperrtests) in `.cdsrc.json` (`[development]`).
 - Headless-Prüfung ohne Browserfenster: `scripts/fe-console.sh [pfad#hash] [budget-ms]` startet den Mock (Profil `opa`), lädt die Seite in Headless Chrome und gibt Konsolenfehler, DOM-Kurzfassung und Screenshot aus (`$TMPDIR/fe-console/shot.png`). `test/debug.html` ergänzt JS-Stacks zu Konsolenfehlern und meldet doppelte mdc-Property-Keys (`DUPKEYS`).

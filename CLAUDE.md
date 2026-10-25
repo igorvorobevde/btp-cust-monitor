@@ -4,57 +4,59 @@ Instructions for the coding assistant working in this repository. Read this file
 
 ## Project in one paragraph
 
-We are rebuilding the SAP GUI report `ZEC_CUSTOMER_MONITOR` (HYDAC B2B shop: Magento → S/4HANA customer onboarding) as a BTP application: **freestyle SAPUI5 (JavaScript) + SAP CAP (Node.js) OData V4 service** acting as a facade to S/4HANA. The monitor shows incoming customer, contact-person and ship-to requests from Magento and lets back-office users review, edit, release, reject and process them step by step.
+We are rebuilding the SAP GUI report `ZEC_CUSTOMER_MONITOR` (HYDAC B2B shop: Magento → S/4HANA customer onboarding) as a BTP application: **SAP Fiori Elements for OData V4 (`sap.fe.templates`, JavaScript extensions only) + SAP CAP (Node.js) OData V4 service with draft** acting as a facade to S/4HANA. The monitor shows incoming customer, contact-person and ship-to requests from Magento and lets back-office users review, edit, release, reject and process them step by step. The UI is annotation-driven: the service carries the UI semantics (`srv/monitor-annotations.cds`), the app only layout (`app/monitor/annotations.cds`) plus two fragments and one controller extension.
 
-**Current phase: 1 – frontend against a CAP mock service.** There is no S/4 connection yet. The CAP service persists test data (SQLite/in-memory) and simulates the status machine from the customizing CSVs. Do not add S/4 integration code unless a backlog item asks for it.
+**Current phase: 1 – frontend against a CAP mock service** (phase 1b, the migration to Fiori Elements, is done — see `docs/09_migration_fiori_elements.md`). There is no S/4 connection yet. The CAP service persists test data (SQLite/in-memory) and simulates the status machine from the customizing CSVs. Do not add S/4 integration code unless a backlog item asks for it.
 
 ## Where the truth lives
 
 | Topic | Source of truth |
 |---|---|
 | Business logic (process types, statuses, steps, release rules) | `docs/01_fachkonzept.md` |
-| Entities, actions, error codes, mock behaviour | `docs/03_service_vertrag.md` |
-| Screens, fields, buttons, dialogs | `docs/04_ui_spezifikation.md` |
-| Code style, folder layout, i18n, tests | `docs/05_ui5_konventionen.md` |
+| Entities, draft, actions per step, flags, error codes, code lists, mock behaviour | `docs/03_service_vertrag.md` |
+| Screens, filters, columns, sections, actions, dialogs (as annotations) | `docs/04_ui_spezifikation.md` |
+| Code style, folder layout, extensions, i18n, tests | `docs/05_ui5_konventionen.md` |
 | What to build next + acceptance criteria | `docs/06_backlog.md` |
 | Known legacy defects that the new solution must avoid | `docs/07_anforderungen_aus_altsystem.md` |
-| Migration to Fiori Elements (decisions, contract changes, FE design, backlog F-11…F-22) | `docs/09_migration_fiori_elements.md` |
+| Why Fiori Elements, draft, actions per step, phase-2 replica (decisions D-1…D-6, E-12…E-14) | `docs/09_migration_fiori_elements.md` |
 
 If code and docs disagree, **stop and ask** instead of silently picking one. If a backlog item needs a decision that the docs don't cover, propose it and wait for confirmation.
 
 ## Hard rules
 
-> **Migration note (decided 2026-10-22):** the frontend moves to **SAP Fiori Elements for OData V4** per `docs/09_migration_fiori_elements.md`. Rule 1 below applies to the existing freestyle app only until backlog item F-15; from then on the FE app in `app/monitor-fe` (later `app/monitor`) follows docs/09: `sap.fe.templates`, JavaScript extensions only, annotations in `srv/monitor-annotations.cds` (contract) and `app/monitor/annotations.cds` (layout). Rules 4–6 are read as in docs/09 §2 (labels in `_i18n`, `can*` flags + `Core.OperationAvailable`, ETag on `draftEdit`/draft PATCH/actions plus draft lock, strict handling). This file is rewritten with F-21.
-
-1. **Freestyle UI5 in JavaScript.** No Fiori Elements, no TypeScript, no React/other frameworks. Use `sap.m`, `sap.f`, `sap.uxap`, `sap.ui.layout`. Do **not** use `sap.ui.comp` or `sap.ui.table` unless the UI spec says so. *(Superseded for the FE app — see migration note.)*
-2. **OData V4 model only** (`sap.ui.model.odata.v4.ODataModel`), configured in `manifest.json`. No manual `fetch`/`jQuery.ajax` to the service. Bound actions go through `oContext.getModel().bindContext(...)` / `ODataContextBinding#invoke`.
-3. **Async everywhere:** `sap.ui.define`, `async: true` in manifest, no sync XHR, no deprecated globals (`jQuery.sap.*`, `sap.ui.getCore()` when a module API exists). Code must pass `ui5lint` (@ui5/linter) without errors.
-4. **All UI texts in i18n** (`i18n.properties` = English fallback, `i18n_de.properties` German). No hard-coded user-visible strings in XML or JS. Status and step texts come from the service, not from i18n.
-5. **Backend decides what is allowed.** The UI never computes which steps are permitted from status/process type; it calls `availableSteps()` and renders what comes back. The UI may hide/show sections by `processType` as described in the UI spec.
-6. **Optimistic concurrency.** Every write (PATCH, `executeStep`) must send the ETag. Never disable ETag checks. Handle HTTP 412 as "record changed by someone else – reload".
-7. **No business logic duplication in the frontend.** Formatters only map codes to UI states/icons.
-8. **Mock service = contract.** The CAP mock must behave exactly as specified in `docs/03_service_vertrag.md` (including error codes), so the UI does not change when S/4 is connected.
+1. **Fiori Elements for OData V4, JavaScript.** List Report + Object Page from `sap.fe.templates`; own code only in `app/monitor/webapp/ext/` (XML fragments, controller extensions via `sap/ui/core/mvc/ControllerExtension` and the FE `ExtensionAPI`). No freestyle views/controllers, no TypeScript, no React/other frameworks, no `sap.ui.comp`, no `sap.ui.table`. Prefer an annotation or manifest setting over code; if something needs code, say why.
+2. **OData V4 through Fiori Elements.** The model is configured in `manifest.json`; no manual `fetch`/`jQuery.ajax`, no own `bindContext`/`submitBatch` in extensions — use `editFlow`/`ExtensionAPI`. Actions are declared in CDS and rendered by FE.
+3. **Async everywhere:** `sap.ui.define`, async manifest/views, no deprecated globals. Code must pass `ui5lint` (@ui5/linter) and ESLint without errors.
+4. **All UI texts in i18n.** Field, action, section, column labels live in `_i18n/i18n.properties` (EN fallback) and `_i18n/i18n_de.properties` and reach the UI via `$metadata`; app-level texts (title, custom fragments, FE text overrides) in `app/monitor/webapp/i18n/i18n*.properties`. Status, step, process-type and release texts come from the service code lists, never from i18n.
+5. **Backend decides what is allowed.** The service computes the `can*` flags and `isEditable`/`editHidden`; FE binds them via `Core.OperationAvailable` and `UI.UpdateHidden`. The UI never derives permissions from status/process type. Sections may be hidden by `processType` via `UI.Hidden` expressions as specified in docs/04.
+6. **Concurrency and draft.** ETag on `draftEdit`, on draft PATCHes and on every step action; never disable ETag checks, never `If-Match: *` on actions. Editing uses CAP draft (lock while a draft exists; steps are blocked meanwhile). Backend questions use OData strict handling (412 + `Preference-Applied: handling=strict`), never a `force` parameter.
+7. **No business logic in the frontend.** No formatters: criticality, texts and groups are data from the service (`statusCriticality`, `statusGroup`, `releaseState`, …).
+8. **Mock service = contract.** The CAP mock must behave exactly as specified in `docs/03_service_vertrag.md` (including error codes and the annotations in `srv/monitor-annotations.cds`, E-13), so the UI does not change when S/4 is connected.
 9. **Small, reviewable changes.** One backlog item per change set. Update the relevant doc in the same change if behaviour or contract changes.
 10. **German domain terms stay German** in docs and UI texts (Debitor, Warenempfänger, Freigabe, Klärung). Code identifiers are English (see glossary in `docs/03_service_vertrag.md`).
+11. **Commit directly on `main` and push** after each change set (project decision; no feature branches).
 
 ## Commands
 
 ```bash
 npm install                 # root: CAP + workspaces
-cds watch                   # service + UI at http://localhost:4004
-npm run lint                # ui5lint + eslint
-npm test                    # QUnit/OPA5 (app) + jest (srv)
+cds watch                   # service + UI at http://localhost:4004/monitor/index.html
+npm run lint                # ui5lint + eslint (app/monitor)
+npm test                    # jest (srv) + OPA5 journeys with sap.fe.test (headless Chrome)
+scripts/fe-console.sh "test/debug.html#/Requests(ID=…,IsActiveEntity=true)"   # console errors + screenshot, no browser window
 ```
+
+`cds.test` and `ui5-test-runner` bind local ports; in a sandbox without port binding run them outside the sandbox.
 
 ## Definition of done (every change)
 
 - Acceptance criteria of the backlog item are met and listed in the PR/commit message.
-- `npm run lint` clean, `npm test` green, app starts with `cds watch` without console errors.
-- New UI texts exist in both `i18n.properties` and `i18n_de.properties`.
+- `npm run lint` clean, `npm test` green, app starts with `cds watch` without console errors (known, accepted line: "S/CUBE is not yet supported", docs/05 §9).
+- New UI texts exist in both language files (`_i18n/` for metadata labels, `webapp/i18n/` for app texts).
 - Docs updated if contract, UI behaviour or decisions changed.
 
 ## Things to ask before doing
 
 - Adding a new npm dependency or UI5 library.
-- Changing the CDS service contract (entity/field/action names, error codes).
+- Changing the CDS service contract (entity/field/action names, error codes, contract annotations in `srv/monitor-annotations.cds`).
 - Anything touching authentication, roles or deployment (`xs-security.json`, `mta.yaml`).

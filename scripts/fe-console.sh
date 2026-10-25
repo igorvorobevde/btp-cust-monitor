@@ -9,7 +9,7 @@
 set -u
 PAGE="${1:-test/debug.html}"
 BUDGET="${2:-40000}"
-APP_URL="http://localhost:4004/monitor-fe/${PAGE}"
+APP_URL="http://localhost:4004/monitor/${PAGE}"
 OUT="${TMPDIR:-/tmp}/fe-console"
 CHROME="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"

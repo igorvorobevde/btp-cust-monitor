@@ -1,17 +1,8 @@
-/* Kundenmonitor – only where no control property suffices; prefix custmon */
-
-/* Full-height FCL when started standalone via ComponentSupport (index.html) */
-html,
-body,
-.custmonRoot {
+/* Kundenmonitor – app-specific styles (prefix custmon, docs/05 §6) */
+html, body, .custmonRoot {
 	height: 100%;
 }
 
 .custmonHintIcon {
-	margin-right: 0.375rem;
-}
-
-.custmonHeaderBlock {
-	margin-right: 3rem;
-	margin-bottom: 0.5rem;
+	margin-right: 0.25rem;
 }

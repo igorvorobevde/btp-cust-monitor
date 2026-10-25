@@ -13,8 +13,11 @@
 		data-sap-ui-compat-version="edge"
 		data-sap-ui-xx-component-preload="off"
 		data-sap-ui-async="true"
+		data-sap-ui-flexibility-services='[{"connector":"SessionStorageConnector"}]'
 		data-sap-ui-frame-options="trusted">
 	</script>
+	<!-- flexibilityServices: standalone/local run keeps personalization in the session; in Work Zone the launchpad provides the flex service -->
+
 </head>
 <body class="sapUiBody sapUiSizeCompact" id="content">
 	<div class="custmonRoot"

@@ -5,13 +5,16 @@
 		"type": "application",
 		"i18n": {
 			"bundleName": "hydac.custmon.i18n.i18n",
-			"supportedLocales": ["", "de"],
+			"supportedLocales": [
+				"",
+				"de"
+			],
 			"fallbackLocale": ""
 		},
 		"title": "{{appTitle}}",
 		"description": "{{appDescription}}",
 		"applicationVersion": {
-			"version": "0.1.0"
+			"version": "0.2.0"
 		},
 		"dataSources": {
 			"mainService": {
@@ -32,10 +35,11 @@
 		}
 	},
 	"sap.ui5": {
+		"flexEnabled": true,
 		"rootView": {
-			"viewName": "hydac.custmon.view.App",
+			"viewName": "sap.fe.templates.RootContainer.view.Fcl",
 			"type": "XML",
-			"id": "app"
+			"id": "appRootView"
 		},
 		"dependencies": {
 			"minUI5Version": "1.148.12",
@@ -43,21 +47,22 @@
 				"sap.ui.core": {},
 				"sap.m": {},
 				"sap.f": {},
-				"sap.uxap": {},
-				"sap.ui.layout": {}
+				"sap.fe.templates": {}
 			}
 		},
 		"contentDensities": {
 			"compact": true,
 			"cozy": true
 		},
-		"handleValidation": true,
 		"models": {
 			"i18n": {
 				"type": "sap.ui.model.resource.ResourceModel",
 				"settings": {
 					"bundleName": "hydac.custmon.i18n.i18n",
-					"supportedLocales": ["", "de"],
+					"supportedLocales": [
+						"",
+						"de"
+					],
 					"fallbackLocale": ""
 				}
 			},
@@ -81,41 +86,147 @@
 		"routing": {
 			"config": {
 				"routerClass": "sap.f.routing.Router",
-				"type": "View",
-				"viewType": "XML",
-				"path": "hydac.custmon.view",
-				"controlId": "fcl",
-				"transition": "slide"
+				"controlId": "appContent",
+				"controlAggregation": "beginColumnPages",
+				"flexibleColumnLayout": {
+					"defaultTwoColumnLayoutType": "TwoColumnsMidExpanded"
+				}
 			},
 			"routes": [
 				{
-					"name": "list",
-					"pattern": "",
-					"target": ["list"]
+					"name": "RequestsList",
+					"pattern": ":?query:",
+					"target": [
+						"RequestsList"
+					]
 				},
 				{
-					"name": "detail",
-					"pattern": "requests/{id}",
-					"target": ["list", "detail"]
-				},
-				{
-					"name": "detailFull",
-					"pattern": "requests/{id}/full",
-					"target": ["list", "detail"]
+					"name": "RequestsObjectPage",
+					"pattern": "Requests({key}):?query:",
+					"target": [
+						"RequestsList",
+						"RequestsObjectPage"
+					]
 				}
 			],
 			"targets": {
-				"list": {
-					"id": "list",
-					"name": "List",
-					"controlAggregation": "beginColumnPages"
+				"RequestsList": {
+					"type": "Component",
+					"id": "RequestsList",
+					"name": "sap.fe.templates.ListReport",
+					"controlAggregation": "beginColumnPages",
+					"options": {
+						"settings": {
+							"contextPath": "/Requests",
+							"defaultTemplateAnnotationPath": "com.sap.vocabularies.UI.v1.SelectionPresentationVariant#Default",
+							"initialLoad": "Enabled",
+							"variantManagement": "None",
+							"navigation": {
+								"Requests": {
+									"detail": {
+										"route": "RequestsObjectPage"
+									}
+								}
+							},
+							"controlConfiguration": {
+								"@com.sap.vocabularies.UI.v1.LineItem": {
+									"tableSettings": {
+										"type": "ResponsiveTable",
+										"selectionMode": "None",
+										"personalization": {
+											"column": true,
+											"sort": true,
+											"filter": false,
+											"group": false
+										},
+										"popinLayout": "GridSmall"
+									},
+									"columns": {
+										"HintsColumn": {
+											"key": "HintsColumn",
+											"header": "{i18n>list.col.hints}",
+											"template": "hydac.custmon.ext.fragment.HintsColumn",
+											"availability": "Default",
+											"importance": "High",
+											"width": "5.5rem",
+											"horizontalAlign": "Begin",
+											"properties": [
+												"released",
+												"inClarification",
+												"orderExists"
+											],
+											"position": {
+												"placement": "After",
+												"anchor": "DataField::status_code"
+											}
+										}
+									}
+								}
+							}
+						}
+					}
 				},
-				"detail": {
-					"id": "detail",
-					"name": "Detail",
-					"controlAggregation": "midColumnPages"
+				"RequestsObjectPage": {
+					"type": "Component",
+					"id": "RequestsObjectPage",
+					"name": "sap.fe.templates.ObjectPage",
+					"controlAggregation": "midColumnPages",
+					"options": {
+						"settings": {
+							"contextPath": "/Requests",
+							"editableHeaderContent": false,
+							"showRelatedApps": false,
+							"content": {
+								"header": {
+									"facets": {
+										"ClarificationStrip": {
+											"template": "hydac.custmon.ext.fragment.ClarificationStrip",
+											"stashed": false,
+											"position": {
+												"placement": "Before",
+												"anchor": "StatusPoint"
+											}
+										}
+									},
+									"actions": {
+										"Refresh": {
+											"press": ".extension.hydac.custmon.ext.controller.ObjectPageExt.onRefresh",
+											"text": "{i18n>common.refresh}",
+											"visible": true,
+											"position": {
+												"placement": "After",
+												"anchor": "DataFieldForActionGroup::Steps"
+											}
+										}
+									}
+								}
+							},
+							"controlConfiguration": {
+								"log/@com.sap.vocabularies.UI.v1.LineItem": {
+									"tableSettings": {
+										"type": "ResponsiveTable",
+										"selectionMode": "None",
+										"personalization": false
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"extends": {
+			"extensions": {
+				"sap.ui.controllerExtensions": {
+					"sap.fe.templates.ObjectPage.ObjectPageController": {
+						"controllerName": "hydac.custmon.ext.controller.ObjectPageExt"
+					}
 				}
 			}
 		}
+	},
+	"sap.fiori": {
+		"registrationIds": [],
+		"archeType": "transactional"
 	}
 }

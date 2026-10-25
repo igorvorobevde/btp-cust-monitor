@@ -1,8 +1,0 @@
-/* Kundenmonitor – app-specific styles (prefix custmon, docs/05 §6) */
-html, body, .custmonRoot {
-	height: 100%;
-}
-
-.custmonHintIcon {
-	margin-right: 0.25rem;
-}

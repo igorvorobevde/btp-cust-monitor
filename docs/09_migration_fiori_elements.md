@@ -204,7 +204,7 @@ virtual isEditable : Boolean;  virtual editHidden : Boolean;  virtual canRelease
 
 Verified against SAPUI5 **1.148.12** FE V4 documentation and CDN sources. *V* = verified, *A* = assumed (covered by the spike, §8).
 
-### 5.1 Files (`app/monitor-fe` during migration, `app/monitor` after cutover)
+### 5.1 Files (`app/monitor` during migration, `app/monitor` after cutover)
 
 | File | Purpose | ~lines |
 |---|---|---|
@@ -268,9 +268,9 @@ Deleted at cutover: `controller/*`, `view/*`, `view/fragments/*`, `model/*`, `se
 
 ## 6. Migration plan
 
-Branch `feature/fe-migration`. The FE app is built **side by side** in `app/monitor-fe`; the freestyle app keeps working
+Branch `feature/fe-migration`. The FE app is built **side by side** in `app/monitor`; the freestyle app keeps working
 through F-11 and F-13 … F-15 (additive backend changes) and breaks only with the draft change (F-12), which is scheduled
-after the FE list and object page are usable. Cutover (F-21) renames `app/monitor-fe` to `app/monitor` and deletes the
+after the FE list and object page are usable. Cutover (F-21) renames `app/monitor` to `app/monitor` and deletes the
 freestyle app. Each item is one change set with acceptance criteria in [06](06_backlog.md) (German). The spike (§8) runs on a
 throwaway branch in parallel with F-11/F-12 and gates F-16.
 
@@ -281,7 +281,7 @@ throwaway branch in parallel with F-11/F-12 and gates F-16.
 | F-13 | Per-step actions, `can*` flags, generic dispatcher, draft guards; `executeStep`/`availableSteps` removed; tests rewritten | backend |
 | F-14 | Strict handling, messages (`notify`/`warn`, `target`), `ASSERT_MANDATORY`, `on('error')` | backend |
 | F-15 | Labels and semantic annotations in the service (`srv/monitor-annotations.cds`, `_i18n`), CLAUDE.md rules note, E-13 | backend |
-| F-16 | FE app skeleton + List Report (`app/monitor-fe`) | frontend |
+| F-16 | FE app skeleton + List Report (`app/monitor`) | frontend |
 | F-17 | Object Page read-only (header, facets, process-type visibility, log, FCL) | frontend |
 | F-18 | Steps as action group in the UI, "Aktualisieren", controller extension | frontend |
 | F-19 | Draft editing in the UI (`onBeforeEdit` refresh, ConnectedFields, `$editState` hidden) | frontend |

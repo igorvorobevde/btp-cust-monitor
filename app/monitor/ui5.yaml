@@ -3,7 +3,7 @@ metadata:
   name: hydac.custmon
 type: application
 # No framework section: index.html and the test pages bootstrap SAPUI5 1.148.12 (LTS) from ui5.sap.com (docs/05 §1),
-# so cds-plugin-ui5 does not need to download the framework locally.
+# so cds-plugin-ui5 does not need to download the framework locally. sap.fe.* comes from the same CDN.
 customConfiguration:
   cds-plugin-ui5:
     mountPath: /monitor

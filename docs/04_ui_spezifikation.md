@@ -1,198 +1,133 @@
-# 04 – UI-Spezifikation (Freestyle SAPUI5)
+# 04 – UI-Spezifikation (Fiori Elements für OData V4)
 
-Zielgruppe: Innendienst, Desktop zuerst (≥ 1280 px), Tablet benutzbar. SAP Horizon Theme, Fiori-Design-Guidelines.
+Stand 25.10.2026 (F-21, Cutover). Die UI ist eine **Fiori-Elements-App** (`sap.fe.templates`, List Report + Object Page im FlexibleColumnLayout). Die Spezifikation ist deshalb weitgehend die Menge der Annotationen: Vertrags-Semantik in `srv/monitor-annotations.cds` ([03 §8](03_service_vertrag.md)), Layout in `app/monitor/annotations.cds`, Konfiguration in `app/monitor/webapp/manifest.json` ([05 §3](05_ui5_konventionen.md)). Eigener Code: zwei Fragmente, eine Controller-Extension ([09 §5](09_migration_fiori_elements.md)).
 
----
+Zielgruppe: Sachbearbeiter im Backoffice, Desktop first (≥ 1280 px), Tablet nutzbar, Theme `sap_horizon`. Sprachen EN (Fallback) und DE.
 
 ## 1. Layout und Navigation
 
-`sap.f.FlexibleColumnLayout` mit Router (`sap.f.routing.Router`).
+FlexibleColumnLayout (FE-Root-View `sap.fe.templates.RootContainer.view.Fcl`), Standard `TwoColumnsMidExpanded`.
 
-| Route | Pattern | Layout | Inhalt |
+| Route | Pattern | Inhalt |
+|---|---|---|
+| `RequestsList` | `:?query:` | Filterleiste + Liste (Begin Column) |
+| `RequestsObjectPage` | `Requests({key}):?query:` | Liste + Detail (Mid Column); Vollbild und Schließen über die FE-Standardaktionen; Layout steht in `?layout=` |
+
+- Deep-Link: `#/Requests(ID=<uuid>,IsActiveEntity=true)` (Lesezeichen, Mail-Link). Alte Freestyle-Links `#/requests/<uuid>[/full]` werden in `Component.js` umgeschrieben.
+- Unbekannter oder nicht sichtbarer Vorgang → FE-Hinweisseite „Sorry, we can't find this page“ (404 vom Service).
+- Navigation während der Bearbeitung: Jede Änderung wird sofort im Entwurf gespeichert (Draft); ein Zeilenwechsel verliert nichts, der Entwurf bleibt erhalten und wird beim nächsten Öffnen fortgesetzt (§4.1).
+
+## 2. Liste (List Report)
+
+`UI.SelectionFields`, `UI.SelectionPresentationVariant#Default`, `UI.LineItem` in `app/monitor/annotations.cds`; Wertehilfen und Texte aus dem Service.
+
+### 2.1 Filterleiste
+
+Filter wirken mit **Start** (Go); „Filter anpassen“ erlaubt weitere Felder (Adaptation). Keine Varianten (`variantManagement: None`).
+
+| Filter | Steuerelement (FE) | Standard | Quelle |
 |---|---|---|---|
-| `list` | `` | `OneColumn` | Filter + Vorgangsliste |
-| `detail` | `requests/{id}` | `TwoColumnsMidExpanded` | Liste + Detail |
-| `detailFull` | `requests/{id}/full` | `MidColumnFullScreen` | Detail im Vollbild |
+| Suche | Suchfeld (`$search` über name, name2, magentoCompany) | – | `@cds.search` |
+| Bearbeitungsstatus | FE-Standardfilter für Draft-Entitäten (Alle / eigene Entwürfe …) | Alle | FE |
+| Statusgruppe | Multi-Combo (feste Werte) | **OPEN + ERROR** (= offene Vorgänge, ersetzt die alten Haken „Erledigte/Abgelehnte einbeziehen“) | `statusGroup`, Wertehilfe `StatusGroups` |
+| Freigegeben | Boolean-Auswahl | – | `released` |
+| In Klärung | Boolean-Auswahl | – | `inClarification` |
+| Debitor | Eingabe | – | `customer` |
+| Verkaufsorganisation | Wertehilfe (Distinct) | – | `SalesOrganizations` (nur erlaubte VKORG) |
+| Prozessart | Multi-Combo mit Text | – | `ProcessTypes` |
+| Status | Multi-Combo mit Text | – | `Statuses` |
+| Quelle | Wertehilfe (Distinct) | – | `Sources` |
+| Bestellung vorhanden | Boolean-Auswahl | – | `orderExists` |
+| Erstellt am / Geändert am | Datums-/Zeitraumfilter | – | `createdAt` / `modifiedAt` |
+| Erstellt von / Geändert von | Eingabe | – | `createdBy` / `modifiedBy` |
 
-- Spaltenaktionen im Detail: Vollbild ein/aus, Schließen (→ `list`).
-- Deep-Link auf `requests/{id}` muss funktionieren (Lesezeichen, Mail-Link).
-- Navigation weg von einem Detail mit ungesicherten Änderungen → Rückfrage „Änderungen verwerfen?“.
-
-## 2. Liste (Begin Column)
-
-`sap.f.DynamicPage`, Titel „Kundenmonitor“, Header = Filterbereich (einklappbar), Inhalt = `sap.m.Table`.
-
-### 2.1 Filter
-
-Filter werden mit **Start** (oder Enter in einem Feld) angewendet, **Zurücksetzen** stellt Defaults her. Aufbau mit `sap.m`-Controls in einem responsiven Grid; **kein** `sap.ui.comp`.
-
-| Filter | Control | Default | OData |
-|---|---|---|---|
-| Suche (Name, Name 2, Magento-Company) | `SearchField` | – | `contains` auf name/name2/magentoCompany |
-| Debitor | `Input` | – | `customer eq` |
-| Verkaufsorganisation | `MultiComboBox` (Werte: VKORG des Benutzers) | alle erlaubten | `salesOrganization in` |
-| Prozessart | `MultiComboBox` ← `/ProcessTypes` | alle | `processType in` |
-| Status | `MultiComboBox` ← `/Statuses` | alle offenen | `status_code in` |
-| Quelle | `MultiComboBox` | alle | `source in` |
-| Bestellung vorhanden | `Select` (Alle/Ja/Nein) | Alle | `orderExists eq` |
-| Erstellt am | `DateRangeSelection` | – | `createdAt ge/le` |
-| Erstellt von / Geändert von | `Input` | – | `createdBy` / `modifiedBy` |
-| Geändert am | `DateRangeSelection` | – | `modifiedAt ge/le` |
-| Erledigte einbeziehen (9xx) | `CheckBox` | aus | ohne Haken: `status_code` nicht 9xx |
-| Abgelehnte einbeziehen (8xx) | `CheckBox` | aus | ohne Haken: `status_code` nicht 8xx |
-| Nur nicht freigegebene | `CheckBox` | aus | `released eq false` |
-| Nur in Klärung | `CheckBox` | aus | `inClarification eq true` |
-
-Filterzustand bleibt beim Wechsel Liste ↔ Detail erhalten (JSON-Model `view`), nicht über Sessions hinweg.
-
-Umsetzung Status-Filter: Ist im Status-Filter explizit etwas gewählt, gilt nur diese Auswahl; die Haken „Erledigte/Abgelehnte einbeziehen“ wirken nur bei leerem Status-Filter. Werte für VKORG und Quelle per `$apply=groupby(...)` aus den für den Benutzer sichtbaren Vorgängen.
+Der Filterzustand bleibt beim Wechsel Liste ↔ Detail erhalten (FE-App-State).
 
 ### 2.2 Tabelle
 
-`sap.m.Table`, `growing` (Threshold 50), `sticky` Header, Titel „Vorgänge ({count})“ über `$count`. Default-Sortierung `createdAt` aufsteigend (Arbeitsvorrat: ältester zuerst), Sortierung per Spaltenmenü/`ViewSettingsDialog`.
+Responsive Tabelle, keine Zeilenselektion, Zeilenklick öffnet das Detail; Titel „Vorgänge (n)“ (`HeaderInfo.TypeNamePlural` + `$count`); Standardsortierung `createdAt` aufsteigend (`PresentationVariant#Default`); Sortierung und Spaltenauswahl über die Tabelleneinstellungen (Personalisierung Spalten/Sortierung).
 
-| Spalte | Inhalt | Popin < 1024 px |
+| Spalte | Inhalt | Popin (< Desktop) |
 |---|---|---|
-| Status | `ObjectStatus` (Icon + Text, State nach Gruppe, §5) | nein |
-| Hinweise | Icons: nicht freigegeben, in Klärung, Bestellung vorhanden (je Tooltip) | nein |
-| Prozessart | Text aus `ProcessTypes` | ja |
-| Name | `ObjectIdentifier` (Titel name, Text name2) | nein |
-| Debitor | customer | ja |
-| VKORG | salesOrganization | ja |
-| Magento-Company | magentoCompany | ja |
-| Bestellvolumen | `ObjectNumber` (orderVolume, currency) | ja |
-| Erstellt | createdAt (Datum/Zeit), createdBy | ja |
-| Geändert | modifiedAt, modifiedBy | ja |
+| Status | Statustext mit Kritikalität und Icon (`status_code` + `Common.Text`, `statusCriticality`) | nein (High) |
+| Hinweise | Custom Column `ext/fragment/HintsColumn.fragment.xml`: Schloss (nicht freigegeben), ? (in Klärung), Wagen (Bestellung) | nein (High) |
+| Prozessart | Text (`processType` + `Common.Text`) | ja |
+| Name | Name 1 / Name 2 untereinander (`FieldGroup#Name`) | nein (High) |
+| Debitor | `customer` | ja |
+| VKORG | `salesOrganization` | ja |
+| Magento-Company | `magentoCompany` | ja |
+| Bestellvolumen | `orderVolume` mit Währung | ja |
+| Erstellt | `createdAt` / `createdBy` (`FieldGroup#Created`) | ja |
+| Geändert | `modifiedAt` / `modifiedBy` (`FieldGroup#Changed`) | ja |
 
-- Zeilen mit `orderExists = true`: `highlight="Information"` (Ersatz für die farbige Zeile im Altsystem).
-- Status- und Prozessarttexte/-gruppen kommen aus den Codelisten `/Statuses` und `/ProcessTypes`, die die Komponente einmal lädt (Code → Text/Gruppe). `status` wird **nicht** expandiert: ändert ein Schritt den Statusschlüssel, scheitert sonst der Refresh der (selektierten, kept-alive) Listenzeile im V4-Model.
-- Toolbar: Aktualisieren, Sortieren.
-- Klick auf Zeile → Route `detail`. Ausgewählte Zeile bleibt markiert.
-- Leerzustand: „Keine Vorgänge für die Filterkriterien gefunden.“
+Zeilen mit Bestellung sind blau hervorgehoben (`UI.LineItem.@UI.Criticality: orderCriticality`). Leerzustand: FE-Standard („Keine Daten …“).
 
-## 3. Detail (Mid Column)
+## 3. Detail (Object Page)
 
-`sap.uxap.ObjectPageLayout` mit `ObjectPageDynamicHeaderTitle`. Element-Binding auf `/Requests({id})` mit `$$updateGroupId: 'changes'`; `$expand`/`$select` für `salesData`, `admin`, `shipTo`, `log` erzeugt `autoExpandSelect` aus den Bindings (Status über Codeliste, s. §2.2).
+### 3.1 Kopf
 
-### 3.1 Header
+- Titel `name`, Untertitel Prozessart (Text), FE-Draft-Indikator.
+- Custom Header Facet `ClarificationStrip`: Warn-Strip „In Klärung: {clarificationComment}“, nur bei `inClarification`.
+- Kopf-Facetten: DataPoint **Status** (`status_code`, `statusCriticality`), DataPoint **Freigabe** (`releaseState` mit Text aus `ReleaseStates`, grün freigegeben / orange nicht freigegeben), **Kennzahlen** (Debitor, Geschäftspartner, VKORG, Bestellung vorhanden, Bestellvolumen), **Verwaltungsdaten** (erstellt/geändert von/am).
 
-| Bereich | Inhalt |
-|---|---|
-| Titel | name (+ name2) |
-| Untertitel | Prozessart-Text · Magento-Company |
-| Status | `ObjectStatus` Status (Icon, State) |
-| Freigabe | „Freigegeben (automatisch/manuell/nicht erforderlich)“ bzw. „Nicht freigegeben“ (State Warning) |
-| Klärung | bei `inClarification`: `MessageStrip` (Warning) mit `clarificationComment` |
-| Kennzahlen | Debitor, Geschäftspartner, VKORG, Bestellung vorhanden, Bestellvolumen |
-| Verwaltung | Erstellt von/am, Geändert von/am |
+### 3.2 Kopfaktionen
 
-### 3.2 Header-Aktionen
-
-| Aktion | Sichtbar / aktiv wenn |
-|---|---|
-| Bearbeiten | Anzeigemodus, `isEditable`, Rolle Editor |
-| Sichern (emphasized) / Abbrechen | Bearbeitungsmodus |
-| Schritt ausführen (`Button` + `sap.m.Menu`; Menü wird erst nach dem Laden von `availableSteps()` geöffnet) | Anzeigemodus, Rolle Editor; Einträge aus `availableSteps()` (bei jedem Öffnen neu laden); deaktiviert bei ungesicherten Änderungen (Tooltip „Bitte zuerst sichern oder verwerfen“) |
-| Aktualisieren | immer |
-
-Destruktive Schritte (`destructive = true`) werden im Menü zuletzt und mit Warn-Icon angezeigt.
+| Aktion | Sichtbar / aktiv | Umsetzung |
+|---|---|---|
+| Bearbeiten (FE) | nur wenn `editHidden = false` (= `isEditable`: Status offen, freigegeben, Rolle MonitorEditor) | `@UI.UpdateHidden: editHidden`, Draft (§4.1) |
+| Schritt ausführen (Menü) | immer; Einträge aktiv je `can*`-Flag; alle inaktiv, solange ein Entwurf existiert | `UI.DataFieldForActionGroup #Steps` mit 11 Aktionen, destruktive (Ablehnen, Erneut bearbeiten) zuletzt |
+| Aktualisieren | immer | Custom Action → `ObjectPageExt.onRefresh` (`ExtensionAPI.refresh`) |
+| Vollbild / Schließen | FE-Standard (FCL) | |
 
 ### 3.3 Abschnitte
 
-Formulare als `sap.ui.layout.form.Form` mit `ColumnLayout`. Im Anzeigemodus `Text`, im Bearbeitungsmodus `Input`/`Select` (ein Control mit `editable`-Binding genügt).
+Anzeige über `UI.Facets`; Felder als `UI.FieldGroup`s, Kind-Entitäten über die 1:1-Navigation (`admin/@UI.FieldGroup#Admin` usw.). Bearbeitbar sind alle Felder, die im Service nicht `@readonly` sind; Pflichtfelder/Längen aus den Metadaten, fachliche Prüfung im Backend.
 
 | Abschnitt | Sichtbar | Felder (ro = nie editierbar) |
 |---|---|---|
-| Hauptdaten | immer | Anrede, Name 1–4 · Straße, Hausnummer, Straße 4, Straße 5, PLZ, Ort, Land · Sprache, Telefon, E-Mail · USt-IdNr., Steuernummer 2, Suchbegriff 2, Branche, DUNS |
-| Ansprechpartner (Admin) | `processType ≠ CR_WE` | AP-Nummer (ro), GP (ro), Magento-Customer (ro), Webshop-Rolle, Anrede, Vorname, Nachname, Funktion, Abteilung, Sprache, Telefon, E-Mail |
-| Vertriebsdaten | immer | VKORG (ro), Vertriebsweg, Sparte, Verkäufergruppe, Verkaufsbüro, Kundengruppe, Verkaufsbezirk, Incoterms 1/2 |
-| Warenempfänger | `processType = CR_WE` | WE-Nummer (ro), GP (ro), Magento-Address (ro), „Adresse in Auftrag verwendet“ (ro), Name 1–4, Straße, Hausnummer, Straße 4/5, PLZ, Ort, Land, USt-IdNr. |
-| Zuordnung | immer | Debitor, Geschäftspartner, Warenempfänger, AP-Nummer, Magento-Company/-Customer/-Address, Quelle, Freigabeverfahren, Freigegeben von/am (alle ro) |
-| Protokoll | immer | Tabelle `log` (s. u.) |
+| Hauptdaten (Gruppen Name, Adresse, Kommunikation, Steuerdaten) | immer | Anrede, Name 1–4; Straße, Hausnummer, Straße 4/5, PLZ, Ort, Land; Sprache, Telefon, E-Mail; USt-IdNr., Steuernummer 2, Suchbegriff 2, Branche, DUNS – alle editierbar |
+| Ansprechpartner (`admin`) | `processType ≠ CR_WE` (`UI.Hidden`-Ausdruck) | ro: AP-Nummer, GP, Magento-Customer; editierbar: Webshop-Rolle, Anrede, Vorname, Nachname, Funktion, Abteilung, Sprache, Telefon, E-Mail |
+| Vertriebsdaten (`salesData`) | immer | ro: VKORG; editierbar: Vertriebsweg, Sparte, Verkäufergruppe, Verkaufsbüro, Kundengruppe, Verkaufsbezirk, Incoterms 1/2 |
+| Warenempfänger (`shipTo`) | `processType = CR_WE` | ro: WE-Nummer, GP, Magento-Address, Adresse in Auftrag verwendet; editierbar: Name 1–4, Straße, Hausnummer, Straße 4/5, PLZ, Ort, Land, USt-IdNr. |
+| Zuordnung (Gruppen SAP-Nummern, Magento, Freigabe) | immer | alle ro: Debitor, GP, Warenempfänger, AP-Nummer; Magento-Company/-Customer/-Address, Quelle; Freigabeverfahren, freigegeben von/am |
+| Protokoll (`log`) | immer | Tabelle: Typ (Icon mit Kritikalität), Zeitpunkt, Benutzer, Schritt, Meldung, Feld, alter/neuer Wert; neueste zuerst (`PresentationVariant#Log`) |
 
-Protokoll-Tabelle: Typ (Icon), Zeitpunkt, Benutzer, Schritt, Meldung, Feld, Alter Wert, Neuer Wert. Neueste zuerst. Wird nach jedem Sichern und jedem Schritt neu geladen.
-
-Feldlängen/Pflichtfelder aus Metadaten; Validierung clientseitig nur für Format (Länge, E-Mail), fachliche Prüfung im Backend.
+Abschnitte werden von FE lazy geladen (beim Scrollen bzw. Anklicken des Reiters).
 
 ## 4. Abläufe
 
-### 4.1 Bearbeiten und Sichern
+### 4.1 Bearbeiten (Draft)
 
-1. **Bearbeiten** → `view>/editMode = true`.
-2. Änderungen landen in Update-Gruppe `changes` (kein Auto-Submit).
-3. **Sichern** → `submitBatch('changes')`.
-   - Erfolg: MessageToast „Gesichert“, `editMode = false`, Log neu laden.
-   - 412: MessageBox „Der Vorgang wurde zwischenzeitlich geändert. Daten werden neu geladen; Ihre Änderungen gehen verloren.“ → `resetChanges('changes')`, Refresh.
-   - Fachlicher Fehler: Meldungen im `MessagePopover`, Bearbeitungsmodus bleibt.
-4. **Abbrechen** → bei `hasPendingChanges()` Rückfrage, dann `resetChanges('changes')`, `editMode = false`.
+1. **Bearbeiten** → `draftEdit` (vorher lädt die Extension den Vorgang neu, damit kein veralteter ETag auftritt). Nicht bearbeitbare Vorgänge (abgeschlossen, nicht freigegeben, Viewer) zeigen die Aktion nicht; ein Entwurf eines anderen Benutzers → Hinweis „gesperrt von …“ (409 `DRAFT_ALREADY_EXISTS`).
+2. Jede Feldänderung wird sofort im Entwurf gespeichert (PATCH auf dem Draft, auch für Ansprechpartner/Vertrieb/Warenempfänger).
+3. **Sichern** → `draftActivate`: Vorgang wird aktualisiert, je geändertem Feld ein Protokolleintrag, Entwurf gelöscht, Toast „Gesichert“ (FE). Fachliche Fehler bleiben im Bearbeitungsmodus (Meldungen im Fußbereich).
+4. **Abbrechen** → Entwurf verwerfen (Rückfrage, wenn Änderungen vorliegen).
+5. Während ein Entwurf existiert, sind alle Schritte gesperrt (Flags `false`); andere Benutzer können weder bearbeiten noch Schritte ausführen (Sperre 15 min, bei jeder Änderung verlängert).
 
 ### 4.2 Schritt ausführen
 
-```mermaid
-sequenceDiagram
-  actor U as Benutzer
-  participant UI as UI5 Detail
-  participant S as CAP Service
-  U->>UI: Schritt-Menü öffnen
-  UI->>S: availableSteps()
-  S-->>UI: [{step, text, input, …}]
-  U->>UI: Schritt wählen
-  UI->>U: Dialog je input (CONFIRM / TEXT / BUSINESS_PARTNER)
-  U->>UI: bestätigen
-  UI->>S: executeStep(...) + If-Match
-  alt 200
-    S-->>UI: Request (neuer Status) + sap-messages
-    UI->>UI: Kontext/Log/Liste aktualisieren, Meldungen zeigen
-  else 409 CONFIRM_REQUIRED
-    S-->>UI: Rückfrage
-    UI->>U: MessageBox.confirm(error.message)
-    U->>UI: Ja
-    UI->>S: executeStep(..., force=true)
-  else 412
-    UI->>U: Hinweis, neu laden
-  else 4xx
-    UI->>U: MessageBox.error / MessagePopover
-  end
-```
-
-Dialoge je `input`:
-
-| input | Dialog |
-|---|---|
-| `CONFIRM` | `MessageBox.confirm` mit Schritttext; bei `destructive` Titel/Icon Warning, Default-Aktion Abbrechen |
-| `TEXT` | `Dialog` mit `TextArea` (Pflicht, `maxLength = textMaxLength`, Zeichenzähler sichtbar); OK erst aktiv bei Eingabe |
-| `BUSINESS_PARTNER` | `Dialog` mit `Input` (max. 10 Zeichen, nur Ziffern; führende Nullen ergänzt der Server); Phase 2: Wertehilfe |
-| `NONE` | direkt ausführen |
-
-Während des Aufrufs: ObjectPage `busy`. Nach Erfolg: MessageToast mit Schritttext + neuem Status; bei Fehlerstatus (140/150/160) MessageBox.warning mit den Meldungen. Geänderte Prozessart blendet Abschnitte automatisch um (Binding).
+1. Menü **Schritt ausführen** → aktive Einträge nach `can*`-Flags des Backends (die UI rechnet nichts).
+2. Parameterlose Schritte (Freigeben, Erneut bearbeiten, Anlegen …) → FE-Bestätigungsdialog (`Common.IsActionCritical`, Texte `C_OPERATIONS_ACTION_CONFIRM_MESSAGE|Requests|<Aktion>` im App-Bundle).
+3. Anfrage ablehnen / In Klärung → FE-Parameterdialog mit Pflichttext (max. 100 Zeichen, `@mandatory`, `@UI.MultiLineText`). Debitor zuordnen → Parameterdialog Geschäftspartner (Pflicht, 1–10 Ziffern; Phase 2: Wertehilfe).
+4. Rückfrage des Backends (z. B. Debitor gehört anderer Magento-Company): Strict Handling – 412 mit Frage → FE-Bestätigungsdialog → Wiederholung ohne `Prefer`-Header ([03 §5.3](03_service_vertrag.md)).
+5. Ergebnis: Side Effects laden Status, Flags, Zuordnung, Protokoll und Kinder neu; die Listenzeile aktualisiert sich. Erfolg → Toast „{Schritt}: neuer Status „{Status}““; Fehlerstatus (140/150/160) → Meldungsdialog mit Warnungen; Abbruch (422 `STEP_ABORTED`) → Fehlerdialog, Eintrag im Protokoll.
+6. ETag-Konflikt (412 ohne `Preference-Applied`) → Fehlerdialog „zwischenzeitlich geändert“, danach **Aktualisieren**.
 
 ### 4.3 Meldungen
 
-- Zentrales Message-Model (`sap.ui.core.Messaging`), `MessagePopover` über Button im Detail-Footer (Anzahl als Badge, Button-Typ nach höchstem Schweregrad).
-- Technische Fehler (Netzwerk, 5xx): `MessageBox.error` mit Hinweis auf erneuten Versuch.
+FE-Standard: Meldungen aus `sap-messages` und Fehlerantworten erscheinen als Toast (eine Erfolgsmeldung), Dialog (Warnungen/Fehler, Rückfragen) oder im Meldungs-Button des Fußbereichs (gebundene Meldungen beim Bearbeiten). Technische Fehler (Service nicht erreichbar, 5xx) → FE-Fehlerdialog, kein Absturz.
 
-## 5. Status-Darstellung (Formatter)
+## 5. Status-Darstellung
 
-Gruppe kommt vom Service (`Statuses.group`), die UI mappt nur:
-
-| group | Status | ValueState | Icon |
-|---|---|---|---|
-| OPEN | 000, 010, 110, 120, 130 | Information | `sap-icon://pending` |
-| ERROR | 140, 150, 160 | Error | `sap-icon://error` |
-| REJECTED | 899 | None | `sap-icon://decline` |
-| DONE | 997, 998, 999 | Success | `sap-icon://complete` |
-
-Hinweis-Icons: nicht freigegeben `sap-icon://locked`, in Klärung `sap-icon://question-mark`, Bestellung `sap-icon://cart`.
+Kein Formatter: Farben und Icons kommen aus `statusCriticality` / `Statuses.criticality` (5 Information = OPEN, 1 Fehler = ERROR, 0 neutral = REJECTED, 3 Erfolg = DONE), Freigabe aus `releaseCriticality` (3 freigegeben, 2 nicht), Protokoll aus `LogEntries.criticality` ([03 §8](03_service_vertrag.md)). Hinweis-Icons: `locked` (nicht freigegeben), `question-mark` (in Klärung), `cart` (Bestellung vorhanden).
 
 ## 6. Texte und Sprachen
 
-- UI-Texte: `i18n.properties` (EN, Fallback) und `i18n_de.properties`. Weitere Sprachen (FR, IT, NL, SV) später; Schlüssel stabil halten.
-- Status-, Prozessart- und Schritttexte kommen sprachabhängig vom Service.
-- Domänenbegriffe deutsch wie im Altsystem (Debitor, Warenempfänger, Freigabe, Klärung).
+- Feld-, Aktions-, Abschnitts- und Spaltenbezeichner: `_i18n/i18n.properties` (EN) / `_i18n/i18n_de.properties` über `$metadata` (`Common.Label`).
+- Status-, Prozessart-, Schritt- und Freigabetexte: Codelisten des Service (`Accept-Language`).
+- App-Bundle (`webapp/i18n`): App-Titel, Spalte „Hinweise“ und Tooltips, Klärungs-Strip, Aktualisieren, Bestätigungstexte der Schritte.
+- Alle übrigen Texte (Bearbeiten, Sichern, Dialoge, Filterleiste …): `sap.fe` (EN/DE und weitere).
 
 ## 7. Nicht im Umfang Phase 1
 
-- Geschäftspartner in S/4 anzeigen (Link-Ziel klären: Fiori-App vs. GUI-Transaktion) → Phase 2.
-- Wertehilfen für Land, Sprache, BP, Verkaufsdaten → Phase 2.
-- Delta-Ansicht Original-Payload vs. aktueller Stand (Altsystem `ZDELTA`) → klären, ob benötigt.
-- Personalisierung (Tabellenvarianten), Export nach Excel.
+Anzeige des GP in S/4, Wertehilfen für Land/Sprache/GP/Vertriebsdaten (Phase 2, B-05), Delta-Ansicht des Original-Payloads, Excel-Export, Varianten (Variantenmanagement bewusst aus), Key-User-Adaption (Phase 3 mit Work Zone).

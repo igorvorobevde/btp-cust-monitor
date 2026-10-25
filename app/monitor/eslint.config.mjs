@@ -10,7 +10,8 @@ export default [
 			sourceType: "script",
 			globals: {
 				...globals.browser,
-				sap: "readonly"
+				sap: "readonly",
+				QUnit: "readonly"
 			}
 		},
 		rules: {
