@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<title>Integration Tests – Kundenmonitor (Fiori Elements)</title>
+	<script
+		id="sap-ui-bootstrap"
+		src="https://ui5.sap.com/1.148.12/resources/sap-ui-core.js"
+		data-sap-ui-theme="sap_horizon"
+		data-sap-ui-resource-roots='{ "hydac.custmon": "../../", "hydac.custmon.test": "../" }'
+		data-sap-ui-language="en"
+		data-sap-ui-compat-version="edge"
+		data-sap-ui-xx-component-preload="off"
+		data-sap-ui-async="true">
+	</script>
+	<link rel="stylesheet" type="text/css" href="https://ui5.sap.com/1.148.12/resources/sap/ui/thirdparty/qunit-2.css">
+	<script src="https://ui5.sap.com/1.148.12/resources/sap/ui/thirdparty/qunit-2.js"></script>
+	<script>QUnit.config.autostart = false;</script>
+	<script src="opaTests.qunit.js"></script>
+</head>
+<body>
+	<div id="qunit"></div>
+	<div id="qunit-fixture"></div>
+</body>
+</html>

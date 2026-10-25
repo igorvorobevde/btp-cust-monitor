@@ -22,13 +22,12 @@
   "scripts": {
     "start": "cds-serve",
     "watch": "cds watch",
-    "lint": "npm run lint --workspace app/monitor",
-    "lint:ui5": "npm run lint:ui5 --workspace app/monitor",
-    "lint:js": "npm run lint:js --workspace app/monitor",
-    "test": "npm run test:srv && npm run test:unit && npm run test:opa",
+    "lint": "npm run lint --workspace app/monitor-fe",
+    "lint:ui5": "npm run lint:ui5 --workspace app/monitor-fe",
+    "lint:js": "npm run lint:js --workspace app/monitor-fe",
+    "test": "npm run test:srv && npm run test:opa",
     "test:srv": "jest --runInBand",
-    "test:unit": "npm run test:unit --workspace app/monitor",
-    "test:opa": "npm run test:opa --workspace app/monitor",
+    "test:opa": "npm run test:opa --workspace app/monitor-fe",
     "start:test": "cds-serve --profile opa --port 4004"
   },
   "jest": {

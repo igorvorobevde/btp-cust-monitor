@@ -1,0 +1,20 @@
+{
+  "name": "monitor-fe",
+  "version": "0.2.0",
+  "description": "Kundenmonitor – Fiori Elements app (OData V4)",
+  "private": true,
+  "devDependencies": {
+    "@eslint/js": "9.39.5",
+    "@ui5/cli": "4.0.71",
+    "@ui5/linter": "1.23.7",
+    "eslint": "9.39.5",
+    "globals": "17.13.0",
+    "ui5-test-runner": "5.14.2"
+  },
+  "scripts": {
+    "lint": "npm run lint:ui5 && npm run lint:js",
+    "lint:ui5": "ui5lint",
+    "lint:js": "eslint webapp",
+    "test:opa": "ui5-test-runner --url http://localhost:4004/monitor-fe/test/integration/opaTests.qunit.html --start \"npm run start:test --prefix ../..\" --start-wait-url http://localhost:4004/odata/v4/monitor/$metadata --report-dir ../../coverage/opa"
+  }
+}

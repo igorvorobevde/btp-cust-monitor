@@ -1,84 +1,78 @@
-# 05 – UI5-Konventionen (Freestyle, JavaScript)
+# 05 – UI5-Konventionen (Fiori Elements V4, JavaScript)
+
+> Stand 25.10.2026: §1–§3 und §9 beschreiben die **Fiori-Elements-App** `app/monitor-fe` (ab F-16, [09](09_migration_fiori_elements.md)). §4–§8 gelten bis zum Cutover (F-21) noch für die Freestyle-App `app/monitor` und werden mit F-20/F-21 ersetzt.
 
 ## 1. Versionen und Bibliotheken
 
 - **SAPUI5 1.148.12 (LTS)** – festgelegt beim Setup (19.10.2026). Version beim Setup festlegen (gültige LTS laut https://ui5.sap.com/versionoverview.html) und in `manifest.json` (`minUI5Version`) sowie `index.html` fest eintragen.
-- Bibliotheken: `sap.m`, `sap.f`, `sap.uxap`, `sap.ui.layout`, `sap.ui.core`. Andere nur nach Abstimmung.
+- Bibliotheken: `sap.fe.templates` (zieht `sap.fe.core`, `sap.fe.macros`, `sap.ui.mdc`, `sap.ui.fl`, `sap.uxap`), `sap.m`, `sap.f`, `sap.ui.core`. Keine `sap.ui.comp`, kein `sap.ui.table`. Andere nur nach Abstimmung.
 - Theme `sap_horizon`.
-- Code muss UI5-2.0-tauglich sein: keine deprecated APIs (`ui5lint` meldet sie).
+- Code muss UI5-2.0-tauglich sein: keine deprecated APIs (`ui5lint` meldet sie). Eigener Code nur in `ext/` (Fragmente, Controller-Extension) und `test/`.
 
-## 2. Projektstruktur `app/monitor`
+## 2. Projektstruktur `app/monitor-fe` (nach Cutover `app/monitor`)
 
 ```
-app/monitor/
+app/monitor-fe/
 ├── package.json            # ui5 tooling, linter, test-runner
-├── ui5.yaml
+├── ui5.yaml                # cds-plugin-ui5 mountPath /monitor-fe
+├── eslint.config.mjs
+├── annotations.cds         # NUR Layout: SelectionFields, SelectionVariant, LineItem, HeaderInfo, Facets, Aktionsgruppe
 └── webapp/
-    ├── Component.js
-    ├── manifest.json
-    ├── index.html          # nur lokal; Bootstrap von ui5.sap.com (fixe Version)
-    ├── i18n/
-    │   ├── i18n.properties       # EN (Fallback)
-    │   └── i18n_de.properties
-    ├── view/
-    │   ├── App.view.xml          # FlexibleColumnLayout
-    │   ├── List.view.xml
-    │   ├── Detail.view.xml
-    │   └── fragments/
-    │       ├── DetailMainData.fragment.xml
-    │       ├── DetailAdmin.fragment.xml
-    │       ├── DetailSales.fragment.xml
-    │       ├── DetailShipTo.fragment.xml
-    │       ├── DetailAssignment.fragment.xml
-    │       ├── DetailLog.fragment.xml
-    │       ├── StepTextDialog.fragment.xml
-    │       └── StepBusinessPartnerDialog.fragment.xml
-    ├── controller/
-    │   ├── BaseController.js     # getRouter, getModel, getResourceBundle, navTo
-    │   ├── App.controller.js
-    │   ├── List.controller.js
-    │   └── Detail.controller.js
-    ├── model/
-    │   ├── models.js             # Device-Model u. ä.
-    │   └── formatter.js          # reine Funktionen, keine Seiteneffekte
-    ├── service/
-    │   └── StepService.js        # availableSteps/executeStep + Fehler-Mapping
-    ├── util/
-    │   ├── ErrorHandler.js       # zentrale Behandlung techn. Fehler
-    │   └── FilterBuilder.js      # Filterzustand → sap.ui.model.Filter
+    ├── Component.js        # sap.fe.core.AppComponent (8 Zeilen)
+    ├── manifest.json       # Routing/FCL, Templates, Tabellen-/Custom-Column-Konfiguration, Extensions
+    ├── index.html          # nur lokal; Bootstrap von ui5.sap.com (fixe Version), flexibility-services = SessionStorage
+    ├── css/style.css       # Präfix custmon
+    ├── changes/flexibility-bundle.json   # leer; verhindert 404 des StaticFileConnector im lokalen Lauf
+    ├── i18n/               # NUR App-Texte (Titel, Spalte „Hinweise“, Tooltips, Refresh); Feld-/Aktions-/Abschnittslabels
+    │                       # kommen aus $metadata (srv/monitor-annotations.cds + _i18n), FE-Texte aus sap.fe
+    ├── ext/
+    │   ├── fragment/       # HintsColumn.fragment.xml, ClarificationStrip.fragment.xml (F-17)
+    │   └── controller/     # ObjectPageExt.controller.js (F-18)
     └── test/
-        ├── unit/                 # QUnit: formatter, FilterBuilder, StepService
-        └── integration/          # OPA5: Journeys gegen laufenden CAP-Mock
+        ├── debug.html, debugInit.js   # Dev-Hilfe: Konsolenfehler mit Stack, mdc-Property-Duplikate (scripts/fe-console.sh)
+        └── integration/    # OPA5 mit sap.fe.test: JourneyRunner, pages/, *Journey.js
 ```
+
+Vertrags-Semantik (Labels, `Common.Text`, Wertehilfen, Kritikalität, Side Effects, `UI.UpdateHidden`) liegt in `srv/monitor-annotations.cds` (E-13, [03 §8](03_service_vertrag.md)); `app/monitor-fe/annotations.cds` wird von CAP automatisch mitgeladen (`cds.resolve('*')`).
 
 ## 3. manifest.json (Kernpunkte)
 
 ```json
 {
-  "sap.app": {
-    "id": "hydac.custmon",
-    "dataSources": {
-      "mainService": { "uri": "/odata/v4/monitor/", "type": "OData", "settings": { "odataVersion": "4.0" } }
-    }
-  },
+  "sap.app": { "id": "hydac.custmon",
+    "dataSources": { "mainService": { "uri": "/odata/v4/monitor/", "type": "OData", "settings": { "odataVersion": "4.0" } } } },
   "sap.ui5": {
-    "rootView": { "viewName": "hydac.custmon.view.App", "type": "XML", "async": true, "id": "app" },
+    "flexEnabled": true,
+    "rootView": { "viewName": "sap.fe.templates.RootContainer.view.Fcl", "type": "XML", "id": "appRootView" },
+    "dependencies": { "libs": { "sap.ui.core": {}, "sap.m": {}, "sap.f": {}, "sap.fe.templates": {} } },
     "models": {
       "": { "dataSource": "mainService", "preload": true,
             "settings": { "operationMode": "Server", "autoExpandSelect": true, "earlyRequests": true } },
       "i18n": { "type": "sap.ui.model.resource.ResourceModel",
-                "settings": { "bundleName": "hydac.custmon.i18n.i18n", "supportedLocales": ["", "de"], "fallbackLocale": "" } }
-    },
-    "routing": { "config": { "routerClass": "sap.f.routing.Router", "type": "View", "viewType": "XML",
-                             "path": "hydac.custmon.view", "controlId": "fcl" } }
-  }
+                "settings": { "bundleName": "hydac.custmon.i18n.i18n", "supportedLocales": ["", "de"], "fallbackLocale": "" } } },
+    "routing": {
+      "config": { "routerClass": "sap.f.routing.Router", "controlId": "appContent", "controlAggregation": "beginColumnPages",
+                  "flexibleColumnLayout": { "defaultTwoColumnLayoutType": "TwoColumnsMidExpanded" } },
+      "routes": [ { "name": "RequestsList", "pattern": ":?query:", "target": ["RequestsList"] },
+                  { "name": "RequestsObjectPage", "pattern": "Requests({key}):?query:", "target": ["RequestsList", "RequestsObjectPage"] } ],
+      "targets": {
+        "RequestsList": { "type": "Component", "name": "sap.fe.templates.ListReport", "controlAggregation": "beginColumnPages",
+          "options": { "settings": { "contextPath": "/Requests",
+            "defaultTemplateAnnotationPath": "com.sap.vocabularies.UI.v1.SelectionPresentationVariant#Default",
+            "initialLoad": "Enabled", "variantManagement": "None",
+            "controlConfiguration": { "@com.sap.vocabularies.UI.v1.LineItem": { "tableSettings": { "type": "ResponsiveTable", "selectionMode": "None" },
+              "columns": { "HintsColumn": { "template": "hydac.custmon.ext.fragment.HintsColumn", "properties": ["released", "inClarification", "orderExists"],
+                           "position": { "placement": "After", "anchor": "DataField::status_code" } } } } } } } },
+        "RequestsObjectPage": { "type": "Component", "name": "sap.fe.templates.ObjectPage", "controlAggregation": "midColumnPages",
+          "options": { "settings": { "contextPath": "/Requests", "editableHeaderContent": false, "showRelatedApps": false } } } } } }
 }
 ```
 
-- `supportedLocales` enthält `""` (nicht `"en"`): `i18n.properties` ist der englische Fallback; mit `"en"` würde UI5 `i18n_en.properties` suchen.
-- `_version` 2.0.0: `routing/config/async` entfällt (Manifest 2 ist immer async; `ui5lint` meldet es sonst als Fehler).
-
-Routen und Layouts: siehe [04_ui_spezifikation.md §1](04_ui_spezifikation.md#1-layout-und-navigation).
+- `supportedLocales` enthält `""` (nicht `"en"`): `i18n.properties` ist der englische Fallback.
+- `_version` 2.0.0: kein `async` in `rootView`/`routing.config` (`ui5lint` meldet es als Fehler).
+- FCL: `rootView` **muss** `sap.fe.templates.RootContainer.view.Fcl` sein und `routing.config.controlId` = `appContent`, sonst „Control appContent does not have an aggregation called beginColumnPages“.
+- Der Filter „Bearbeitungsstatus“ (`$editState`) wird von FE für Draft-Entitäten automatisch ergänzt; er darf **nicht** zusätzlich unter `filterFields` konfiguriert werden (doppelter Property-Key → Seite bleibt busy).
+- Deep-Link-Format: `#/Requests(ID=<uuid>,IsActiveEntity=true)`; alte Lesezeichen `#/requests/<uuid>` werden in `Component.js` umgeschrieben (F-17).
 
 ## 4. Modelle
 
@@ -149,7 +143,9 @@ Tool-Versionen sind in den `package.json` gepinnt (Stand 19.10.2026): `@sap/cds`
 
 ## 9. Lokale Entwicklung
 
-- Root: `cds watch` startet Service (Port 4004); `cds-plugin-ui5` (abgestimmt 19.10.2026) served die App über UI5-Tooling-Middlewares → App unter `http://localhost:4004/monitor/index.html` (Mount-Pfad in `app/monitor/ui5.yaml`).
-- `ui5.yaml` hat bewusst keinen `framework`-Abschnitt: `index.html` und Testseiten laden SAPUI5 vom CDN, ein lokaler Framework-Download entfällt. `index.html` setzt `xx-component-preload="off"` (ungebaut gibt es keine `Component-preload.js`).
-- Mock-Benutzer: `alice` (Editor + Releaser, VKORG 0001/2000/7050), `bob` (Viewer, VKORG 0001) in `.cdsrc.json` (`[development]`).
-- Netzwerk-Inspektion: `$batch`-Requests im Browser-Devtools prüfen; ETag im `If-Match`-Header sichtbar.
+- Root: `cds watch` startet Service (Port 4004); `cds-plugin-ui5` served die Apps über UI5-Tooling-Middlewares → FE-App unter `http://localhost:4004/monitor-fe/index.html` (Mount-Pfad in `app/monitor-fe/ui5.yaml`; nach Cutover `/monitor`).
+- `ui5.yaml` hat bewusst keinen `framework`-Abschnitt: `index.html` und Testseiten laden SAPUI5 (inkl. `sap.fe.*`) vom CDN. `index.html` setzt `xx-component-preload="off"` und `flexibility-services` auf `SessionStorageConnector` (lokal keine Flex-404s; in Work Zone liefert das Launchpad den Flex-Service).
+- Mock-Benutzer: `alice` (Editor + Releaser, VKORG 0001/2000/7050), `bob` (Viewer, VKORG 0001), `carol` (Editor, Sperrtests) in `.cdsrc.json` (`[development]`).
+- Headless-Prüfung ohne Browserfenster: `scripts/fe-console.sh [pfad#hash] [budget-ms]` startet den Mock (Profil `opa`), lädt die Seite in Headless Chrome und gibt Konsolenfehler, DOM-Kurzfassung und Screenshot aus (`$TMPDIR/fe-console/shot.png`). `test/debug.html` ergänzt JS-Stacks zu Konsolenfehlern und meldet doppelte mdc-Property-Keys (`DUPKEYS`).
+- Bekannte, harmlose Konsolenzeile im Standalone-Lauf: „S/CUBE is not yet supported“ (`sap.fe.core` ContextSharingService versucht, sich am SAP-Insights-Kanal zu registrieren; nur mit Launchpad vorhanden).
+- Netzwerk-Inspektion: `$batch`-Requests im Browser-Devtools prüfen; ETag im `If-Match`-Header sichtbar; Aktionen senden `Prefer: handling=strict` ([03 §5.3](03_service_vertrag.md)).

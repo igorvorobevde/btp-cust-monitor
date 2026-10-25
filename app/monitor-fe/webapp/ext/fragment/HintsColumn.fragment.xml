@@ -1,0 +1,10 @@
+<core:FragmentDefinition
+	xmlns="sap.m"
+	xmlns:core="sap.ui.core">
+	<!-- Custom column "Hinweise" (docs/04 §2.2): icons for not released / in Klärung / order exists -->
+	<HBox>
+		<core:Icon src="sap-icon://locked" visible="{= !${released} }" tooltip="{i18n>list.hint.notReleased}" class="custmonHintIcon"/>
+		<core:Icon src="sap-icon://question-mark" visible="{= !!${inClarification} }" tooltip="{i18n>list.hint.inClarification}" class="custmonHintIcon"/>
+		<core:Icon src="sap-icon://cart" visible="{= !!${orderExists} }" tooltip="{i18n>list.hint.orderExists}" class="custmonHintIcon"/>
+	</HBox>
+</core:FragmentDefinition>

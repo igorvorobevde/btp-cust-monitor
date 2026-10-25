@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<title>Kundenmonitor – debug page (console errors with stack)</title>
+	<!-- Dev helper (docs/05 §9): loads the app standalone and prints every console.error with its JS stack.
+	     Use with headless Chrome: chrome --headless=new --enable-logging=stderr --virtual-time-budget=30000 --dump-dom <url> -->
+	<script>
+		(function () {
+			var fnError = console.error.bind(console);
+			console.error = function () {
+				var aArgs = Array.prototype.slice.call(arguments);
+				fnError.apply(null, aArgs);
+				fnError("STACK " + String(aArgs[0]).slice(0, 80) + " :: " + new Error().stack.split("\n").slice(2, 9).join(" | "));
+			};
+		})();
+	</script>
+	<script
+		id="sap-ui-bootstrap"
+		src="https://ui5.sap.com/1.148.12/resources/sap-ui-core.js"
+		data-sap-ui-theme="sap_horizon"
+		data-sap-ui-language="en"
+		data-sap-ui-resource-roots='{ "hydac.custmon": "../" }'
+		data-sap-ui-on-init="module:hydac/custmon/test/debugInit"
+		data-sap-ui-compat-version="edge"
+		data-sap-ui-xx-component-preload="off"
+		data-sap-ui-async="true"
+		data-sap-ui-log-level="ERROR"
+		data-sap-ui-flexibility-services='[{"connector":"SessionStorageConnector"}]'>
+	</script>
+</head>
+<body class="sapUiBody sapUiSizeCompact" id="content">
+	<div class="custmonRoot" data-sap-ui-component data-name="hydac.custmon" data-id="container" data-settings='{ "id": "custmon" }' data-height="100%"></div>
+</body>
+</html>
