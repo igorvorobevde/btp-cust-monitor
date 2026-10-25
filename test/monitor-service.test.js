@@ -415,6 +415,16 @@ describe("F-12 draft editing", () => {
 		expect(after["@odata.count"]).toBe(before["@odata.count"]);
 	});
 
+	test("activation writes only editable fields – read-only values changed meanwhile are kept", async () => {
+		await edit(6);
+		await patchDraft(6, "", { name2: "Werk Süd" });
+		// simulate a concurrent change of the active record (a step that slipped past the draft guard)
+		await cds.run(UPDATE("hydac.custmon.Requests").where({ ID: id(6) }).with({ status_code: "140", customer: "4999999" }));
+		await activate(6);
+		const { data } = await GET(url(6, "?$select=status_code,customer,name2"), ALICE);
+		expect(data).toMatchObject({ status_code: "140", customer: "4999999", name2: "Werk Süd" });
+	});
+
 	test("edit guards: closed request, missing ETag, viewer, create", async () => {
 		const closed = await failure(edit(12));
 		expect(closed.status).toBe(409);

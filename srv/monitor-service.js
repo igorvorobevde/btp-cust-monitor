@@ -57,6 +57,19 @@ const FLAG_INPUT = ["ID", "status_code", "released", "inClarification", "source"
 /** OData Strict Handling: ohne `Prefer: handling=strict` gilt eine Rückfrage als bestätigt (03 §5.3) */
 const isStrict = (req) => /\bhandling=strict\b/i.test(req.headers.prefer || "");
 
+/** Entfernt read-only/berechnete Elemente (außer Schlüssel und Fremdschlüssel zum Vorgang) aus einem Schreib-Payload. */
+function stripReadOnly(data, entity) {
+	if (!data || typeof data !== "object") {
+		return;
+	}
+	for (const field of Object.keys(data)) {
+		const element = entity.elements[field];
+		if (element && !element.key && field !== "request_ID" && (element["@readonly"] || element["@Core.Computed"])) {
+			delete data[field];
+		}
+	}
+}
+
 /** Feldvergleich für das Änderungsprotokoll: leer und null gelten als gleich */
 const normalize = (value) => (value === "" || value == null ? null : value);
 
@@ -311,6 +324,12 @@ module.exports = class CustomerMonitorService extends cds.ApplicationService {
 			if (changes.some((c) => c.field.startsWith(forbidden))) {
 				req.reject({ status: 409, code: ErrorCodes.NOT_EDITABLE, message: t(req, "NOT_EDITABLE") });
 			}
+			// Nur editierbare Felder schreiben: read-only/berechnete Werte im Draft-Payload sind die Kopie vom draftEdit
+			// und dürfen zwischenzeitliche Änderungen des aktiven Vorgangs (Schritte) nicht zurückdrehen
+			stripReadOnly(req.data, Requests);
+			stripReadOnly(req.data.salesData, SalesData);
+			stripReadOnly(req.data.admin, ContactPersons);
+			stripReadOnly(req.data.shipTo, ShipToParties);
 			await writeLog(req, ID, changes.map((c) => ({
 				messageType: "S",
 				messageNumber: "040",
@@ -330,7 +349,8 @@ module.exports = class CustomerMonitorService extends cds.ApplicationService {
 			await delay();
 			const ID = lastKey(req);
 			const request = await loadRequest(req, ID);
-			// ETag Pflicht, kein If-Match: * (03 §3) – zusätzlich zur generischen CAP-Prüfung
+			// ETag Pflicht, kein If-Match: * (03 §3). Dies ist die EINZIGE ETag-Prüfung für Schrittaktionen:
+			// CAP registriert seine generische Prüfung bei draft-enabled Entitäten nur für Aktionen auf dem Entwurf.
 			if (!sameETag(req.headers["if-match"], request.modifiedAt)) {
 				req.reject(412, t(req, "ETAG_REQUIRED"));
 			}
@@ -394,7 +414,12 @@ module.exports = class CustomerMonitorService extends cds.ApplicationService {
 				return req.reject({ status: e.status, code: e.code, message, target });
 			}
 
-			await UPDATE(db.Requests, ID).with({ ...result.requestChanges, modifiedAt: now, modifiedBy: req.user.id });
+			// Bedingtes Schreiben: nur wenn der Vorgang seit dem Lesen unverändert ist (kein Fenster zwischen Prüfung und Schreiben)
+			const affected = await UPDATE(db.Requests).where({ ID, modifiedAt: request.modifiedAt })
+				.with({ ...result.requestChanges, modifiedAt: now, modifiedBy: req.user.id });
+			if (!affected) {
+				req.reject(412, t(req, "ETAG_REQUIRED"));
+			}
 			if (request.admin && Object.keys(result.adminChanges).length) {
 				await UPDATE(db.ContactPersons, request.admin.ID).with({ ...result.adminChanges, modifiedAt: now });
 			}
