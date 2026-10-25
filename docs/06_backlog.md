@@ -44,9 +44,8 @@ Messaging + MessagePopover, `ErrorHandler.js` für 5xx/Netzwerk.
 QUnit (formatter, FilterBuilder, StepService-Mapping), OPA-Journeys: Liste filtern → Detail → Bearbeiten/Sichern → Schritt REJECT.
 **AK:** `npm test` grün; `npm run lint` ohne Fehler.
 
-### F-10 Feinschliff — in Arbeit
-Leerzustände, Busy-Indikatoren, Tastaturbedienung, Tooltips für Icon-Spalten, Responsiveness (Popin).
-*Stand:* Leerzustände, Busy (ObjectPage/Schritt-Button, Delay 0), Tooltips Hinweis-Icons, Popin umgesetzt. Offen: Review Tastaturbedienung, Test-Starter-Migration der Testseiten (ui5lint-Warnung).
+### F-10 Feinschliff — erledigt (abgelöst durch F-22)
+Leerzustände, Busy-Indikatoren, Tastaturbedienung, Tooltips für Icon-Spalten, Responsiveness (Popin) – mit der Fiori-Elements-App (F-16–F-22) Standardverhalten. Offen geblieben: Test-Starter-Migration der Testseite (ui5lint-Warnung).
 
 **Hinweise zur Umsetzung F-00–F-09 (19.10.2026):**
 - F-01: Abgleich mit SE11-Export der Altstrukturen steht noch aus (Export liegt nicht vor) – Feldlisten = Entwurf aus 03.
@@ -107,7 +106,7 @@ JourneyRunner, Page Objects (ListReport/ObjectPage), drei Journeys (Liste/Filter
 `app/monitor` (Freestyle) löschen, `app/monitor-fe` → `app/monitor`, mountPath `/monitor`, Skripte/README, 04 als FE-Spezifikation, 05, 08; QUnit entfernt; CLAUDE.md-Regeln final.
 **AK:** `npm install && cds watch` startet nur noch die FE-App unter `/monitor`; `npm run lint`, `npm test` grün; Docs ohne Verweise auf Freestyle-Artefakte (`availableSteps`, `executeStep`, `FilterBuilder`, `StepService` nur noch historisch in 06).
 
-### F-22 Feinschliff — offen
+### F-22 Feinschliff — erledigt
 Spaltenbreiten, Popin-Layout, Tooltips, Leerzustände (FE Illustrated Message), Tastaturbedienung, Deep-Link-Doku, Hinweis zur Draft-Sperre (15 min) in der Benutzerdoku; schließt F-10 ab.
 **AK:** Visueller Abgleich mit 04 §2/§3; keine Konsolenfehler.
 

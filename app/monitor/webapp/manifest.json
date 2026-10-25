@@ -142,6 +142,33 @@
 										"popinLayout": "GridSmall"
 									},
 									"columns": {
+										"DataField::status_code": {
+											"width": "12rem"
+										},
+										"DataField::processType": {
+											"width": "10rem"
+										},
+										"DataFieldForAnnotation::FieldGroup::Name": {
+											"width": "15rem"
+										},
+										"DataField::customer": {
+											"width": "7rem"
+										},
+										"DataField::salesOrganization": {
+											"width": "6rem"
+										},
+										"DataField::magentoCompany": {
+											"width": "8rem"
+										},
+										"DataField::orderVolume": {
+											"width": "8rem"
+										},
+										"DataFieldForAnnotation::FieldGroup::Created": {
+											"width": "10rem"
+										},
+										"DataFieldForAnnotation::FieldGroup::Changed": {
+											"width": "10rem"
+										},
 										"HintsColumn": {
 											"key": "HintsColumn",
 											"header": "{i18n>list.col.hints}",
