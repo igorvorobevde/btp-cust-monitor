@@ -399,3 +399,17 @@ Fiori Elements leitet Farben/Icons aus Kritikalitätswerten (`UI.CriticalityType
 | `LogEntries.criticality` | `messageType` (on-read) | S 3, W 2, E/A 1, I 5 |
 
 Alle Elemente sind read-only; Texte folgen `Accept-Language` wie bei den übrigen Codelisten.
+
+**Labels, Texte, Wertehilfen, Suche (F-15, `srv/monitor-annotations.cds` – Vertragsbestandteil, E-13):**
+
+| Was | Annotation | Quelle |
+|---|---|---|
+| Feldbezeichner (`Common.Label`) aller Elemente und Aktionsparameter | `@title: '{i18n>field.*}'` / `'{i18n>param.*}'` | `_i18n/i18n.properties` (EN), `_i18n/i18n_de.properties`; `$metadata` folgt `Accept-Language` |
+| Aktionsbezeichner | `{i18n>action.*}` (Layout-Annotation in der App referenziert sie) | dieselben Bundles |
+| Status-/Prozessart-/Freigabetext | `Common.Text` + `TextArrangement #TextOnly` auf `status_code`, `processType`, `releaseState` | `Statuses.text`, `ProcessTypes.text` (über `processTypeRef`), `ReleaseStates.text` (über `releaseStateRef`) |
+| Wertehilfen mit festen Werten | `Common.ValueListWithFixedValues` + `Common.ValueList` auf `status_code`, `processType`, `statusGroup` | `Statuses`, `ProcessTypes`, `StatusGroups` |
+| Wertehilfen VKORG / Quelle | `Common.ValueList` auf `salesOrganization`, `source` | `SalesOrganizations`, `Sources` (§3) |
+| Volltextsuche | `@cds.search: { name, name2, magentoCompany }` | `$search` der Liste |
+| Hilfsfelder | `@UI.Hidden` auf `statusCriticality`, `orderCriticality`, `releaseCriticality`, `editHidden`, `LogEntries.criticality` | nur für Kritikalität/Sichtbarkeit, nicht als Feld sichtbar |
+
+`_i18n/messages*.properties` bleibt das Bundle für Fehler-, `sap-messages`- und Protokolltexte.

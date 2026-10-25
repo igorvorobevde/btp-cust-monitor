@@ -356,6 +356,23 @@ describe("F-14 strict handling and messages", () => {
 	});
 });
 
+describe("F-15 labels and texts", () => {
+	test("$metadata labels follow Accept-Language", async () => {
+		const de = (await GET(`${BASE}/$metadata`, { ...ALICE, headers: { "Accept-Language": "de" } })).data;
+		const en = (await GET(`${BASE}/$metadata`, { ...ALICE, headers: { "Accept-Language": "en" } })).data;
+		expect(de).toMatch(/Common.Label" String="Verkaufsorganisation"/);
+		expect(en).toMatch(/Common.Label" String="Sales Organization"/);
+		expect(en).toMatch(/Common.Text" Path="status\/text"/);
+		expect(en).toMatch(/Common.ValueList/);
+		expect(en).toMatch(/Common.Label" String="Reason"/);
+	});
+
+	test("$search covers name, name2 and magentoCompany", async () => {
+		expect((await GET(`${BASE}/Requests?$search=Hydraulik&$select=name`, ALICE)).data.value.some((r) => r.name === "Müller Hydraulik GmbH")).toBe(true);
+		expect((await GET(`${BASE}/Requests?$search=MC102&$select=magentoCompany`, ALICE)).data.value.map((r) => r.magentoCompany)).toEqual(["MC102"]);
+	});
+});
+
 describe("Optimistic concurrency (412)", () => {
 	test("stale, missing or * ETag on a step action → 412", async () => {
 		const stale = await etag(6);
