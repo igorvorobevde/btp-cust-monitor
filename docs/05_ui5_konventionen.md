@@ -129,17 +129,31 @@ Jeder neue Schlüssel in **beiden** Dateien. Keine Texte für Status/Schritte (k
 
 | Prüfung | Werkzeug | Befehl |
 |---|---|---|
-| UI5-Lint (deprecated APIs, Manifest) | `@ui5/linter` | `npm run lint:ui5` → `ui5lint` |
-| JS-Lint | ESLint (flat config, `eslint:recommended`, Browser-Globals) | `npm run lint:js` |
-| Unit-Tests | QUnit | `npm run test:unit` |
-| Integration | OPA5 gegen `cds watch` | `npm run test:opa` |
-| Service-Tests | `@cap-js/cds-test` + Jest | `npm run test:srv` |
+| UI5-Lint (deprecated APIs, Manifest, Fragmente) | `@ui5/linter` | `npm run lint:ui5` → `ui5lint` |
+| JS-Lint (`ext/`, `test/`) | ESLint (flat config, `eslint:recommended`, Browser-Globals + `QUnit`) | `npm run lint:js` |
+| Integration (Journeys gegen den CAP-Mock) | OPA5 mit `sap.fe.test` (`JourneyRunner`, Page Objects `ListReport`/`ObjectPage`) | `npm run test:opa` |
+| Service-Tests (Vertrag, Draft, Aktionen, Strict Handling) | `@cap-js/cds-test` + Jest | `npm run test:srv` |
+| Alles | `npm test` = `test:srv` + `test:opa` | |
+
+Keine QUnit-Unit-Tests mehr: Es gibt keine Formatter, keinen FilterBuilder und keinen StepService – die Logik liegt im Service (Jest) und in Fiori Elements. Eigener App-Code sind zwei Fragmente und eine Controller-Extension; sie werden über die Journeys abgedeckt.
+
+Journeys (`webapp/test/integration/*Journey.js`, je ein `run()` mit `opaTest`s; `opaTests.qunit.js` registriert sie beim `JourneyRunner` mit `launchParameters: { "sap-ui-language": "en" }`, damit Titel/Labels in den Tests sprachstabil sind):
+
+| Journey | Deckt ab |
+|---|---|
+| `ListJourney` | Standardfilter (18 offene Vorgänge), Prozessart-Filter (3 × CR_WE) |
+| `DetailJourney` | Deep-Link, Abschnitte je Prozessart, Protokoll neueste zuerst, Klärungs-Strip, Umschreiben alter Lesezeichen |
+| `StepJourney` | Aktionsmenü nach `can*`-Flags, Parameterdialog, Strict-Handling-Rückfrage, Schritte während eines Drafts gesperrt |
+| `EditJourney` | Draft bearbeiten (Hauptdaten + Ansprechpartner) → Sichern → Logeinträge; Draft bleibt bei Navigation erhalten, Verwerfen gibt die Schritte frei |
+
+Regeln für Journeys: Page Objects aus `sap.fe.test` verwenden (`onHeader()`, `onTable({ property })`, `onForm({ section, fieldGroup })`, `onActionDialog()`, `onConfirmationDialog()`), eigene Assertions nur als `CustomPageDefinitions` (z. B. `iDoNotSeeSectionWithTitle`). Abschnitte werden lazy geladen → vor Zugriff auf Tabellen/Felder eines Abschnitts `iGoToSection(...)`. Zeilen in `iPressRow` über einfache Spalten matchen (FieldGroup-Spalten wie „Name“ kennt die Testbibliothek nicht). Jeder Test endet mit `Then.iTeardownMyApp()`.
 
 Tool-Versionen sind in den `package.json` gepinnt (Stand 19.10.2026): `@sap/cds` 9.9.3, `@cap-js/sqlite` 2.4.3, `cds-plugin-ui5` 0.17.4, `@cap-js/cds-test` 1.0.2, `jest` 30.5.2, `@ui5/cli` 4.0.71, `@ui5/linter` 1.23.7, `eslint` 9.39.5 (10.x verlangt Node ≥ 20.19), `ui5-test-runner` 5.14.2.
 
-- `npm run test:unit` / `test:opa` starten den Service selbst (`npm run start:test`, Profil `opa`, Port 4004) – vorher laufendes `cds watch` beenden.
-- `ui5-test-runner` installiert beim ersten Lauf Puppeteer (Headless Chrome) global nach.
-- Die Testseiten sind klassische QUnit-Seiten; `ui5lint` empfiehlt die Migration auf den Test Starter (Warnung, offen).
+- `npm run test:opa` startet den Service selbst (`npm run start:test`, Profil `opa`, Port 4004) – vorher laufendes `cds watch` beenden. Berichte und Screenshots: `coverage/opa/`.
+- `ui5-test-runner` nutzt das installierte Google Chrome (Headless).
+- Die Testseite ist eine klassische QUnit-Seite; `ui5lint` empfiehlt die Migration auf den Test Starter (Warnung, offen).
+- `cds.test` und `ui5-test-runner` binden lokale Ports; in einer Sandbox ohne Port-Bindung (z. B. Coding-Assistent) laufen die Tests außerhalb der Sandbox.
 
 ## 9. Lokale Entwicklung
 

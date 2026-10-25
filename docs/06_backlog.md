@@ -99,7 +99,7 @@ HeaderInfo, HeaderFacets (DataPoints Status/Freigabe, Kennzahlen, Verwaltung), K
 `onBeforeEdit`-Refresh, `UI.ConnectedFields` (Straße/Hausnummer, PLZ/Ort), `$editState`-Filter ausgeblendet; 04 §4.1.
 **AK:** Bearbeiten nur bei `isEditable`; Feldänderungen in Hauptdaten und Ansprechpartner; Sichern erzeugt je Feld einen Logeintrag; Abbrechen mit Rückfrage verwirft; Navigation mit ungesichertem Draft zeigt FE-Datenverlust-Dialog; zweiter Benutzer (`carol`) sieht „gesperrt von alice“; Schritte sind gesperrt, solange ein Draft existiert.
 
-### F-20 OPA-Journeys mit `sap.fe.test` — offen
+### F-20 OPA-Journeys mit `sap.fe.test` — erledigt
 JourneyRunner, Page Objects (ListReport/ObjectPage), drei Journeys (Liste/Filter; Deep-Link + Bearbeiten + Protokoll; Schritt mit Rückfrage); `test:opa` auf neue Testseite, ggf. Test Starter.
 **AK:** `npm run test:opa` grün gegen `start:test`; Journeys decken die AK von F-16–F-19 ab.
 
