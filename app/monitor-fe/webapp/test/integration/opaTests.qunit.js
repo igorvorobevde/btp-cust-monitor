@@ -7,8 +7,9 @@ sap.ui.require([
 	"hydac/custmon/test/integration/pages/RequestsObjectPage",
 	"hydac/custmon/test/integration/ListJourney",
 	"hydac/custmon/test/integration/DetailJourney",
-	"hydac/custmon/test/integration/StepJourney"
-], async function (Core, JourneyRunner, RequestsList, RequestsObjectPage, ListJourney, DetailJourney, StepJourney) {
+	"hydac/custmon/test/integration/StepJourney",
+	"hydac/custmon/test/integration/EditJourney"
+], async function (Core, JourneyRunner, RequestsList, RequestsObjectPage, ListJourney, DetailJourney, StepJourney, EditJourney) {
 	"use strict";
 	await Core.ready();
 	const oRunner = new JourneyRunner({
@@ -16,6 +17,6 @@ sap.ui.require([
 		launchParameters: { "sap-ui-language": "en" },
 		opaConfig: { timeout: 60, autoWait: true }
 	});
-	oRunner.run({ pages: { onTheList: RequestsList, onTheDetail: RequestsObjectPage } }, ListJourney.run, DetailJourney.run, StepJourney.run);
+	oRunner.run({ pages: { onTheList: RequestsList, onTheDetail: RequestsObjectPage } }, ListJourney.run, DetailJourney.run, StepJourney.run, EditJourney.run);
 	QUnit.start();
 });

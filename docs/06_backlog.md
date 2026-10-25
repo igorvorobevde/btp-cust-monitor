@@ -95,7 +95,7 @@ HeaderInfo, HeaderFacets (DataPoints Status/Freigabe, Kennzahlen, Verwaltung), K
 `UI.Identification` mit `DataFieldForActionGroup #Steps` (11 Aktionen, destruktive zuletzt), i18n-Labels, Bestätigungstext für `reset`, Custom Action „Aktualisieren“ + Controller-Extension.
 **AK:** Menü „Schritt ausführen“ zeigt nur Aktionen mit Flag = true aktiv; `rejectRequest` öffnet FE-Parameterdialog (Pflichttext ≤ 100 Zeichen mit Zähler); `changeCustomerAssignment` mit BP 1000002 zeigt Strict-Handling-Rückfrage und wiederholt nach Bestätigen; Fehlerstatus-Schritt zeigt Meldungsdialog; Erfolg zeigt Toast; Status/Protokoll/Kopfdaten aktualisieren sich ohne Reload; Listenzeile zeigt neuen Status.
 
-### F-19 Draft-Bearbeitung in der UI — offen
+### F-19 Draft-Bearbeitung in der UI — erledigt
 `onBeforeEdit`-Refresh, `UI.ConnectedFields` (Straße/Hausnummer, PLZ/Ort), `$editState`-Filter ausgeblendet; 04 §4.1.
 **AK:** Bearbeiten nur bei `isEditable`; Feldänderungen in Hauptdaten und Ansprechpartner; Sichern erzeugt je Feld einen Logeintrag; Abbrechen mit Rückfrage verwirft; Navigation mit ungesichertem Draft zeigt FE-Datenverlust-Dialog; zweiter Benutzer (`carol`) sieht „gesperrt von alice“; Schritte sind gesperrt, solange ein Draft existiert.
 
