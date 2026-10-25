@@ -91,7 +91,7 @@ Backend-Items zuerst (F-11–F-15, additiv bis auf F-12), FE-App parallel in `ap
 HeaderInfo, HeaderFacets (DataPoints Status/Freigabe, Kennzahlen, Verwaltung), Klärungs-Strip als Custom Header Facet, Facets inkl. Kompositionen, `UI.Hidden` je Prozessart, Protokoll-Tabelle sortiert, FCL-Vollbild/Schließen (FE-Standard).
 **AK:** Zeilenklick öffnet Detail in `TwoColumnsMidExpanded`; für CR_WE ist „Ansprechpartner“ ausgeblendet und „Warenempfänger“ sichtbar, sonst umgekehrt; Deep-Link `#/Requests(ID=…,IsActiveEntity=true)` lädt direkt; Protokoll neueste zuerst; Klärungs-Strip nur bei `inClarification`.
 
-### F-18 Schritte als Aktionsgruppe in der UI — offen
+### F-18 Schritte als Aktionsgruppe in der UI — erledigt
 `UI.Identification` mit `DataFieldForActionGroup #Steps` (11 Aktionen, destruktive zuletzt), i18n-Labels, Bestätigungstext für `reset`, Custom Action „Aktualisieren“ + Controller-Extension.
 **AK:** Menü „Schritt ausführen“ zeigt nur Aktionen mit Flag = true aktiv; `rejectRequest` öffnet FE-Parameterdialog (Pflichttext ≤ 100 Zeichen mit Zähler); `changeCustomerAssignment` mit BP 1000002 zeigt Strict-Handling-Rückfrage und wiederholt nach Bestätigen; Fehlerstatus-Schritt zeigt Meldungsdialog; Erfolg zeigt Toast; Status/Protokoll/Kopfdaten aktualisieren sich ohne Reload; Listenzeile zeigt neuen Status.
 

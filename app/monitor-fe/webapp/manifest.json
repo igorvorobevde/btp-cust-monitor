@@ -5,7 +5,10 @@
 		"type": "application",
 		"i18n": {
 			"bundleName": "hydac.custmon.i18n.i18n",
-			"supportedLocales": ["", "de"],
+			"supportedLocales": [
+				"",
+				"de"
+			],
 			"fallbackLocale": ""
 		},
 		"title": "{{appTitle}}",
@@ -56,7 +59,10 @@
 				"type": "sap.ui.model.resource.ResourceModel",
 				"settings": {
 					"bundleName": "hydac.custmon.i18n.i18n",
-					"supportedLocales": ["", "de"],
+					"supportedLocales": [
+						"",
+						"de"
+					],
 					"fallbackLocale": ""
 				}
 			},
@@ -90,12 +96,17 @@
 				{
 					"name": "RequestsList",
 					"pattern": ":?query:",
-					"target": ["RequestsList"]
+					"target": [
+						"RequestsList"
+					]
 				},
 				{
 					"name": "RequestsObjectPage",
 					"pattern": "Requests({key}):?query:",
-					"target": ["RequestsList", "RequestsObjectPage"]
+					"target": [
+						"RequestsList",
+						"RequestsObjectPage"
+					]
 				}
 			],
 			"targets": {
@@ -139,7 +150,11 @@
 											"importance": "High",
 											"width": "5.5rem",
 											"horizontalAlign": "Begin",
-											"properties": ["released", "inClarification", "orderExists"],
+											"properties": [
+												"released",
+												"inClarification",
+												"orderExists"
+											],
 											"position": {
 												"placement": "After",
 												"anchor": "DataField::status_code"
@@ -172,6 +187,17 @@
 												"anchor": "StatusPoint"
 											}
 										}
+									},
+									"actions": {
+										"Refresh": {
+											"press": ".extension.hydac.custmon.ext.controller.ObjectPageExt.onRefresh",
+											"text": "{i18n>common.refresh}",
+											"visible": true,
+											"position": {
+												"placement": "After",
+												"anchor": "DataFieldForActionGroup::Steps"
+											}
+										}
 									}
 								}
 							},
@@ -185,6 +211,15 @@
 								}
 							}
 						}
+					}
+				}
+			}
+		},
+		"extends": {
+			"extensions": {
+				"sap.ui.controllerExtensions": {
+					"sap.fe.templates.ObjectPage.ObjectPageController": {
+						"controllerName": "hydac.custmon.ext.controller.ObjectPageExt"
 					}
 				}
 			}

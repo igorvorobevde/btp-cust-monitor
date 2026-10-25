@@ -6,6 +6,6 @@
 		type="Warning"
 		showIcon="true"
 		visible="{= !!${inClarification} }"
-		text="{= ${i18n>detail.clarificationPrefix} + (${clarificationComment} || '') }"
+		text="{= ${i18n>detail.clarificationPrefix} + ' ' + (${clarificationComment} || '') }"
 		class="sapUiSmallMarginBottom"/>
 </core:FragmentDefinition>

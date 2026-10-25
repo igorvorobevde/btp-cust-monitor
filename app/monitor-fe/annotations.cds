@@ -144,6 +144,71 @@ annotate service.Requests with @(
 
 // ---------- Object Page (docs/04 §3) ----------
 annotate service.Requests with @(
+  // Kopfaktionen: ein Menü „Schritt ausführen“ mit allen Schrittaktionen; Verfügbarkeit über can*-Flags
+  // (Core.OperationAvailable, srv), destruktive Schritte (Ablehnen, Zurücksetzen) zuletzt
+  UI.Identification            : [{
+    $Type  : 'UI.DataFieldForActionGroup',
+    ID     : 'Steps',
+    Label  : '{i18n>menu.steps}',
+    Actions: [
+      {
+        $Type : 'UI.DataFieldForAction',
+        Action: 'CustomerMonitorService.release',
+        Label : '{i18n>action.release}'
+      },
+      {
+        $Type : 'UI.DataFieldForAction',
+        Action: 'CustomerMonitorService.createCustomer',
+        Label : '{i18n>action.createCustomer}'
+      },
+      {
+        $Type : 'UI.DataFieldForAction',
+        Action: 'CustomerMonitorService.createShipTo',
+        Label : '{i18n>action.createShipTo}'
+      },
+      {
+        $Type : 'UI.DataFieldForAction',
+        Action: 'CustomerMonitorService.modifyContact',
+        Label : '{i18n>action.modifyContact}'
+      },
+      {
+        $Type : 'UI.DataFieldForAction',
+        Action: 'CustomerMonitorService.assignExistingCustomer',
+        Label : '{i18n>action.assignExistingCustomer}'
+      },
+      {
+        $Type : 'UI.DataFieldForAction',
+        Action: 'CustomerMonitorService.changeCustomerAssignment',
+        Label : '{i18n>action.changeCustomerAssignment}'
+      },
+      {
+        $Type : 'UI.DataFieldForAction',
+        Action: 'CustomerMonitorService.convertToNewCustomer',
+        Label : '{i18n>action.convertToNewCustomer}'
+      },
+      {
+        $Type : 'UI.DataFieldForAction',
+        Action: 'CustomerMonitorService.completeManually',
+        Label : '{i18n>action.completeManually}'
+      },
+      {
+        $Type : 'UI.DataFieldForAction',
+        Action: 'CustomerMonitorService.clarify',
+        Label : '{i18n>action.clarify}'
+      },
+      {
+        $Type : 'UI.DataFieldForAction',
+        Action: 'CustomerMonitorService.rejectRequest',
+        Label : '{i18n>action.rejectRequest}'
+      },
+      {
+        $Type : 'UI.DataFieldForAction',
+        Action: 'CustomerMonitorService.reset',
+        Label : '{i18n>action.reset}'
+      }
+    ]
+  }],
+
   UI.HeaderFacets              : [
     {
       $Type : 'UI.ReferenceFacet',
