@@ -13,6 +13,12 @@ const id = (n) => `a1b2c3d4-0000-4000-8000-${String(n).padStart(12, "0")}`;
 /** Draft-Keys: aktiver Vorgang (IsActiveEntity=true) oder Entwurf (false) */
 const url = (n, path = "", active = true) => `${BASE}/Requests(ID=${id(n)},IsActiveEntity=${active})${path}`;
 
+/** Verfügbarkeits-Flags je Schrittaktion (03 §4) */
+const FLAGS = ["canRelease", "canReject", "canClarify", "canReset", "canCreateCustomer", "canCreateShipTo", "canModifyContact",
+	"canConvertToNewCustomer", "canCompleteManually", "canAssignExistingCustomer", "canChangeCustomerAssignment"];
+/** Erwartung: nur die genannten Flags true */
+const only = (...names) => Object.fromEntries(FLAGS.map((f) => [f, names.includes(f)]));
+
 /** Fehlerantwort statt Exception (cds.test wirft bei 4xx/5xx) */
 async function failure(promise) {
 	try {
@@ -46,14 +52,16 @@ async function activate(n, user = ALICE) {
 	return POST(url(n, "/CustomerMonitorService.draftActivate", false), {}, { ...user, headers: { "If-Match": await draftEtag(n, "", user) } });
 }
 
-async function executeStep(n, body, { user = ALICE, ifMatch } = {}) {
-	const headers = { "If-Match": ifMatch === undefined ? await etag(n, user) : ifMatch };
-	return POST(url(n, "/CustomerMonitorService.executeStep"), body, { ...user, headers });
+/** Gebundene Schrittaktion am aktiven Vorgang; ohne `Prefer: handling=strict` gilt eine Rückfrage als bestätigt (03 §5.3) */
+async function invoke(n, action, body = {}, { user = ALICE, ifMatch, headers = {} } = {}) {
+	const allHeaders = { "If-Match": ifMatch === undefined ? await etag(n, user) : ifMatch, ...headers };
+	return POST(url(n, `/CustomerMonitorService.${action}`), body, { ...user, headers: allHeaders });
 }
+const STRICT = { headers: { Prefer: "handling=strict" } };
 
-async function stepCodes(n, user = ALICE) {
-	const { data } = await GET(url(n, "/CustomerMonitorService.availableSteps()"), user);
-	return data.value.map((s) => s.step);
+async function flags(n, user = ALICE) {
+	const { data } = await GET(url(n, `?$select=${FLAGS.join(",")}`), user);
+	return Object.fromEntries(FLAGS.map((f) => [f, data[f]]));
 }
 
 async function lastLog(n) {
@@ -66,10 +74,15 @@ beforeEach(async () => {
 });
 
 describe("F-01 / F-02 metadata and data", () => {
-	test("$metadata contains actions and ETag", async () => {
+	test("$metadata contains the step actions with OperationAvailable and ETag", async () => {
 		const { data } = await GET(`${BASE}/$metadata`, ALICE);
-		expect(data).toMatch(/Name="availableSteps"/);
-		expect(data).toMatch(/Name="executeStep"/);
+		for (const action of ["release", "rejectRequest", "clarify", "reset", "createCustomer", "createShipTo", "modifyContact",
+			"convertToNewCustomer", "completeManually", "assignExistingCustomer", "changeCustomerAssignment"]) {
+			expect(data).toMatch(new RegExp(`Name="${action}"`));
+		}
+		expect(data).toMatch(/Core.OperationAvailable" Path="in\/canRelease"/);
+		expect(data).toMatch(/Common.SideEffects/);
+		expect(data).not.toMatch(/Name="executeStep"|Name="availableSteps"/);
 		expect(data).toMatch(/Core.OptimisticConcurrency/);
 	});
 
@@ -155,8 +168,8 @@ describe("Authorization", () => {
 		const { data } = await GET(`${BASE}/Requests?$select=salesOrganization,released,isEditable`, BOB);
 		expect(data.value.length).toBe(17);
 		expect(data.value.every((r) => r.salesOrganization === "0001" && r.released && r.isEditable === false)).toBe(true);
-		expect(await stepCodes(6, BOB)).toEqual([]);
-		expect((await failure(executeStep(6, { step: "MANUAL_OK" }, { user: BOB }))).status).toBe(403);
+		expect(await flags(6, BOB)).toEqual(only());
+		expect((await failure(invoke(6, "completeManually", {}, { user: BOB }))).status).toBe(403);
 	});
 
 	test("viewer cannot read unreleased request of other VKORG", async () => {
@@ -164,39 +177,57 @@ describe("Authorization", () => {
 	});
 });
 
-describe("F-03 availableSteps", () => {
-	test("not released → RELEASE, REJECT", async () => {
-		expect(await stepCodes(2)).toEqual(["RELEASE", "REJECT"]);
+describe("F-13 availability flags", () => {
+	test("not released → canRelease, canReject", async () => {
+		expect(await flags(2)).toEqual(only("canRelease", "canReject"));
 	});
-	test("closed → RESET", async () => {
-		expect(await stepCodes(12)).toEqual(["RESET"]);
+
+	test("closed → canReset", async () => {
+		expect(await flags(12)).toEqual(only("canReset"));
 	});
-	test("CR_DEB 000 → CLARIFY + customizing steps, destructive last", async () => {
-		expect(await stepCodes(1)).toEqual(["CLARIFY", "CREATE", "CHNG_OLD", "MANUAL_OK", "REJECT"]);
+
+	test("CR_DEB 000 → clarify + customizing steps", async () => {
+		expect(await flags(1)).toEqual(only("canClarify", "canCreateCustomer", "canAssignExistingCustomer", "canCompleteManually", "canReject"));
+	});
+
+	test("flags with narrow $select are still computed", async () => {
+		const { data } = await GET(url(1, "?$select=name,canReject,canReset"), ALICE);
+		expect(data).toMatchObject({ canReject: true, canReset: false });
+	});
+
+	test("action on a draft → 400 STEP_NOT_ALLOWED; action on active with foreign draft → 409 and flags false", async () => {
+		await edit(6);
+		const onDraft = await failure(POST(url(6, "/CustomerMonitorService.completeManually", false), {}, { ...ALICE, headers: { "If-Match": await draftEtag(6) } }));
+		expect(onDraft.status).toBe(400);
+		expect(onDraft.data.error.code).toBe("STEP_NOT_ALLOWED");
+		const locked = await failure(invoke(6, "completeManually", {}, { user: CAROL }));
+		expect(locked.status).toBe(409);
+		expect(locked.data.error.code).toBe("DRAFT_ALREADY_EXISTS");
+		expect(await flags(6, CAROL)).toEqual(only());
 	});
 });
 
-describe("F-03 executeStep per process type", () => {
-	test("CR_DEB: CREATE → 999 with new numbers", async () => {
-		const { data } = await executeStep(1, { step: "CREATE" });
+describe("F-13 step actions per process type", () => {
+	test("CR_DEB: createCustomer → 999 with new numbers", async () => {
+		const { data } = await invoke(1, "createCustomer");
 		expect(data.status_code).toBe("999");
 		expect(data.customer).toMatch(/^4\d{7}$/);
 		expect(data.businessPartner).toMatch(/^1\d{7}$/);
 	});
 
-	test("CR_DEB: CREATE with FEHLER → 200 + error status 150 + sap-messages", async () => {
-		const res = await executeStep(3, { step: "CREATE" });
+	test("CR_DEB: createCustomer with FEHLER → 200 + error status 150 + sap-messages", async () => {
+		const res = await invoke(3, "createCustomer");
 		expect(res.status).toBe(200);
 		expect(res.data.status_code).toBe("150");
 		expect(JSON.parse(res.headers["sap-messages"])[0].numericSeverity).toBe(3);
 	});
 
-	test("CH_DEB: AP_MODIFY → 999", async () => {
-		expect((await executeStep(5, { step: "AP_MODIFY" })).data.status_code).toBe("999");
+	test("CH_DEB: modifyContact → 999", async () => {
+		expect((await invoke(5, "modifyContact")).data.status_code).toBe("999");
 	});
 
-	test("CH_DEB: AP_MODIFY in VKORG 2000 without CRM → 422 STEP_ABORTED, logged", async () => {
-		const res = await failure(executeStep(4, { step: "AP_MODIFY" }));
+	test("CH_DEB: modifyContact in VKORG 2000 without CRM → 422 STEP_ABORTED, logged", async () => {
+		const res = await failure(invoke(4, "modifyContact"));
 		expect(res.status).toBe(422);
 		expect(res.data.error.code).toBe("STEP_ABORTED");
 		const { data } = await GET(url(4, "?$select=status_code"), ALICE);
@@ -205,87 +236,87 @@ describe("F-03 executeStep per process type", () => {
 		expect((await lastLog(4)).messageType).toBe("A");
 	});
 
-	test("CR_AP: AP_MODIFY → 999 with contact person number", async () => {
-		const { data } = await executeStep(6, { step: "AP_MODIFY" });
+	test("CR_AP: modifyContact → 999 with contact person number", async () => {
+		const { data } = await invoke(6, "modifyContact");
 		expect(data.status_code).toBe("999");
 		expect(data.contactPersonNumber).toMatch(/^\d{10}$/);
 	});
 
-	test("CR_WE: CREATE_WE → 999 with ship-to number", async () => {
-		const { data } = await executeStep(9, { step: "CREATE_WE" });
+	test("CR_WE: createShipTo → 999 with ship-to number", async () => {
+		const { data } = await invoke(9, "createShipTo");
 		expect(data.status_code).toBe("999");
 		expect(data.shipToCustomer).toMatch(/^4\d{7}$/);
 	});
 
-	test("CH_AP: closed 997 → RESET → 000", async () => {
-		expect(await stepCodes(10)).toEqual(["RESET"]);
-		expect((await executeStep(10, { step: "RESET" })).data.status_code).toBe("000");
+	test("CH_AP: closed 997 → reset → 000", async () => {
+		expect(await flags(10)).toEqual(only("canReset"));
+		expect((await invoke(10, "reset")).data.status_code).toBe("000");
 	});
 });
 
-describe("F-03 BP steps and confirmations", () => {
-	test("CNG_DEBI to BP of other Magento company → 409 CONFIRM_REQUIRED, then force → 110", async () => {
-		const res = await failure(executeStep(5, { step: "CNG_DEBI", businessPartner: "1000002" }));
-		expect(res.status).toBe(409);
+describe("F-13 BP steps and confirmations", () => {
+	test("changeCustomerAssignment to BP of other Magento company → CONFIRM_REQUIRED with strict handling, confirmed → 110", async () => {
+		const res = await failure(invoke(5, "changeCustomerAssignment", { businessPartner: "1000002" }, STRICT));
 		expect(res.data.error.code).toBe("CONFIRM_REQUIRED");
 		expect(res.data.error.message).toMatch(/4000002/);
-		const { data } = await executeStep(5, { step: "CNG_DEBI", businessPartner: "0001000002", force: true });
+		const { data } = await invoke(5, "changeCustomerAssignment", { businessPartner: "0001000002" });
 		expect(data).toMatchObject({ status_code: "110", processType: "CH_DEB", customer: "4000002", contactPersonNumber: null });
 	});
 
-	test("CHNG_OLD also checks Magento assignment (R-06)", async () => {
-		const res = await failure(executeStep(1, { step: "CHNG_OLD", businessPartner: "1000002" }));
+	test("assignExistingCustomer also checks Magento assignment (R-06)", async () => {
+		const res = await failure(invoke(1, "assignExistingCustomer", { businessPartner: "1000002" }, STRICT));
 		expect(res.data.error.code).toBe("CONFIRM_REQUIRED");
 	});
 
 	test("BP without customer role → 400 BP_NOT_CUSTOMER", async () => {
-		const res = await failure(executeStep(13, { step: "CNG_DEBI", businessPartner: "1000003" }));
+		const res = await failure(invoke(13, "changeCustomerAssignment", { businessPartner: "1000003" }));
 		expect(res.status).toBe(400);
 		expect(res.data.error.code).toBe("BP_NOT_CUSTOMER");
 	});
 
-	test("unknown BP → 400 BP_NOT_FOUND; missing input → INPUT_REQUIRED", async () => {
-		expect((await failure(executeStep(13, { step: "CNG_DEBI", businessPartner: "9999999" }))).data.error.code).toBe("BP_NOT_FOUND");
-		expect((await failure(executeStep(13, { step: "CNG_DEBI" }))).data.error.code).toBe("INPUT_REQUIRED");
+	test("unknown BP → 400 BP_NOT_FOUND; missing input → 400", async () => {
+		expect((await failure(invoke(13, "changeCustomerAssignment", { businessPartner: "9999999" }))).data.error.code).toBe("BP_NOT_FOUND");
+		expect((await failure(invoke(13, "changeCustomerAssignment"))).status).toBe(400);
 	});
 
-	test("CNG_NEW re-checks release (R-02)", async () => {
-		const { data } = await executeStep(5, { step: "CNG_NEW" });
+	test("convertToNewCustomer re-checks release (R-02)", async () => {
+		const { data } = await invoke(5, "convertToNewCustomer");
 		expect(data).toMatchObject({ processType: "CR_DEB", status_code: "120", released: false, customer: null });
 	});
 });
 
-describe("F-03 special functions", () => {
-	test("RESET of rejected CR_DEB without customer → CR_DEB/120", async () => {
-		const { data } = await executeStep(11, { step: "RESET" });
+describe("F-13 special functions", () => {
+	test("reset of rejected CR_DEB without customer → CR_DEB/120", async () => {
+		const { data } = await invoke(11, "reset");
 		expect(data).toMatchObject({ processType: "CR_DEB", status_code: "120" });
 	});
 
-	test("RELEASE sets MANUAL", async () => {
-		const { data } = await executeStep(2, { step: "RELEASE" });
+	test("release sets MANUAL and releaseState", async () => {
+		const { data } = await invoke(2, "release");
 		expect(data).toMatchObject({ released: true, releaseProcedure: "MANUAL", releasedBy: "alice" });
+		expect((await GET(url(2, "?$select=releaseState"), ALICE)).data.releaseState).toBe("MANUAL");
 	});
 
-	test("CLARIFY sets flag and comment, then is no longer offered", async () => {
-		const { data } = await executeStep(1, { step: "CLARIFY", text: "Rückfrage USt-IdNr." });
+	test("clarify sets flag and comment, then is no longer offered", async () => {
+		const { data } = await invoke(1, "clarify", { comment: "Rückfrage USt-IdNr." });
 		expect(data).toMatchObject({ inClarification: true, clarificationComment: "Rückfrage USt-IdNr." });
-		expect(await stepCodes(1)).not.toContain("CLARIFY");
+		expect((await flags(1)).canClarify).toBe(false);
 	});
 
-	test("REJECT text too long → INPUT_TOO_LONG; not allowed step → STEP_NOT_ALLOWED", async () => {
-		expect((await failure(executeStep(1, { step: "REJECT", text: "x".repeat(101) }))).status).toBe(400);
-		expect((await failure(executeStep(1, { step: "CREATE_WE" }))).data.error.code).toBe("STEP_NOT_ALLOWED");
+	test("rejectRequest text too long → INPUT_TOO_LONG; not allowed step → STEP_NOT_ALLOWED", async () => {
+		expect((await failure(invoke(1, "rejectRequest", { reason: "x".repeat(101) }))).status).toBe(400);
+		expect((await failure(invoke(1, "createShipTo"))).data.error.code).toBe("STEP_NOT_ALLOWED");
 	});
 });
 
 describe("Optimistic concurrency (412)", () => {
-	test("stale or missing ETag on executeStep → 412", async () => {
+	test("stale, missing or * ETag on a step action → 412", async () => {
 		const stale = await etag(6);
-		await executeStep(6, { step: "CLARIFY", text: "x" });
-		expect((await failure(executeStep(6, { step: "MANUAL_OK" }, { ifMatch: stale }))).status).toBe(412);
-		expect((await failure(POST(url(6, "/CustomerMonitorService.executeStep"), { step: "MANUAL_OK" }, ALICE))).status).toBe(412);
+		await invoke(6, "clarify", { comment: "x" });
+		expect((await failure(invoke(6, "completeManually", {}, { ifMatch: stale }))).status).toBe(412);
+		expect((await failure(POST(url(6, "/CustomerMonitorService.completeManually"), {}, ALICE))).status).toBe(412);
+		expect((await failure(invoke(6, "completeManually", {}, { ifMatch: "*" }))).status).toBe(412);
 	});
-
 });
 
 describe("F-12 draft editing", () => {
@@ -354,37 +385,37 @@ describe("Demo data (#14–#26)", () => {
 			.forEach((code) => expect(statuses).toContain(code));
 	});
 
-	test("#14 CHNG_OLD with free BP 1000030 → 130 without confirmation", async () => {
-		const { data } = await executeStep(14, { step: "CHNG_OLD", businessPartner: "1000030" });
+	test("#14 assignExistingCustomer with free BP 1000030 → 130 without confirmation", async () => {
+		const { data } = await invoke(14, "assignExistingCustomer", { businessPartner: "1000030" }, STRICT);
 		expect(data).toMatchObject({ status_code: "130", processType: "CH_DEB", customer: "4000030" });
 	});
 
-	test("#15 CR_DEB 120 offers CREATE / CHNG_OLD", async () => {
-		expect(await stepCodes(15)).toEqual(["CREATE", "CHNG_OLD", "MANUAL_OK", "REJECT"]);
+	test("#15 CR_DEB 120 offers createCustomer / assignExistingCustomer", async () => {
+		expect(await flags(15)).toEqual(only("canCreateCustomer", "canAssignExistingCustomer", "canCompleteManually", "canReject"));
 	});
 
-	test("#17 AP_MODIFY fails again (admin name contains 'Fehler') → 140", async () => {
-		const res = await executeStep(17, { step: "AP_MODIFY" });
+	test("#17 modifyContact fails again (admin name contains 'Fehler') → 140", async () => {
+		const res = await invoke(17, "modifyContact");
 		expect(res.data.status_code).toBe("140");
 	});
 
-	test("#18 / #19 unreleased in 7050 → RELEASE + REJECT", async () => {
-		expect(await stepCodes(18)).toEqual(["RELEASE", "REJECT"]);
-		expect(await stepCodes(19)).toEqual(["RELEASE", "REJECT"]);
+	test("#18 / #19 unreleased in 7050 → release + reject", async () => {
+		expect(await flags(18)).toEqual(only("canRelease", "canReject"));
+		expect(await flags(19)).toEqual(only("canRelease", "canReject"));
 	});
 
-	test("#20 CREATE_WE → 999", async () => {
-		expect((await executeStep(20, { step: "CREATE_WE" })).data.status_code).toBe("999");
+	test("#20 createShipTo → 999", async () => {
+		expect((await invoke(20, "createShipTo")).data.status_code).toBe("999");
 	});
 
-	test("RESET: #21 CR_WE → 010, #23 CH_DEB → 000, #24 CR_DEB with customer → CH_DEB/000", async () => {
-		expect((await executeStep(21, { step: "RESET" })).data.status_code).toBe("010");
-		expect((await executeStep(23, { step: "RESET" })).data).toMatchObject({ processType: "CH_DEB", status_code: "000" });
-		expect((await executeStep(24, { step: "RESET" })).data).toMatchObject({ processType: "CH_DEB", status_code: "000" });
+	test("reset: #21 CR_WE → 010, #23 CH_DEB → 000, #24 CR_DEB with customer → CH_DEB/000", async () => {
+		expect((await invoke(21, "reset")).data.status_code).toBe("010");
+		expect((await invoke(23, "reset")).data).toMatchObject({ processType: "CH_DEB", status_code: "000" });
+		expect((await invoke(24, "reset")).data).toMatchObject({ processType: "CH_DEB", status_code: "000" });
 	});
 
-	test("#26 CNG_DEBI: BP without customer role / free BP", async () => {
-		expect((await failure(executeStep(26, { step: "CNG_DEBI", businessPartner: "1000031" }))).data.error.code).toBe("BP_NOT_CUSTOMER");
-		expect((await executeStep(26, { step: "CNG_DEBI", businessPartner: "1000030" })).data.status_code).toBe("110");
+	test("#26 changeCustomerAssignment: BP without customer role / free BP", async () => {
+		expect((await failure(invoke(26, "changeCustomerAssignment", { businessPartner: "1000031" }))).data.error.code).toBe("BP_NOT_CUSTOMER");
+		expect((await invoke(26, "changeCustomerAssignment", { businessPartner: "1000030" })).data.status_code).toBe("110");
 	});
 });

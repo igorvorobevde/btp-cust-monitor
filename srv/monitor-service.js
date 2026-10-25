@@ -16,6 +16,47 @@ const TECHNICAL_FIELDS = new Set(["ID", "request_ID", "modifiedAt", "modifiedBy"
 	"releaseState", "statusGroup", "statusCriticality", "orderCriticality", "releaseCriticality",
 	"IsActiveEntity", "HasActiveEntity", "HasDraftEntity", "DraftAdministrativeData_DraftUUID"]);
 
+// Schrittcode (Customizing) → gebundene Aktion (03 §5); Phase 2: execute_function(step)
+const STEP_ACTIONS = Object.freeze({
+	RELEASE: "release",
+	REJECT: "rejectRequest",
+	CLARIFY: "clarify",
+	RESET: "reset",
+	CREATE: "createCustomer",
+	CREATE_WE: "createShipTo",
+	AP_MODIFY: "modifyContact",
+	CNG_NEW: "convertToNewCustomer",
+	MANUAL_OK: "completeManually",
+	CHNG_OLD: "assignExistingCustomer",
+	CNG_DEBI: "changeCustomerAssignment"
+});
+const ACTION_STEPS = Object.fromEntries(Object.entries(STEP_ACTIONS).map(([step, action]) => [action, step]));
+// Aktionsparameter → Eingabe der Statusmaschine
+const PARAMS = Object.freeze({
+	rejectRequest: { text: "reason" },
+	clarify: { text: "comment" },
+	assignExistingCustomer: { businessPartner: "businessPartner" },
+	changeCustomerAssignment: { businessPartner: "businessPartner" }
+});
+// Schrittcode → Verfügbarkeits-Flag (CDS: virtual can* auf Requests); explizit, da rejectRequest → canReject
+const STEP_FLAGS = Object.freeze({
+	RELEASE: "canRelease",
+	REJECT: "canReject",
+	CLARIFY: "canClarify",
+	RESET: "canReset",
+	CREATE: "canCreateCustomer",
+	CREATE_WE: "canCreateShipTo",
+	AP_MODIFY: "canModifyContact",
+	CNG_NEW: "canConvertToNewCustomer",
+	MANUAL_OK: "canCompleteManually",
+	CHNG_OLD: "canAssignExistingCustomer",
+	CNG_DEBI: "canChangeCustomerAssignment"
+});
+// Felder, die die Flag-Berechnung braucht (werden nachgeladen, wenn nicht im $select)
+const FLAG_INPUT = ["ID", "status_code", "released", "inClarification", "source", "processType"];
+/** OData Strict Handling: ohne `Prefer: handling=strict` gilt eine Rückfrage als bestätigt (03 §5.3) */
+const isStrict = (req) => /\bhandling=strict\b/i.test(req.headers.prefer || "");
+
 /** Feldvergleich für das Änderungsprotokoll: leer und null gelten als gleich */
 const normalize = (value) => (value === "" || value == null ? null : value);
 
@@ -28,8 +69,10 @@ function diffFields(prefix, oldRow, newRow, entity) {
 		return [];
 	}
 	const elements = entity.elements;
+	// virtuelle/berechnete Elemente (Flags, isEditable) kommen im Draft-Payload mit, sind aber keine Fachänderung
 	return Object.keys(newRow)
-		.filter((f) => !TECHNICAL_FIELDS.has(f) && elements[f] && !elements[f].isAssociation && !elements[f]["@readonly"])
+		.filter((f) => !TECHNICAL_FIELDS.has(f) && elements[f] && !elements[f].isAssociation
+			&& !elements[f].virtual && !elements[f]["@readonly"] && !elements[f]["@Core.Computed"])
 		.filter((f) => normalize(oldRow[f]) !== normalize(newRow[f]))
 		.map((f) => ({
 			field: prefix + f,
@@ -192,25 +235,42 @@ module.exports = class CustomerMonitorService extends cds.ApplicationService {
 			}
 		});
 
-		// isEditable/editHidden für aktive Vorgänge und eigene Entwürfe (Draft: Felder sind bearbeitbar)
+		// IDs der Vorgänge, für die ein Entwurf existiert (Schritte und Flags sind dann gesperrt)
+		const hasDraft = async (ids) => {
+			const drafts = await SELECT.from(Requests.drafts).columns("ID").where({ ID: { in: ids } });
+			return new Set(drafts.map((d) => d.ID));
+		};
+
+		/**
+		 * can*-Flags, isEditable und editHidden am Datensatz setzen – nie null
+		 * (Fiori Elements zeigt null als sichtbar, aber deaktiviert). Entwürfe und gesperrte Vorgänge: keine Schritte.
+		 */
+		const setFlags = (row, state, processSteps, userRoles, { draft = false, locked = false } = {}) => {
+			const codes = draft || locked ? [] : sm.availableStepCodes(state, processSteps, userRoles);
+			for (const [step, name] of Object.entries(STEP_FLAGS)) {
+				row[name] = codes.includes(step);
+			}
+			row.isEditable = draft ? true : sm.isEditable(state, userRoles.isEditor);
+			row.editHidden = !row.isEditable;
+		};
+
+		// Flags für aktive Vorgänge und eigene Entwürfe; HasDraftEntity wird erst nach den Handlern gefüllt → eigene Abfrage
 		this.after("READ", [Requests, Requests.drafts], async (result, req) => {
 			const rows = (Array.isArray(result) ? result : [result]).filter((r) => r && r.ID);
 			if (!rows.length) {
 				return;
 			}
 			const draft = !!req.target.isDraft;
-			const incomplete = rows.filter((r) => r.status_code === undefined || r.released === undefined);
-			const lookup = new Map();
-			if (incomplete.length) {
-				const found = await SELECT.from(db.Requests).columns("ID", "status_code", "released")
-					.where({ ID: { in: incomplete.map((r) => r.ID) } });
-				found.forEach((f) => lookup.set(f.ID, f));
-			}
-			const { isEditor } = roles(req);
+			const incomplete = rows.filter((r) => FLAG_INPUT.some((f) => r[f] === undefined));
+			const [processSteps, drafted, found] = await Promise.all([
+				SELECT.from(db.ProcessSteps),
+				draft ? new Set() : hasDraft(rows.map((r) => r.ID)),
+				incomplete.length ? SELECT.from(db.Requests).columns(...FLAG_INPUT).where({ ID: { in: incomplete.map((r) => r.ID) } }) : []
+			]);
+			const lookup = new Map(found.map((f) => [f.ID, f]));
+			const userRoles = roles(req);
 			for (const row of rows) {
-				const state = lookup.get(row.ID) || row;
-				row.isEditable = draft ? true : sm.isEditable(state, isEditor);
-				row.editHidden = !row.isEditable;
+				setFlags(row, lookup.get(row.ID) || row, processSteps, userRoles, { draft, locked: drafted.has(row.ID) });
 			}
 		});
 
@@ -259,25 +319,27 @@ module.exports = class CustomerMonitorService extends cds.ApplicationService {
 			})));
 		});
 
-		// ---------- availableSteps (03 §4) ----------
-		this.on("availableSteps", Requests, async (req) => {
-			const request = await loadRequest(req, lastKey(req));
-			const [processSteps, steps] = await Promise.all([
-				SELECT.from(db.ProcessSteps),
-				SELECT.localized.from(db.Steps)
-			]);
-			return sm.toStepOptions(sm.availableStepCodes(request, processSteps, roles(req)), steps);
-		});
-
-		// ---------- executeStep (03 §5) ----------
-		this.on("executeStep", Requests, async (req) => {
+		// ---------- Schrittaktionen (03 §5): eine gebundene Aktion je Schritt, generischer Dispatcher ----------
+		this.on(Object.values(STEP_ACTIONS), [Requests, Requests.drafts], async (req) => {
+			const step = ACTION_STEPS[req.event];
+			if (req.target.isDraft) {
+				return req.reject({ status: 400, code: ErrorCodes.STEP_NOT_ALLOWED, message: t(req, "STEP_NOT_ALLOWED", [step]) });
+			}
 			await delay();
 			const ID = lastKey(req);
 			const request = await loadRequest(req, ID);
+			// ETag Pflicht, kein If-Match: * (03 §3) – zusätzlich zur generischen CAP-Prüfung
 			if (!sameETag(req.headers["if-match"], request.modifiedAt)) {
 				req.reject(412, t(req, "ETAG_REQUIRED"));
 			}
-			const { step, businessPartner, text, force } = req.data;
+			if ((await hasDraft([ID])).size) {
+				req.reject({ status: 409, code: "DRAFT_ALREADY_EXISTS", message: t(req, "DRAFT_ALREADY_EXISTS") });
+			}
+			const params = { force: !isStrict(req) };
+			for (const [key, param] of Object.entries(PARAMS[req.event] || {})) {
+				params[key] = req.data[param];
+			}
+			const { businessPartner, text, force } = params;
 			const [processSteps, steps, approvalRules, partners] = await Promise.all([
 				SELECT.from(db.ProcessSteps),
 				SELECT.localized.from(db.Steps),
@@ -346,8 +408,8 @@ module.exports = class CustomerMonitorService extends cds.ApplicationService {
 			}
 
 			const updated = await SELECT.one.from(db.Requests).where({ ID });
-			updated.isEditable = sm.isEditable(updated, roles(req).isEditor);
-			return updated;
+			setFlags(updated, updated, processSteps, roles(req));
+			return { ...updated, IsActiveEntity: true, HasActiveEntity: false, HasDraftEntity: false };
 		});
 
 		return super.init();

@@ -101,6 +101,18 @@ entity Requests : cuid, managed {
   virtual isEditable   : Boolean;
   // berechnet: !isEditable – steuert die Sichtbarkeit von „Bearbeiten“ (UI.UpdateHidden, E-12)
   virtual editHidden   : Boolean;
+  // berechnet: Verfügbarkeit je Schrittaktion (Core.OperationAvailable) aus Customizing, Status, Freigabe, Rollen – E-04
+  virtual canRelease                  : Boolean; // RELEASE
+  virtual canReject                   : Boolean; // REJECT
+  virtual canClarify                  : Boolean; // CLARIFY
+  virtual canReset                    : Boolean; // RESET
+  virtual canCreateCustomer           : Boolean; // CREATE
+  virtual canCreateShipTo             : Boolean; // CREATE_WE
+  virtual canModifyContact            : Boolean; // AP_MODIFY
+  virtual canConvertToNewCustomer     : Boolean; // CNG_NEW
+  virtual canCompleteManually         : Boolean; // MANUAL_OK
+  virtual canAssignExistingCustomer   : Boolean; // CHNG_OLD
+  virtual canChangeCustomerAssignment : Boolean; // CNG_DEBI
 }
 
 /**

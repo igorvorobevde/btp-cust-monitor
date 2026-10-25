@@ -11,15 +11,74 @@ service CustomerMonitorService @(path: '/odata/v4/monitor') {
     DeleteRestrictions.Deletable : false
   })
   @restrict: [
-    { grant: ['READ', 'availableSteps'], to: 'MonitorViewer' },
-    { grant: ['UPDATE', 'executeStep'], to: 'MonitorEditor' }
+    { grant: 'READ', to: 'MonitorViewer' },
+    { grant: ['UPDATE', // deckt auch draftEdit (EDIT) ab
+              'release', 'rejectRequest', 'clarify', 'reset', 'createCustomer', 'createShipTo',
+              'modifyContact', 'convertToNewCustomer', 'completeManually',
+              'assignExistingCustomer', 'changeCustomerAssignment'], to: 'MonitorEditor' }
   ]
   entity Requests       as projection on db.Requests actions {
-    function availableSteps() returns array of StepOption;
-    action   executeStep(step : db.StepCode,
-                         businessPartner : String(10),
-                         text : String(100),
-                         force : Boolean) returns Requests;
+    // Eine gebundene Aktion je Schritt (E-04). Verfügbarkeit über can*-Flags (Core.OperationAvailable),
+    // Bestätigung parameterloser Aktionen über Common.IsActionCritical, Rückfragen per Strict Handling (03 §5.3).
+
+    /** RELEASE – Freigeben (nur MonitorReleaser, siehe canRelease) */
+    @Common.IsActionCritical
+    @Core.OperationAvailable: ( :in.canRelease )
+    action release(in : $self) returns Requests;
+
+    /** REJECT – Anfrage ablehnen (Begründung Pflicht, max. 100 Zeichen) */
+    @Core.OperationAvailable: ( :in.canReject )
+    action rejectRequest(in : $self,
+                         @mandatory @title: '{i18n>param.reason}' @UI.MultiLineText
+                         reason : String(100)) returns Requests;
+
+    /** CLARIFY – In Klärung setzen (Kommentar Pflicht, max. 100 Zeichen) */
+    @Core.OperationAvailable: ( :in.canClarify )
+    action clarify(in : $self,
+                   @mandatory @title: '{i18n>param.comment}' @UI.MultiLineText
+                   comment : String(100)) returns Requests;
+
+    /** RESET – Erneut bearbeiten */
+    @Common.IsActionCritical
+    @Core.OperationAvailable: ( :in.canReset )
+    action reset(in : $self) returns Requests;
+
+    /** CREATE – Debitor und Admin anlegen */
+    @Common.IsActionCritical
+    @Core.OperationAvailable: ( :in.canCreateCustomer )
+    action createCustomer(in : $self) returns Requests;
+
+    /** CREATE_WE – Warenempfänger anlegen */
+    @Common.IsActionCritical
+    @Core.OperationAvailable: ( :in.canCreateShipTo )
+    action createShipTo(in : $self) returns Requests;
+
+    /** AP_MODIFY – Ansprechpartner anlegen/ändern */
+    @Common.IsActionCritical
+    @Core.OperationAvailable: ( :in.canModifyContact )
+    action modifyContact(in : $self) returns Requests;
+
+    /** CNG_NEW – In Neukunde umwandeln */
+    @Common.IsActionCritical
+    @Core.OperationAvailable: ( :in.canConvertToNewCustomer )
+    action convertToNewCustomer(in : $self) returns Requests;
+
+    /** MANUAL_OK – Manuell erledigen */
+    @Common.IsActionCritical
+    @Core.OperationAvailable: ( :in.canCompleteManually )
+    action completeManually(in : $self) returns Requests;
+
+    /** CHNG_OLD – Dublette: bestehenden Debitor zuordnen (Rückfrage bei fremder Magento-Company) */
+    @Core.OperationAvailable: ( :in.canAssignExistingCustomer )
+    action assignExistingCustomer(in : $self,
+                                  @mandatory @title: '{i18n>param.businessPartner}'
+                                  businessPartner : String(10)) returns Requests;
+
+    /** CNG_DEBI – Zuordnung zu Debitor ändern (Rückfrage bei fremder Magento-Company) */
+    @Core.OperationAvailable: ( :in.canChangeCustomerAssignment )
+    action changeCustomerAssignment(in : $self,
+                                    @mandatory @title: '{i18n>param.businessPartner}'
+                                    businessPartner : String(10)) returns Requests;
   };
 
   @(Capabilities: {
@@ -79,14 +138,22 @@ service CustomerMonitorService @(path: '/odata/v4/monitor') {
   @readonly
   @cds.redirection.target: false
   entity Sources            as select from db.Requests distinct { key source };
+}
 
-  type StepOption {
-    step          : db.StepCode;
-    text          : String(60);
-    input         : db.StepInput;
-    textMaxLength : Integer; // nur bei input = TEXT
-    destructive   : Boolean; // REJECT, RESET → UI zeigt Warn-Styling
-  }
+// Side Effects: nach jeder Schrittaktion lädt Fiori Elements Status/Flags/Zuordnung des Vorgangs sowie Protokoll und Kinder neu.
+// (Identischer Block je Aktion – CDS kennt keine Wiederverwendung von Annotationswerten.)
+annotate CustomerMonitorService.Requests with actions {
+  release                  @Common.SideEffects: { TargetProperties: ['in/status_code', 'in/statusGroup', 'in/statusCriticality', 'in/processType', 'in/released', 'in/releaseState', 'in/releaseCriticality', 'in/releasedBy', 'in/releasedAt', 'in/inClarification', 'in/clarificationComment', 'in/customer', 'in/businessPartner', 'in/shipToCustomer', 'in/contactPersonNumber', 'in/modifiedAt', 'in/modifiedBy', 'in/isEditable', 'in/editHidden', 'in/canRelease', 'in/canReject', 'in/canClarify', 'in/canReset', 'in/canCreateCustomer', 'in/canCreateShipTo', 'in/canModifyContact', 'in/canConvertToNewCustomer', 'in/canCompleteManually', 'in/canAssignExistingCustomer', 'in/canChangeCustomerAssignment'], TargetEntities: ['in/log', 'in/admin', 'in/shipTo', 'in/salesData'] };
+  rejectRequest            @Common.SideEffects: { TargetProperties: ['in/status_code', 'in/statusGroup', 'in/statusCriticality', 'in/processType', 'in/released', 'in/releaseState', 'in/releaseCriticality', 'in/releasedBy', 'in/releasedAt', 'in/inClarification', 'in/clarificationComment', 'in/customer', 'in/businessPartner', 'in/shipToCustomer', 'in/contactPersonNumber', 'in/modifiedAt', 'in/modifiedBy', 'in/isEditable', 'in/editHidden', 'in/canRelease', 'in/canReject', 'in/canClarify', 'in/canReset', 'in/canCreateCustomer', 'in/canCreateShipTo', 'in/canModifyContact', 'in/canConvertToNewCustomer', 'in/canCompleteManually', 'in/canAssignExistingCustomer', 'in/canChangeCustomerAssignment'], TargetEntities: ['in/log', 'in/admin', 'in/shipTo', 'in/salesData'] };
+  clarify                  @Common.SideEffects: { TargetProperties: ['in/status_code', 'in/statusGroup', 'in/statusCriticality', 'in/processType', 'in/released', 'in/releaseState', 'in/releaseCriticality', 'in/releasedBy', 'in/releasedAt', 'in/inClarification', 'in/clarificationComment', 'in/customer', 'in/businessPartner', 'in/shipToCustomer', 'in/contactPersonNumber', 'in/modifiedAt', 'in/modifiedBy', 'in/isEditable', 'in/editHidden', 'in/canRelease', 'in/canReject', 'in/canClarify', 'in/canReset', 'in/canCreateCustomer', 'in/canCreateShipTo', 'in/canModifyContact', 'in/canConvertToNewCustomer', 'in/canCompleteManually', 'in/canAssignExistingCustomer', 'in/canChangeCustomerAssignment'], TargetEntities: ['in/log', 'in/admin', 'in/shipTo', 'in/salesData'] };
+  reset                    @Common.SideEffects: { TargetProperties: ['in/status_code', 'in/statusGroup', 'in/statusCriticality', 'in/processType', 'in/released', 'in/releaseState', 'in/releaseCriticality', 'in/releasedBy', 'in/releasedAt', 'in/inClarification', 'in/clarificationComment', 'in/customer', 'in/businessPartner', 'in/shipToCustomer', 'in/contactPersonNumber', 'in/modifiedAt', 'in/modifiedBy', 'in/isEditable', 'in/editHidden', 'in/canRelease', 'in/canReject', 'in/canClarify', 'in/canReset', 'in/canCreateCustomer', 'in/canCreateShipTo', 'in/canModifyContact', 'in/canConvertToNewCustomer', 'in/canCompleteManually', 'in/canAssignExistingCustomer', 'in/canChangeCustomerAssignment'], TargetEntities: ['in/log', 'in/admin', 'in/shipTo', 'in/salesData'] };
+  createCustomer           @Common.SideEffects: { TargetProperties: ['in/status_code', 'in/statusGroup', 'in/statusCriticality', 'in/processType', 'in/released', 'in/releaseState', 'in/releaseCriticality', 'in/releasedBy', 'in/releasedAt', 'in/inClarification', 'in/clarificationComment', 'in/customer', 'in/businessPartner', 'in/shipToCustomer', 'in/contactPersonNumber', 'in/modifiedAt', 'in/modifiedBy', 'in/isEditable', 'in/editHidden', 'in/canRelease', 'in/canReject', 'in/canClarify', 'in/canReset', 'in/canCreateCustomer', 'in/canCreateShipTo', 'in/canModifyContact', 'in/canConvertToNewCustomer', 'in/canCompleteManually', 'in/canAssignExistingCustomer', 'in/canChangeCustomerAssignment'], TargetEntities: ['in/log', 'in/admin', 'in/shipTo', 'in/salesData'] };
+  createShipTo             @Common.SideEffects: { TargetProperties: ['in/status_code', 'in/statusGroup', 'in/statusCriticality', 'in/processType', 'in/released', 'in/releaseState', 'in/releaseCriticality', 'in/releasedBy', 'in/releasedAt', 'in/inClarification', 'in/clarificationComment', 'in/customer', 'in/businessPartner', 'in/shipToCustomer', 'in/contactPersonNumber', 'in/modifiedAt', 'in/modifiedBy', 'in/isEditable', 'in/editHidden', 'in/canRelease', 'in/canReject', 'in/canClarify', 'in/canReset', 'in/canCreateCustomer', 'in/canCreateShipTo', 'in/canModifyContact', 'in/canConvertToNewCustomer', 'in/canCompleteManually', 'in/canAssignExistingCustomer', 'in/canChangeCustomerAssignment'], TargetEntities: ['in/log', 'in/admin', 'in/shipTo', 'in/salesData'] };
+  modifyContact            @Common.SideEffects: { TargetProperties: ['in/status_code', 'in/statusGroup', 'in/statusCriticality', 'in/processType', 'in/released', 'in/releaseState', 'in/releaseCriticality', 'in/releasedBy', 'in/releasedAt', 'in/inClarification', 'in/clarificationComment', 'in/customer', 'in/businessPartner', 'in/shipToCustomer', 'in/contactPersonNumber', 'in/modifiedAt', 'in/modifiedBy', 'in/isEditable', 'in/editHidden', 'in/canRelease', 'in/canReject', 'in/canClarify', 'in/canReset', 'in/canCreateCustomer', 'in/canCreateShipTo', 'in/canModifyContact', 'in/canConvertToNewCustomer', 'in/canCompleteManually', 'in/canAssignExistingCustomer', 'in/canChangeCustomerAssignment'], TargetEntities: ['in/log', 'in/admin', 'in/shipTo', 'in/salesData'] };
+  convertToNewCustomer     @Common.SideEffects: { TargetProperties: ['in/status_code', 'in/statusGroup', 'in/statusCriticality', 'in/processType', 'in/released', 'in/releaseState', 'in/releaseCriticality', 'in/releasedBy', 'in/releasedAt', 'in/inClarification', 'in/clarificationComment', 'in/customer', 'in/businessPartner', 'in/shipToCustomer', 'in/contactPersonNumber', 'in/modifiedAt', 'in/modifiedBy', 'in/isEditable', 'in/editHidden', 'in/canRelease', 'in/canReject', 'in/canClarify', 'in/canReset', 'in/canCreateCustomer', 'in/canCreateShipTo', 'in/canModifyContact', 'in/canConvertToNewCustomer', 'in/canCompleteManually', 'in/canAssignExistingCustomer', 'in/canChangeCustomerAssignment'], TargetEntities: ['in/log', 'in/admin', 'in/shipTo', 'in/salesData'] };
+  completeManually         @Common.SideEffects: { TargetProperties: ['in/status_code', 'in/statusGroup', 'in/statusCriticality', 'in/processType', 'in/released', 'in/releaseState', 'in/releaseCriticality', 'in/releasedBy', 'in/releasedAt', 'in/inClarification', 'in/clarificationComment', 'in/customer', 'in/businessPartner', 'in/shipToCustomer', 'in/contactPersonNumber', 'in/modifiedAt', 'in/modifiedBy', 'in/isEditable', 'in/editHidden', 'in/canRelease', 'in/canReject', 'in/canClarify', 'in/canReset', 'in/canCreateCustomer', 'in/canCreateShipTo', 'in/canModifyContact', 'in/canConvertToNewCustomer', 'in/canCompleteManually', 'in/canAssignExistingCustomer', 'in/canChangeCustomerAssignment'], TargetEntities: ['in/log', 'in/admin', 'in/shipTo', 'in/salesData'] };
+  assignExistingCustomer   @Common.SideEffects: { TargetProperties: ['in/status_code', 'in/statusGroup', 'in/statusCriticality', 'in/processType', 'in/released', 'in/releaseState', 'in/releaseCriticality', 'in/releasedBy', 'in/releasedAt', 'in/inClarification', 'in/clarificationComment', 'in/customer', 'in/businessPartner', 'in/shipToCustomer', 'in/contactPersonNumber', 'in/modifiedAt', 'in/modifiedBy', 'in/isEditable', 'in/editHidden', 'in/canRelease', 'in/canReject', 'in/canClarify', 'in/canReset', 'in/canCreateCustomer', 'in/canCreateShipTo', 'in/canModifyContact', 'in/canConvertToNewCustomer', 'in/canCompleteManually', 'in/canAssignExistingCustomer', 'in/canChangeCustomerAssignment'], TargetEntities: ['in/log', 'in/admin', 'in/shipTo', 'in/salesData'] };
+  changeCustomerAssignment @Common.SideEffects: { TargetProperties: ['in/status_code', 'in/statusGroup', 'in/statusCriticality', 'in/processType', 'in/released', 'in/releaseState', 'in/releaseCriticality', 'in/releasedBy', 'in/releasedAt', 'in/inClarification', 'in/clarificationComment', 'in/customer', 'in/businessPartner', 'in/shipToCustomer', 'in/contactPersonNumber', 'in/modifiedAt', 'in/modifiedBy', 'in/isEditable', 'in/editHidden', 'in/canRelease', 'in/canReject', 'in/canClarify', 'in/canReset', 'in/canCreateCustomer', 'in/canCreateShipTo', 'in/canModifyContact', 'in/canConvertToNewCustomer', 'in/canCompleteManually', 'in/canAssignExistingCustomer', 'in/canChangeCustomerAssignment'], TargetEntities: ['in/log', 'in/admin', 'in/shipTo', 'in/salesData'] };
 }
 
 // ETag
@@ -136,6 +203,17 @@ annotate CustomerMonitorService.Requests with {
   releaseState         @readonly;
   isEditable           @Core.Computed;
   editHidden           @Core.Computed;
+  canRelease                  @Core.Computed;
+  canReject                   @Core.Computed;
+  canClarify                  @Core.Computed;
+  canReset                    @Core.Computed;
+  canCreateCustomer           @Core.Computed;
+  canCreateShipTo             @Core.Computed;
+  canModifyContact            @Core.Computed;
+  canConvertToNewCustomer     @Core.Computed;
+  canCompleteManually         @Core.Computed;
+  canAssignExistingCustomer   @Core.Computed;
+  canChangeCustomerAssignment @Core.Computed;
   email                @Communication.IsEmailAddress;
 };
 

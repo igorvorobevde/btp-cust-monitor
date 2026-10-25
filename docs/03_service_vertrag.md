@@ -193,14 +193,38 @@ using hydac.custmon as db from '../db/schema';
 
 service CustomerMonitorService @(path: '/odata/v4/monitor') {
 
+  @odata.draft.enabled                       // E-12
+  @UI.UpdateHidden: editHidden               // „Bearbeiten“ nur sichtbar, wenn bearbeitbar
   @(Capabilities: { InsertRestrictions.Insertable: false, DeleteRestrictions.Deletable: false })
-  entity Requests as projection on db.Requests actions {
-    function availableSteps() returns array of StepOption;
-    action   executeStep(step : db.StepCode,
-                         businessPartner : String(10),
-                         text : String(100),
-                         force : Boolean) returns Requests;
+  @restrict: [ { grant: 'READ', to: 'MonitorViewer' },
+               { grant: ['UPDATE', 'release', 'rejectRequest', 'clarify', 'reset', 'createCustomer', 'createShipTo',
+                         'modifyContact', 'convertToNewCustomer', 'completeManually',
+                         'assignExistingCustomer', 'changeCustomerAssignment'], to: 'MonitorEditor' } ]
+  entity Requests as projection on db.Requests actions {        // eine gebundene Aktion je Schritt (E-04)
+    @Common.IsActionCritical @Core.OperationAvailable: ( :in.canRelease )
+    action release(in : $self) returns Requests;                                                        // RELEASE
+    @Core.OperationAvailable: ( :in.canReject )
+    action rejectRequest(in : $self, @mandatory @UI.MultiLineText reason : String(100)) returns Requests; // REJECT
+    @Core.OperationAvailable: ( :in.canClarify )
+    action clarify(in : $self, @mandatory @UI.MultiLineText comment : String(100)) returns Requests;      // CLARIFY
+    @Common.IsActionCritical @Core.OperationAvailable: ( :in.canReset )
+    action reset(in : $self) returns Requests;                                                          // RESET
+    @Common.IsActionCritical @Core.OperationAvailable: ( :in.canCreateCustomer )
+    action createCustomer(in : $self) returns Requests;                                                 // CREATE
+    @Common.IsActionCritical @Core.OperationAvailable: ( :in.canCreateShipTo )
+    action createShipTo(in : $self) returns Requests;                                                   // CREATE_WE
+    @Common.IsActionCritical @Core.OperationAvailable: ( :in.canModifyContact )
+    action modifyContact(in : $self) returns Requests;                                                  // AP_MODIFY
+    @Common.IsActionCritical @Core.OperationAvailable: ( :in.canConvertToNewCustomer )
+    action convertToNewCustomer(in : $self) returns Requests;                                           // CNG_NEW
+    @Common.IsActionCritical @Core.OperationAvailable: ( :in.canCompleteManually )
+    action completeManually(in : $self) returns Requests;                                               // MANUAL_OK
+    @Core.OperationAvailable: ( :in.canAssignExistingCustomer )
+    action assignExistingCustomer(in : $self, @mandatory businessPartner : String(10)) returns Requests;  // CHNG_OLD
+    @Core.OperationAvailable: ( :in.canChangeCustomerAssignment )
+    action changeCustomerAssignment(in : $self, @mandatory businessPartner : String(10)) returns Requests; // CNG_DEBI
   };
+  // Jede Aktion trägt @Common.SideEffects (Status, Flags, Zuordnung, modifiedAt; log, admin, shipTo, salesData)
 
   entity SalesData      as projection on db.SalesData;
   entity ContactPersons as projection on db.ContactPersons;
@@ -218,14 +242,6 @@ service CustomerMonitorService @(path: '/odata/v4/monitor') {
   entity SalesOrganizations as select from db.Requests distinct { key salesOrganization };
   @readonly @cds.redirection.target: false
   entity Sources            as select from db.Requests distinct { key source };
-
-  type StepOption {
-    step          : db.StepCode;
-    text          : String(60);
-    input         : db.StepInput;
-    textMaxLength : Integer;      // nur bei input = TEXT
-    destructive   : Boolean;      // REJECT, RESET → UI zeigt Warn-Styling
-  }
 }
 ```
 
@@ -238,33 +254,38 @@ service CustomerMonitorService @(path: '/odata/v4/monitor') {
 - Sichtbarkeit: VKORG aus Benutzerattribut `SalesOrg`, nicht freigegebene Vorgänge nur mit `MonitorReleaser` (Mock: Handler-Filter, 02 §5).
 - Wertehilfen `SalesOrganizations` / `Sources` (F-11): Distinct-Werte aus `Requests`, nur Codes. `SalesOrganizations` ist deklarativ auf `$user.SalesOrg` eingeschränkt; die `released`-Einschränkung für Nicht-Freigeber gilt hier bewusst nicht (keine Vorgangsdaten).
 
-## 4. `availableSteps()`
+## 4. Aktionsverfügbarkeit (`can*`-Flags)
 
-Liefert die erlaubten Schritte in dieser Logik (identisch Altsystem `get_functions`):
+Das Backend liefert je Vorgang und Benutzer ein virtuelles Flag pro Schrittaktion (`canRelease`, `canReject`, …, siehe Tabelle in §5). Fiori Elements bindet die Flags über `Core.OperationAvailable`; die UI rechnet nichts (CLAUDE.md Regel 5). Logik identisch Altsystem `get_functions`:
 
-0. Ohne Rolle `MonitorEditor` → leeres Array (UI zeigt „Keine Schritte verfügbar“).
-1. Status 8xx/9xx → nur `RESET`.
-2. Nicht freigegeben → nur `RELEASE`, `REJECT` (`RELEASE` nur mit Rolle `MonitorReleaser`).
-3. Status 000 und nicht in Klärung → `CLARIFY`.
+0. Ohne Rolle `MonitorEditor` → alle Flags `false`.
+1. Status 8xx/9xx → nur `canReset`.
+2. Nicht freigegeben → nur `canRelease` (nur mit Rolle `MonitorReleaser`), `canReject`.
+3. Status 000 und nicht in Klärung → `canClarify`.
 4. Plus alle `ProcessSteps` für (source, processType, status).
+5. Entwürfe und aktive Vorgänge, für die ein Entwurf existiert → alle Flags `false` (Schritte und Bearbeitung schließen sich aus, §6).
 
-Texte der fest programmierten Funktionen `RESET`, `RELEASE`, `CLARIFY` stehen wie die Customizing-Schritte in `Steps` (sprachabhängig).
+Die Flags sind nie `null` und werden auch bei engem `$select` berechnet (fehlende Eingaben lädt der Service nach). Texte der Schritte stehen weiterhin in `Steps` (Protokoll, Phase 2); die Beschriftung der Aktionen kommt aus den Labels der Aktionen (`_i18n`, F-15).
 
-Eingabeart je Schritt:
+## 5. Schrittaktionen
 
-| step | input | textMaxLength | destructive |
-|---|---|---|---|
-| RELEASE | CONFIRM | | |
-| REJECT | TEXT | 100 | ✔ |
-| CLARIFY | TEXT | 100 | |
-| RESET | CONFIRM | | ✔ |
-| CREATE, CREATE_WE, AP_MODIFY | CONFIRM (E-09; Altsystem: NONE) | | |
-| CHNG_OLD, CNG_DEBI | BUSINESS_PARTNER | | |
-| CNG_NEW, MANUAL_OK | CONFIRM | | |
+Je Schritt eine gebundene Aktion am **aktiven** Vorgang (`Requests(ID=…,IsActiveEntity=true)`), ETag Pflicht (`If-Match`, kein `*`). Rückgabe: aktualisierter Vorgang inkl. Flags; Fiori Elements lädt per Side Effects Protokoll und Kinder nach.
 
-## 5. `executeStep(step, businessPartner, text, force)`
+| Schritt (Customizing) | Aktion | Flag | Eingabe | Bestätigung |
+|---|---|---|---|---|
+| RELEASE | `release()` | `canRelease` | – | `Common.IsActionCritical` |
+| REJECT | `rejectRequest(reason)` | `canReject` | `reason` Pflicht, max. 100 | Parameterdialog |
+| CLARIFY | `clarify(comment)` | `canClarify` | `comment` Pflicht, max. 100 | Parameterdialog |
+| RESET | `reset()` | `canReset` | – | IsActionCritical |
+| CREATE | `createCustomer()` | `canCreateCustomer` | – | IsActionCritical (E-09) |
+| CREATE_WE | `createShipTo()` | `canCreateShipTo` | – | IsActionCritical (E-09) |
+| AP_MODIFY | `modifyContact()` | `canModifyContact` | – | IsActionCritical (E-09) |
+| CNG_NEW | `convertToNewCustomer()` | `canConvertToNewCustomer` | – | IsActionCritical |
+| MANUAL_OK | `completeManually()` | `canCompleteManually` | – | IsActionCritical |
+| CHNG_OLD | `assignExistingCustomer(businessPartner)` | `canAssignExistingCustomer` | `businessPartner` Pflicht, 1–10 Ziffern | Parameterdialog; Rückfrage §5.3 |
+| CNG_DEBI | `changeCustomerAssignment(businessPartner)` | `canChangeCustomerAssignment` | `businessPartner` Pflicht, 1–10 Ziffern | Parameterdialog; Rückfrage §5.3 |
 
-Gebunden an einen Request, ETag Pflicht. Rückgabe: aktualisierter Request (UI liest Status, Felder, Log neu).
+Aktionen auf einem Entwurf (`IsActiveEntity=false`) → 400 `STEP_NOT_ALLOWED`; auf einem aktiven Vorgang mit vorhandenem Entwurf → 409 `DRAFT_ALREADY_EXISTS`. Phase 2: jede Aktion ruft `execute_function(step, …)` in S/4 (02 §6).
 
 ### 5.1 Ergebnisse
 
@@ -276,7 +297,8 @@ Gebunden an einen Request, ETag Pflicht. Rückgabe: aktualisierter Request (UI l
 | Eingabe fehlt / zu lang | 400 | `INPUT_REQUIRED` / `INPUT_TOO_LONG` | keine Änderung |
 | BP unbekannt | 400 | `BP_NOT_FOUND` | keine Änderung |
 | BP ohne Debitorrolle | 400 | `BP_NOT_CUSTOMER` | keine Änderung (Altsystem ließ das zu, siehe 07 R-06) |
-| Rückfrage nötig (CNG_DEBI: Debitor gehört anderer Magento-Company) | 409 | `CONFIRM_REQUIRED` | keine Änderung; UI fragt nach, wiederholt mit `force = true` |
+| Rückfrage nötig (CHNG_OLD/CNG_DEBI: Debitor gehört anderer Magento-Company) | 409 | `CONFIRM_REQUIRED` | nur bei `Prefer: handling=strict`; ohne Header gilt die Rückfrage als bestätigt (ersetzt `force`). Ab F-14: 412 Strict Handling (§5.3) |
+| Aktion auf Entwurf / aktiver Vorgang mit Entwurf | 400 / 409 | `STEP_NOT_ALLOWED` / `DRAFT_ALREADY_EXISTS` | keine Änderung (§6) |
 | Harte Vorbedingung (z. B. VKORG 2000 ohne CRM-Nummer) | 422 | `STEP_ABORTED` | keine Änderung, Meldung im Log **und** in der Antwort (07 R-04) |
 | ETag veraltet | 412 | – | UI: „Vorgang wurde zwischenzeitlich geändert“ → neu laden |
 | Keine Berechtigung | 403 | – | |
