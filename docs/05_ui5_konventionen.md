@@ -7,7 +7,7 @@
 - **SAPUI5 1.148.12 (LTS)** – festgelegt beim Setup (19.10.2026). Version beim Setup festlegen (gültige LTS laut https://ui5.sap.com/versionoverview.html) und in `manifest.json` (`minUI5Version`) sowie `index.html` fest eintragen.
 - Bibliotheken: `sap.fe.templates` (zieht `sap.fe.core`, `sap.fe.macros`, `sap.ui.mdc`, `sap.ui.fl`, `sap.uxap`), `sap.m`, `sap.f`, `sap.ui.core`. Keine `sap.ui.comp`, kein `sap.ui.table`. Andere nur nach Abstimmung.
 - Theme `sap_horizon`.
-- Code muss UI5-2.0-tauglich sein: keine deprecated APIs (`ui5lint` meldet sie). Eigener Code nur in `ext/` (Fragmente, Controller-Extension) und `test/`.
+- Code muss UI5-2.0-tauglich sein: keine deprecated APIs (`ui5lint` meldet sie). Eigener Code nur in `ext/` (Fragmente, Controller-Extension) und `test/`; einzige Ausnahme ist `Component.js` mit dem Umschreiben alter Lesezeichen (`#/requests/<uuid>`), das vor dem FE-Routing laufen muss.
 
 ## 2. Projektstruktur `app/monitor`
 
@@ -18,7 +18,7 @@ app/monitor/
 ├── eslint.config.mjs
 ├── annotations.cds         # NUR Layout: SelectionFields, SelectionVariant, LineItem, HeaderInfo, Facets, Aktionsgruppe
 └── webapp/
-    ├── Component.js        # sap.fe.core.AppComponent (8 Zeilen)
+    ├── Component.js        # sap.fe.core.AppComponent + Umschreiben alter Lesezeichen (einzige Logik außerhalb ext/)
     ├── manifest.json       # Routing/FCL, Templates, Tabellen-/Custom-Column-Konfiguration, Extensions
     ├── index.html          # nur lokal; Bootstrap von ui5.sap.com (fixe Version), flexibility-services = SessionStorage
     ├── css/style.css       # Präfix custmon
@@ -111,7 +111,7 @@ Eigene JSON-Modelle gibt es nicht; Zustand (Filter, Bearbeitungsmodus, Layout) h
 |---|---|---|
 | `_i18n/i18n*.properties` (Service, erscheinen in `$metadata`) | `field.*`, `param.*`, `action.*`, `log.*`, `section.*`, `group.*`, `facet.*`, `column.*`, `menu.*`, `request`/`requests` | `field.customer=Debitor`, `action.rejectRequest=Anfrage ablehnen`, `section.shipTo=Warenempfänger` |
 | `_i18n/messages*.properties` (Service, Laufzeitmeldungen) | Fehlercodes, `LOG_*`, `ACTION_DONE*`, `DRAFT_*` | 03 §5 |
-| `webapp/i18n/i18n*.properties` (App) | `appTitle`, `appDescription`, `list.col.*`, `list.hint.*`, `detail.*`, `common.*`, FE-Overrides `C_OPERATIONS_ACTION_CONFIRM_MESSAGE\|Requests\|<Aktion>` | `list.hint.orderExists=Bestellung vorhanden` |
+| `webapp/i18n/i18n*.properties` (App) | `appTitle`, `appDescription`, `list.col.*`, `list.hint.*`, `detail.*`, `common.*`, FE-Overrides `C_OPERATIONS_ACTION_CONFIRM_MESSAGE\|Requests\|<Aktion>` (FE liest Overrides nur aus Bundles, die im Manifest-Target unter `settings.enhanceI18n` eingetragen sind – ohne den Eintrag gilt still der FE-Standardtext) | `list.hint.orderExists=Bestellung vorhanden` |
 
 Jeder neue Schlüssel in **beiden** Sprachdateien des jeweiligen Bundles. Keine Texte für Status/Schritte/Prozessarten/Freigabe (Codelisten des Service). Hinweis: Properties-Dateien verlieren nachgestellte Leerzeichen – Trennzeichen im Ausdruck anhängen (siehe `ClarificationStrip`).
 

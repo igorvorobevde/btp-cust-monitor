@@ -107,7 +107,7 @@ Abschnitte werden von FE lazy geladen (beim Scrollen bzw. Anklicken des Reiters)
 ### 4.2 Schritt ausführen
 
 1. Menü **Schritt ausführen** → aktive Einträge nach `can*`-Flags des Backends (die UI rechnet nichts).
-2. Parameterlose Schritte (Freigeben, Erneut bearbeiten, Anlegen …) → FE-Bestätigungsdialog (`Common.IsActionCritical`, Texte `C_OPERATIONS_ACTION_CONFIRM_MESSAGE|Requests|<Aktion>` im App-Bundle).
+2. Parameterlose Schritte (Freigeben, Erneut bearbeiten, Anlegen …) → FE-Bestätigungsdialog (`Common.IsActionCritical`, Texte `C_OPERATIONS_ACTION_CONFIRM_MESSAGE|Requests|<Aktion>` im App-Bundle, das im Manifest-Target der Object Page als `enhanceI18n` eingetragen ist).
 3. Anfrage ablehnen / In Klärung → FE-Parameterdialog mit Pflichttext (max. 100 Zeichen, `@mandatory`, `@UI.MultiLineText`). Debitor zuordnen → Parameterdialog Geschäftspartner (Pflicht, 1–10 Ziffern; Phase 2: Wertehilfe).
 4. Rückfrage des Backends (z. B. Debitor gehört anderer Magento-Company): Strict Handling – 412 mit Frage → FE-Bestätigungsdialog → Wiederholung ohne `Prefer`-Header ([03 §5.3](03_service_vertrag.md)).
 5. Ergebnis: Side Effects laden Status, Flags, Zuordnung, Protokoll und Kinder neu; die Listenzeile aktualisiert sich. Erfolg → Toast „{Schritt}: neuer Status „{Status}““; Fehlerstatus (140/150/160) → Meldungsdialog mit Warnungen; Abbruch (422 `STEP_ABORTED`) → Fehlerdialog, Eintrag im Protokoll.

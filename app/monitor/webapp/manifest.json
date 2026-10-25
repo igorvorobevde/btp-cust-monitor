@@ -118,6 +118,7 @@
 					"options": {
 						"settings": {
 							"contextPath": "/Requests",
+							"enhanceI18n": ["i18n"],
 							"defaultTemplateAnnotationPath": "com.sap.vocabularies.UI.v1.SelectionPresentationVariant#Default",
 							"initialLoad": "Enabled",
 							"variantManagement": "None",
@@ -201,6 +202,7 @@
 					"options": {
 						"settings": {
 							"contextPath": "/Requests",
+							"enhanceI18n": ["i18n"],
 							"editableHeaderContent": false,
 							"showRelatedApps": false,
 							"content": {

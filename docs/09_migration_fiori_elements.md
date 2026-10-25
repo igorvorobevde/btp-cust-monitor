@@ -253,7 +253,7 @@ Deleted at cutover: `controller/*`, `view/*`, `view/fragments/*`, `model/*`, `se
 
 | Topic | Behaviour |
 |---|---|
-| Editing | *Bearbeiten* → `draftEdit`; field changes PATCH the draft (and child drafts) immediately; *Sichern* → `draftActivate`; *Abbrechen* → discard popover; navigation with an unsaved draft → data-loss dialog (keep / discard / save); "locked by <user>" handling; Edit hidden via `UI.UpdateHidden` |
+| Editing | *Bearbeiten* → `draftEdit`; field changes PATCH the draft (and child drafts) immediately; *Sichern* → `draftActivate`; *Abbrechen* → discard popover; switching rows while editing keeps the auto-saved draft (no data-loss dialog — verified 25.10.2026; the draft resumes on the next open); "locked by <user>" handling; Edit hidden via `UI.UpdateHidden` |
 | Messages | one success message → toast; warnings or several messages → dialog; bound validation messages → footer message button + popover with field navigation; 503 / `retry-after` handling |
 | Questions (CONFIRM_REQUIRED) | `Prefer: handling=strict` on every action → 412 + `Preference-Applied` → confirm dialog → re-invoke without the preference; plain 412 → error dialog |
 | Side effects | `@Common.SideEffects` refreshes status, log, children and the FCL list row |

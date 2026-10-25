@@ -2,9 +2,11 @@
 	xmlns="sap.m"
 	xmlns:core="sap.ui.core">
 	<!-- Custom column "Hinweise" (docs/04 §2.2): icons for not released / in Klärung / order exists -->
+	<!-- decorative="false" + alt: the hints are the only place in the list that says "nicht freigegeben" / "in Klärung",
+	     so screen readers must announce them -->
 	<HBox>
-		<core:Icon src="sap-icon://locked" visible="{= !${released} }" tooltip="{i18n>list.hint.notReleased}" class="custmonHintIcon"/>
-		<core:Icon src="sap-icon://question-mark" visible="{= !!${inClarification} }" tooltip="{i18n>list.hint.inClarification}" class="custmonHintIcon"/>
-		<core:Icon src="sap-icon://cart" visible="{= !!${orderExists} }" tooltip="{i18n>list.hint.orderExists}" class="custmonHintIcon"/>
+		<core:Icon src="sap-icon://locked" visible="{= !${released} }" decorative="false" alt="{i18n>list.hint.notReleased}" tooltip="{i18n>list.hint.notReleased}" class="custmonHintIcon"/>
+		<core:Icon src="sap-icon://question-mark" visible="{= !!${inClarification} }" decorative="false" alt="{i18n>list.hint.inClarification}" tooltip="{i18n>list.hint.inClarification}" class="custmonHintIcon"/>
+		<core:Icon src="sap-icon://cart" visible="{= !!${orderExists} }" decorative="false" alt="{i18n>list.hint.orderExists}" tooltip="{i18n>list.hint.orderExists}" class="custmonHintIcon"/>
 	</HBox>
 </core:FragmentDefinition>

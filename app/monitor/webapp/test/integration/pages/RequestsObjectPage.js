@@ -35,6 +35,15 @@ sap.ui.define([
 					errorMessage: "Log table missing, empty or not sorted by line desc"
 				});
 			},
+			iSeeDialogText: function (sText) {
+				return this.waitFor({
+					controlType: "sap.m.Dialog",
+					searchOpenDialogs: true, // MessageBox dialogs live outside the page's view
+					matchers: (oDialog) => oDialog.isOpen() && !!oDialog.getDomRef() && oDialog.getDomRef().textContent.includes(sText),
+					success: () => Opa5.assert.ok(true, "Open dialog shows '" + sText + "'"),
+					errorMessage: "No open dialog shows '" + sText + "'"
+				});
+			},
 			iSeeTheClarificationStrip: function (sComment) {
 				return this.waitFor({
 					controlType: "sap.m.MessageStrip",

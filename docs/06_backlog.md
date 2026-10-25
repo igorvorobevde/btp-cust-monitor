@@ -54,7 +54,7 @@ Leerzustände, Busy-Indikatoren, Tastaturbedienung, Tooltips für Icon-Spalten, 
 
 ## Phase 1b – Migration auf SAP Fiori Elements (Entscheidung 22.10.2026, siehe [09](09_migration_fiori_elements.md))
 
-Backend-Items zuerst (F-11–F-15, additiv bis auf F-12), FE-App parallel in `app/monitor-fe`, Cutover in F-21. Spike S1–S14 aus 09 §8 läuft auf einem Wegwerf-Branch parallel zu F-11/F-12 und ist Voraussetzung für F-16. F-10 wird mit F-22 abgeschlossen.
+Backend-Items zuerst (F-11–F-15, additiv bis auf F-12), FE-App parallel in `app/monitor-fe`, Cutover in F-21. Die Spike-Punkte S1–S14 aus 09 §8 wurden nicht auf einem Wegwerf-Branch, sondern als Prüf-/Rückfallschritte innerhalb von F-16–F-19 auf `main` abgearbeitet (Projektregel: nur `main`). F-10 wird mit F-22 abgeschlossen.
 
 ### F-11 Vertrag: Codelisten, berechnete Felder, Wertehilfen — erledigt
 `db/schema.cds`: `processTypeRef`, `releaseStateRef`, `statusGroup`, `statusCriticality`, `orderCriticality`, `releaseCriticality`, `releaseState` (stored), `LogEntries.criticality`, `Statuses.criticality`; Entitäten `StatusGroups`, `ReleaseStates` (+ `_texts` DE/EN); Service: `StatusGroups`, `ReleaseStates`, `SalesOrganizations` (`@restrict where`), `Sources` (`@cds.redirection.target: false`); CSV gemäß 09 §4.5; 03 §2/§3/§8.
@@ -99,8 +99,8 @@ HeaderInfo, HeaderFacets (DataPoints Status/Freigabe, Kennzahlen, Verwaltung), K
 **AK:** Bearbeiten nur bei `isEditable`; Feldänderungen in Hauptdaten und Ansprechpartner; Sichern erzeugt je Feld einen Logeintrag; Abbrechen mit Rückfrage verwirft; Zeilenwechsel während der Bearbeitung behält den Entwurf, der beim nächsten Öffnen fortgesetzt wird; zweiter Benutzer (`carol`) sieht „gesperrt von alice“ (Jest); Schritte sind gesperrt, solange die Draft-Sperre gilt.
 
 ### F-20 OPA-Journeys mit `sap.fe.test` — erledigt
-JourneyRunner, Page Objects (ListReport/ObjectPage), drei Journeys (Liste/Filter; Deep-Link + Bearbeiten + Protokoll; Schritt mit Rückfrage); `test:opa` auf neue Testseite, ggf. Test Starter.
-**AK:** `npm run test:opa` grün gegen `start:test`; Journeys decken die AK von F-16–F-19 ab.
+JourneyRunner, Page Objects (ListReport/ObjectPage), vier Journeys (Liste/Filter; Detail; Schritte; Bearbeiten); `test:opa` auf neue Testseite.
+**AK:** `npm run test:opa` grün gegen `start:test` (frischer Server, die Journeys verändern die Mock-Daten). OPA deckt ab: Standardfilter und Prozessart-Filter, Deep-Link, Abschnitte je Prozessart, Protokollreihenfolge, Klärungs-Strip, Lesezeichen-Umschreibung, Aktionsmenü nach Flags, Parameterdialog mit Pflichtfeld, eigener Bestätigungstext, Strict-Handling-Rückfrage (Bestätigen und Abbrechen), Schritte während Draft gesperrt, Draft bearbeiten/sichern/fortsetzen/verwerfen. Jest (Service) deckt ab: alle 13 Filterfelder (`$filter`/`$search`), Fehlerstatus-Warnungen, Erfolgsmeldung, ETag-412, Sperre durch zweiten Benutzer, Aktivierungsprotokoll. Nicht automatisiert (Sichtprüfung 09 §8): Hinweis-Icons, Listenzeilen-Refresh nach Schritt im FCL, Toast.
 
 ### F-21 Cutover — erledigt
 `app/monitor` (Freestyle) löschen, `app/monitor-fe` → `app/monitor`, mountPath `/monitor`, Skripte/README, 04 als FE-Spezifikation, 05, 08; QUnit entfernt; CLAUDE.md-Regeln final.
