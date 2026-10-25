@@ -95,8 +95,8 @@ HeaderInfo, HeaderFacets (DataPoints Status/Freigabe, Kennzahlen, Verwaltung), K
 **AK:** Menü „Schritt ausführen“ zeigt nur Aktionen mit Flag = true aktiv; `rejectRequest` öffnet FE-Parameterdialog (Pflichttext ≤ 100 Zeichen mit Zähler); `changeCustomerAssignment` mit BP 1000002 zeigt Strict-Handling-Rückfrage und wiederholt nach Bestätigen; Fehlerstatus-Schritt zeigt Meldungsdialog; Erfolg zeigt Toast; Status/Protokoll/Kopfdaten aktualisieren sich ohne Reload; Listenzeile zeigt neuen Status.
 
 ### F-19 Draft-Bearbeitung in der UI — erledigt
-`onBeforeEdit`-Refresh, `UI.ConnectedFields` (Straße/Hausnummer, PLZ/Ort), `$editState`-Filter ausgeblendet; 04 §4.1.
-**AK:** Bearbeiten nur bei `isEditable`; Feldänderungen in Hauptdaten und Ansprechpartner; Sichern erzeugt je Feld einen Logeintrag; Abbrechen mit Rückfrage verwirft; Navigation mit ungesichertem Draft zeigt FE-Datenverlust-Dialog; zweiter Benutzer (`carol`) sieht „gesperrt von alice“; Schritte sind gesperrt, solange ein Draft existiert.
+`onBeforeEdit`-Refresh (Bearbeiten startet mit frischen Daten); Bearbeiten/Sichern/Abbrechen sind FE-Standard (Draft). Bewusst nicht umgesetzt (Umsetzungsnotizen unten): `UI.ConnectedFields` (einzelne Formularzeilen genügen), Ausblenden des FE-Filters „Bearbeitungsstatus“ (Konfiguration erzeugt doppelten Property-Key), Datenverlust-Dialog beim Zeilenwechsel (FE speichert jede Änderung sofort im Entwurf). 04 §4.1.
+**AK:** Bearbeiten nur bei `isEditable`; Feldänderungen in Hauptdaten und Ansprechpartner; Sichern erzeugt je Feld einen Logeintrag; Abbrechen mit Rückfrage verwirft; Zeilenwechsel während der Bearbeitung behält den Entwurf, der beim nächsten Öffnen fortgesetzt wird; zweiter Benutzer (`carol`) sieht „gesperrt von alice“ (Jest); Schritte sind gesperrt, solange die Draft-Sperre gilt.
 
 ### F-20 OPA-Journeys mit `sap.fe.test` — erledigt
 JourneyRunner, Page Objects (ListReport/ObjectPage), drei Journeys (Liste/Filter; Deep-Link + Bearbeiten + Protokoll; Schritt mit Rückfrage); `test:opa` auf neue Testseite, ggf. Test Starter.

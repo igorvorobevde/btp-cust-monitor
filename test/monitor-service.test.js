@@ -442,6 +442,15 @@ describe("F-12 draft editing", () => {
 		expect((await failure(PATCH(url(6, "", false), { name: "X" }, { ...CAROL, headers: { "If-Match": "*" } }))).status).toBe(403);
 	});
 
+	test("an expired draft lock no longer blocks steps for other users", async () => {
+		await edit(6, CAROL);
+		expect((await flags(6)).canClarify).toBe(false);
+		const past = new Date(Date.now() - 20 * 60 * 1000).toISOString(); // older than draft_lock_timeout (15min)
+		await cds.run(UPDATE("DRAFT.DraftAdministrativeData").with({ LastChangeDateTime: past, CreationDateTime: past }));
+		expect((await flags(6)).canClarify).toBe(true);
+		expect((await invoke(6, "clarify", { comment: "Sperre abgelaufen" })).status).toBe(200);
+	});
+
 	test("editHidden mirrors isEditable", async () => {
 		expect((await GET(url(6, "?$select=isEditable,editHidden"), ALICE)).data).toMatchObject({ isEditable: true, editHidden: false });
 		expect((await GET(url(12, "?$select=isEditable,editHidden"), ALICE)).data).toMatchObject({ isEditable: false, editHidden: true });

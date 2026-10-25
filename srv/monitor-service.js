@@ -54,6 +54,20 @@ const STEP_FLAGS = Object.freeze({
 });
 // Felder, die die Flag-Berechnung braucht (werden nachgeladen, wenn nicht im $select)
 const FLAG_INPUT = ["ID", "status_code", "released", "inClarification", "source", "processType"];
+/** Dauer wie in cds.fiori.draft_lock_timeout ("15min", "2h", "1d", Sekunden oder Millisekunden) → ms */
+function parseDuration(value, fallbackMs) {
+	if (typeof value === "number") {
+		return value;
+	}
+	const match = /^\s*(\d+)\s*(ms|s|min|m|h|d)?\s*$/i.exec(String(value || ""));
+	if (!match) {
+		return fallbackMs;
+	}
+	const factor = { ms: 1, s: 1000, m: 60000, min: 60000, h: 3600000, d: 86400000 }[(match[2] || "ms").toLowerCase()];
+	return Number(match[1]) * factor;
+}
+const LOCK_TIMEOUT_MS = parseDuration(cds.env.fiori && cds.env.fiori.draft_lock_timeout, 15 * 60 * 1000);
+
 /** OData Strict Handling: ohne `Prefer: handling=strict` gilt eine Rückfrage als bestätigt (03 §5.3) */
 const isStrict = (req) => /\bhandling=strict\b/i.test(req.headers.prefer || "");
 
@@ -250,10 +264,15 @@ module.exports = class CustomerMonitorService extends cds.ApplicationService {
 			}
 		});
 
-		// IDs der Vorgänge, für die ein Entwurf existiert (Schritte und Flags sind dann gesperrt)
+		// IDs der Vorgänge mit gültiger Draft-Sperre: Entwurf vorhanden und letzte Änderung jünger als draft_lock_timeout
+		// (wie lean draft bei draftEdit). Abgelaufene Sperren blockieren keine Schritte mehr; eine spätere Aktivierung
+		// schreibt nur editierbare Felder und kann ein Schrittergebnis nicht zurückdrehen.
 		const hasDraft = async (ids) => {
-			const drafts = await SELECT.from(Requests.drafts).columns("ID").where({ ID: { in: ids } });
-			return new Set(drafts.map((d) => d.ID));
+			const drafts = await SELECT.from(Requests.drafts)
+				.columns("ID", { ref: ["DraftAdministrativeData", "LastChangeDateTime"], as: "lastChange" })
+				.where({ ID: { in: ids } });
+			const threshold = Date.now() - LOCK_TIMEOUT_MS;
+			return new Set(drafts.filter((d) => !d.lastChange || Date.parse(d.lastChange) >= threshold).map((d) => d.ID));
 		};
 
 		/**

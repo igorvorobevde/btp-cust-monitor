@@ -102,7 +102,7 @@ Abschnitte werden von FE lazy geladen (beim Scrollen bzw. Anklicken des Reiters)
 2. Jede Feldänderung wird sofort im Entwurf gespeichert (PATCH auf dem Draft, auch für Ansprechpartner/Vertrieb/Warenempfänger).
 3. **Sichern** → `draftActivate`: Vorgang wird aktualisiert, je geändertem Feld ein Protokolleintrag, Entwurf gelöscht, Toast „Gesichert“ (FE). Fachliche Fehler bleiben im Bearbeitungsmodus (Meldungen im Fußbereich).
 4. **Abbrechen** → Entwurf verwerfen (Rückfrage, wenn Änderungen vorliegen).
-5. Während ein Entwurf existiert, sind alle Schritte gesperrt (Flags `false`); andere Benutzer können weder bearbeiten noch Schritte ausführen (Sperre 15 min, bei jeder Änderung verlängert).
+5. Solange die Draft-Sperre gilt (15 min seit der letzten Änderung, bei jeder Änderung verlängert), sind alle Schritte gesperrt (Menüeinträge inaktiv, Flags `false`) und andere Benutzer können nicht bearbeiten. Nach Ablauf der Sperre sind Schritte wieder möglich, auch wenn der Entwurf noch existiert (z. B. nach einem Zeilenwechsel ohne Sichern, §1); der Besitzer kann den Entwurf weiterhin öffnen und sichern oder verwerfen – gesichert werden dann nur die editierbaren Felder. Ein anderer Bearbeiter kann einen abgelaufenen Entwurf über **Bearbeiten** übernehmen (FE-Rückfrage) und verwerfen.
 
 ### 4.2 Schritt ausführen
 

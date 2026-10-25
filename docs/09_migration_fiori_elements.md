@@ -120,7 +120,7 @@ annotate CustomerMonitorService.Requests with actions {
 
 - `virtual canRelease … canChangeCustomerAssignment : Boolean`, `virtual isEditable`, `virtual editHidden` on `db.Requests`.
 - Filled in `after READ`, registered on `[Requests, Requests.drafts]`; missing inputs (`status_code, released, inClarification, source, processType`) are re-selected when not in `$select`. Drafts are recognised via `req.target.isDraft`; actives that have a draft are looked up in `Requests.drafts` (lean draft merges `HasDraftEntity` only after the handlers). Flags are never `null` (FE renders `null` as visible-but-disabled).
-- **All `can*` are `false` on drafts and on actives that have a draft** (steps and editing are mutually exclusive). `isEditable = true` on the user's own draft; `editHidden = !isEditable`.
+- **All `can*` are `false` on drafts and on actives whose draft lock is still valid** (last draft change younger than `draft_lock_timeout`; steps and editing are mutually exclusive while someone is editing). After the lock expires, steps are allowed again even if the abandoned draft still exists — a later activation writes only editable fields, so it cannot undo a step (review 25.10.2026). `isEditable = true` on the user's own draft; `editHidden = !isEditable`.
 - One generic `on` handler for all 11 events on `[Requests, Requests.drafts]`:
   - draft target → `400 STEP_NOT_ALLOWED`;
   - active with an existing draft → `409 DRAFT_ALREADY_EXISTS` (lean draft does not guard custom actions on actives);
