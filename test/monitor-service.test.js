@@ -255,16 +255,17 @@ describe("F-13 step actions per process type", () => {
 });
 
 describe("F-13 BP steps and confirmations", () => {
-	test("changeCustomerAssignment to BP of other Magento company → CONFIRM_REQUIRED with strict handling, confirmed → 110", async () => {
+	test("changeCustomerAssignment to BP of other Magento company → question (412 strict), confirmed → 110", async () => {
 		const res = await failure(invoke(5, "changeCustomerAssignment", { businessPartner: "1000002" }, STRICT));
+		expect(res.status).toBe(412);
 		expect(res.data.error.code).toBe("CONFIRM_REQUIRED");
-		expect(res.data.error.message).toMatch(/4000002/);
 		const { data } = await invoke(5, "changeCustomerAssignment", { businessPartner: "0001000002" });
 		expect(data).toMatchObject({ status_code: "110", processType: "CH_DEB", customer: "4000002", contactPersonNumber: null });
 	});
 
 	test("assignExistingCustomer also checks Magento assignment (R-06)", async () => {
 		const res = await failure(invoke(1, "assignExistingCustomer", { businessPartner: "1000002" }, STRICT));
+		expect(res.status).toBe(412);
 		expect(res.data.error.code).toBe("CONFIRM_REQUIRED");
 	});
 
@@ -274,9 +275,11 @@ describe("F-13 BP steps and confirmations", () => {
 		expect(res.data.error.code).toBe("BP_NOT_CUSTOMER");
 	});
 
-	test("unknown BP → 400 BP_NOT_FOUND; missing input → 400", async () => {
+	test("unknown BP → 400 BP_NOT_FOUND; missing input → 400 with target", async () => {
 		expect((await failure(invoke(13, "changeCustomerAssignment", { businessPartner: "9999999" }))).data.error.code).toBe("BP_NOT_FOUND");
-		expect((await failure(invoke(13, "changeCustomerAssignment"))).status).toBe(400);
+		const missing = await failure(invoke(13, "changeCustomerAssignment"));
+		expect(missing.status).toBe(400);
+		expect(missing.data.error.target).toBe("businessPartner");
 	});
 
 	test("convertToNewCustomer re-checks release (R-02)", async () => {
@@ -306,6 +309,50 @@ describe("F-13 special functions", () => {
 	test("rejectRequest text too long → INPUT_TOO_LONG; not allowed step → STEP_NOT_ALLOWED", async () => {
 		expect((await failure(invoke(1, "rejectRequest", { reason: "x".repeat(101) }))).status).toBe(400);
 		expect((await failure(invoke(1, "createShipTo"))).data.error.code).toBe("STEP_NOT_ALLOWED");
+	});
+});
+
+describe("F-14 strict handling and messages", () => {
+	test("question → 412 with Preference-Applied and details, confirmed without Prefer → 110", async () => {
+		const res = await failure(invoke(5, "changeCustomerAssignment", { businessPartner: "1000002" }, STRICT));
+		expect(res.status).toBe(412);
+		expect(res.headers["preference-applied"]).toBe("handling=strict");
+		expect(res.data.error.code).toBe("CONFIRM_REQUIRED");
+		expect(res.data.error.details[0]["@Common.numericSeverity"]).toBe(3);
+		expect(res.data.error.details[0].message).toMatch(/4000002/);
+		const { data } = await invoke(5, "changeCustomerAssignment", { businessPartner: "0001000002" });
+		expect(data).toMatchObject({ status_code: "110", processType: "CH_DEB", customer: "4000002" });
+	});
+
+	test("stale ETag with Prefer → plain 412 without Preference-Applied", async () => {
+		const stale = await etag(6);
+		await invoke(6, "clarify", { comment: "x" });
+		const res = await failure(invoke(6, "completeManually", {}, { ifMatch: stale, ...STRICT }));
+		expect(res.status).toBe(412);
+		expect(res.headers["preference-applied"]).toBeUndefined();
+	});
+
+	test("missing mandatory parameter → 400 with target", async () => {
+		const res = await failure(invoke(1, "rejectRequest", {}));
+		expect(res.status).toBe(400);
+		expect(res.data.error.target).toBe("reason");
+	});
+
+	test("BP errors target the businessPartner parameter", async () => {
+		const res = await failure(invoke(13, "changeCustomerAssignment", { businessPartner: "9999999" }));
+		expect(res.data.error).toMatchObject({ code: "BP_NOT_FOUND", target: "businessPartner" });
+	});
+
+	test("success → exactly one sap-message with severity 1; error status → warnings", async () => {
+		const ok = await invoke(6, "modifyContact");
+		const messages = JSON.parse(ok.headers["sap-messages"]);
+		expect(messages).toHaveLength(1);
+		expect(messages[0].numericSeverity).toBe(1);
+		const failed = await invoke(3, "createCustomer");
+		expect(failed.status).toBe(200);
+		const warnings = JSON.parse(failed.headers["sap-messages"]);
+		expect(warnings.length).toBeGreaterThan(0);
+		expect(warnings.every((m) => m.numericSeverity === 3)).toBe(true);
 	});
 });
 

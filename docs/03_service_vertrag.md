@@ -291,21 +291,26 @@ Aktionen auf einem Entwurf (`IsActiveEntity=false`) → 400 `STEP_NOT_ALLOWED`; 
 
 | Fall | HTTP | Fehlercode (`error.code`) | Wirkung |
 |---|---|---|---|
-| Erfolg | 200 | – | Erfolgsstatus, Log; Meldungen als `sap-messages` (Typ success/info) |
-| Schritt ausgeführt, fachlicher Fehler mit Fehlerstatus (CREATE→150, CREATE_WE→160, AP_MODIFY→140) | **200** | – | Fehlerstatus gesetzt, Meldungen als `sap-messages` Typ error/warning |
+| Erfolg | 200 | – | Erfolgsstatus, Log; `sap-messages`: genau **eine** Erfolgsmeldung (`numericSeverity` 1 → FE zeigt Toast, Text `ACTION_DONE[_STATUS]`) plus etwaige Warnungen (§5.2) |
+| Schritt ausgeführt, fachlicher Fehler mit Fehlerstatus (CREATE→150, CREATE_WE→160, AP_MODIFY→140) | **200** | – | Fehlerstatus gesetzt, Meldungen als `sap-messages` Typ warning (FE zeigt Dialog) |
 | Schritt nicht erlaubt | 400 | `STEP_NOT_ALLOWED` | keine Änderung |
-| Eingabe fehlt / zu lang | 400 | `INPUT_REQUIRED` / `INPUT_TOO_LONG` | keine Änderung |
-| BP unbekannt | 400 | `BP_NOT_FOUND` | keine Änderung |
-| BP ohne Debitorrolle | 400 | `BP_NOT_CUSTOMER` | keine Änderung (Altsystem ließ das zu, siehe 07 R-06) |
-| Rückfrage nötig (CHNG_OLD/CNG_DEBI: Debitor gehört anderer Magento-Company) | 409 | `CONFIRM_REQUIRED` | nur bei `Prefer: handling=strict`; ohne Header gilt die Rückfrage als bestätigt (ersetzt `force`). Ab F-14: 412 Strict Handling (§5.3) |
+| Pflichtparameter fehlt (`reason`, `comment`, `businessPartner`) | 400 | `ASSERT_MANDATORY` (CAP-generisch), `target` = Parametername | keine Änderung |
+| Eingabe zu lang | 400 | `INPUT_TOO_LONG`, `target` = Parametername | keine Änderung |
+| BP unbekannt | 400 | `BP_NOT_FOUND`, `target` = `businessPartner` | keine Änderung |
+| BP ohne Debitorrolle | 400 | `BP_NOT_CUSTOMER`, `target` = `businessPartner` | keine Änderung (Altsystem ließ das zu, siehe 07 R-06) |
+| Rückfrage nötig (CHNG_OLD/CNG_DEBI: Debitor gehört anderer Magento-Company) | **412** | `CONFIRM_REQUIRED` + Header `Preference-Applied: handling=strict` | nur bei `Prefer: handling=strict`; Frage in `error.details[0]` (`@Common.numericSeverity` 3); Wiederholung ohne `Prefer` gilt als bestätigt (§5.3) |
 | Aktion auf Entwurf / aktiver Vorgang mit Entwurf | 400 / 409 | `STEP_NOT_ALLOWED` / `DRAFT_ALREADY_EXISTS` | keine Änderung (§6) |
 | Harte Vorbedingung (z. B. VKORG 2000 ohne CRM-Nummer) | 422 | `STEP_ABORTED` | keine Änderung, Meldung im Log **und** in der Antwort (07 R-04) |
-| ETag veraltet | 412 | – | UI: „Vorgang wurde zwischenzeitlich geändert“ → neu laden |
+| ETag fehlt, veraltet oder `*` | 412 | `412` (**ohne** `Preference-Applied`) | UI: „Vorgang wurde zwischenzeitlich geändert“ → neu laden |
 | Keine Berechtigung | 403 | – | |
 
-Hinweis Mock/CAP: Bei HTTP 200 können `sap-messages` nur bis Schweregrad *warning* transportiert werden; Meldungen eines Fehlerstatus (140/150/160) kommen daher als Warnung. Die UI wertet zusätzlich die Statusgruppe `ERROR` aus (04 §4.2).
+Hinweis Mock/CAP: Bei HTTP 200 können `sap-messages` nur bis Schweregrad *warning* transportiert werden; Meldungen eines Fehlerstatus (140/150/160) kommen daher als Warnung. Die UI wertet zusätzlich die Statusgruppe `ERROR` bzw. `statusCriticality` aus.
 
-Fehlerantworten enthalten `error.message` (übersetzt) und optional `error.details[]` (weitere Meldungen). `CONFIRM_REQUIRED` enthält in `error.message` die Rückfrage (z. B. „Debitor 4711 ist bereits Magento-Company 999 zugeordnet. Trotzdem übernehmen?“).
+Fehlerantworten enthalten `error.message` (übersetzt), optional `error.target` (Parametername → Dialogfeld) und `error.details[]` (weitere Meldungen).
+
+### 5.3 Rückfragen (OData Strict Handling)
+
+Fiori Elements sendet bei jedem Aktionsaufruf `Prefer: handling=strict`. Erfordert ein Schritt eine Bestätigung (heute nur CHNG_OLD/CNG_DEBI bei fremder Magento-Company), antwortet der Service mit **412**, Header `Preference-Applied: handling=strict`, `error.code = CONFIRM_REQUIRED` und der Frage in `error.details[0].message` (z. B. „Debitor 4711 ist bereits Magento-Company 999 zugeordnet. Trotzdem übernehmen?“, `@Common.numericSeverity` 3). Fiori Elements zeigt die Frage als Bestätigungsdialog und wiederholt den Aufruf nach *Bestätigen* **ohne** `Prefer`-Header – ein Aufruf ohne `handling=strict` gilt serverseitig als bestätigt (ersetzt den früheren Parameter `force`). Ein ETag-412 trägt keinen `Preference-Applied`-Header und wird daher als Konflikt, nicht als Rückfrage angezeigt.
 
 ### 5.2 Wirkung je Schritt
 
@@ -314,6 +319,7 @@ Siehe [01_fachkonzept.md §6](01_fachkonzept.md#6-schritte). Zusätzlich im Mock
 - **CNG_NEW** führt die Freigabeprüfung erneut aus (07 R-02). Ergebnis kann `released = false` sein.
 - **CHNG_OLD** prüft wie CNG_DEBI die bestehende Magento-Zuordnung (07 R-06).
 - Jeder Schritt schreibt mindestens einen Logeintrag und aktualisiert `modifiedAt/By`.
+- Meldungen: Bei Erfolg genau eine Erfolgsmeldung in `sap-messages` (`ACTION_DONE_STATUS` „{Schritt}: neuer Status „{Status}““ bzw. `ACTION_DONE` „{Schritt} ausgeführt“, Texte aus `Steps`/`Statuses` je `Accept-Language`); Warnungen des Schritts (z. B. „Vorgang muss manuell freigegeben werden“ nach CNG_NEW) zusätzlich als Warnung. Alle Einzelmeldungen stehen im Protokoll.
 
 ## 6. Bearbeiten (Draft, E-12)
 
@@ -370,6 +376,7 @@ Wichtige BPs für Schritte mit BP-Eingabe: `1000030` (Debitor 4000030, frei → 
 - AP_MODIFY: VKORG 2000 und Debitor ohne `crmNumber` → 422 `STEP_ABORTED`.
 - `MOCK_LATENCY_MS` (env) verzögert jede Action, um Busy-Zustände zu testen.
 - BP-Nummern werden ohne führende Nullen verglichen (`0001000002` = `1000002`).
+- `Prefer: handling=strict` → Rückfrage als 412 (§5.3); ohne Header gilt die Rückfrage als bestätigt. Im Mock wie in Phase 2.
 - Meldungstexte (Fehler, `sap-messages`, Protokoll) aus `_i18n/messages*.properties` (EN/DE), Sprache aus `Accept-Language`.
 - `STEP_ABORTED` schreibt den Protokolleintrag (Typ `A`) in einer eigenen Transaktion nach dem Rollback.
 - Profil `opa` (`npm run start:test`): Auth `dummy` (privilegierter Benutzer, alle Rollen, alle VKORG) für Headless-Browsertests.

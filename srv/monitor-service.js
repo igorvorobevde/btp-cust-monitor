@@ -209,9 +209,11 @@ module.exports = class CustomerMonitorService extends cds.ApplicationService {
 		};
 
 		// ---------- Fehler-Mapping ----------
-		// CAP lehnt fehlendes If-Match generisch mit 428 ab; Vertrag (03 §3): fehlendes/veraltetes ETag → 412
+		// CAP lehnt fehlendes If-Match generisch mit 428 und veraltetes mit 412 ab; Vertrag (03 §3): beides 412 mit ETAG_REQUIRED.
+		// Die Rückfrage-412 (Code CONFIRM_REQUIRED, §5.3) bleibt unberührt.
 		this.on("error", (err, req) => {
-			if (Number(err.status || err.statusCode || err.code) === 428) {
+			const status = Number(err.status || err.statusCode || err.code);
+			if (status === 428 || (status === 412 && String(err.code) === "412")) {
 				err.status = 412;
 				err.statusCode = 412;
 				err.code = "412";
@@ -380,7 +382,16 @@ module.exports = class CustomerMonitorService extends cds.ApplicationService {
 							createdAt: now
 						})))).catch((err) => LOG.error("Abort log failed", err)));
 				}
-				return req.reject({ status: e.status, code: e.code, message });
+				// Rückfrage per OData Strict Handling (03 §5.3): 412 + Preference-Applied, Frage in details[] (FE zeigt sie im Bestätigungsdialog)
+				if (e.code === ErrorCodes.CONFIRM_REQUIRED) {
+					(req.res ?? req.http.res).set("Preference-Applied", "handling=strict");
+					return req.reject({ status: 412, code: e.code, message, details: [{ code: e.code, message, numericSeverity: 3 }] });
+				}
+				// Parameterfehler zeigen auf den Dialogparameter
+				const [paramName] = Object.values(PARAMS[req.event] || {});
+				const target = paramName && [ErrorCodes.BP_NOT_FOUND, ErrorCodes.BP_NOT_CUSTOMER, ErrorCodes.INPUT_REQUIRED, ErrorCodes.INPUT_TOO_LONG].includes(e.code)
+					? paramName : undefined;
+				return req.reject({ status: e.status, code: e.code, message, target });
 			}
 
 			await UPDATE(db.Requests, ID).with({ ...result.requestChanges, modifiedAt: now, modifiedBy: req.user.id });
@@ -397,13 +408,21 @@ module.exports = class CustomerMonitorService extends cds.ApplicationService {
 				step
 			})));
 
-			// Meldungen als sap-messages; Fehlerstatus (140/150/160) als Warnung, da HTTP 200 (03 §5.1)
-			for (const m of result.messages) {
-				const message = t(req, m.key, m.args);
-				if (m.type === "E" || m.type === "W" || result.failed) {
-					req.warn({ message, target: "" });
-				} else {
-					req.info({ message, target: "" });
+			// sap-messages (03 §5.2): Fehlerstatus (140/150/160) → Warnungen (HTTP 200, FE zeigt Dialog);
+			// Erfolg → genau eine Erfolgsmeldung (FE zeigt Toast) plus etwaige Warnungen; alle Details stehen im Protokoll
+			if (result.failed) {
+				for (const m of result.messages) {
+					req.warn({ message: t(req, m.key, m.args) });
+				}
+			} else {
+				const stepText = (steps.find((s) => s.code === step) || {}).text || step;
+				const newStatus = result.requestChanges.status_code;
+				const [statusRow] = newStatus ? await SELECT.localized.from(db.Statuses).where({ code: newStatus }) : [];
+				req.notify({ message: newStatus
+					? t(req, "ACTION_DONE_STATUS", [stepText, (statusRow && statusRow.text) || newStatus])
+					: t(req, "ACTION_DONE", [stepText]) });
+				for (const m of result.messages.filter((x) => x.type === "E" || x.type === "W")) {
+					req.warn({ message: t(req, m.key, m.args) });
 				}
 			}
 
