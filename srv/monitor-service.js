@@ -6,6 +6,7 @@
  */
 const cds = require("@sap/cds");
 const sm = require("./lib/status-machine");
+const { waitingText } = require("./lib/relative-time");
 const { StepError, ErrorCodes } = require("./lib/errors");
 
 const LOG = cds.log("monitor");
@@ -13,7 +14,7 @@ const NS = "hydac.custmon";
 
 // Felder, die per PATCH nicht geändert werden dürfen bzw. nicht protokolliert werden
 const TECHNICAL_FIELDS = new Set(["ID", "request_ID", "modifiedAt", "modifiedBy", "createdAt", "createdBy", "isEditable", "editHidden",
-	"releaseState", "statusGroup", "statusCriticality", "orderCriticality", "releaseCriticality",
+	"releaseState", "statusGroup", "statusCriticality", "orderCriticality", "releaseCriticality", "waitingSince", "waitingText",
 	"IsActiveEntity", "HasActiveEntity", "HasDraftEntity", "DraftAdministrativeData_DraftUUID"]);
 
 // Schrittcode (Customizing) → gebundene Aktion (03 §5); Phase 2: execute_function(step)
@@ -53,7 +54,7 @@ const STEP_FLAGS = Object.freeze({
 	CNG_DEBI: "canChangeCustomerAssignment"
 });
 // Felder, die die Flag-Berechnung braucht (werden nachgeladen, wenn nicht im $select)
-const FLAG_INPUT = ["ID", "status_code", "released", "inClarification", "source", "processType"];
+const FLAG_INPUT = ["ID", "status_code", "released", "inClarification", "source", "processType", "waitingSince"];
 /** Dauer wie in cds.fiori.draft_lock_timeout ("15min", "2h", "1d", Sekunden oder Millisekunden) → ms */
 function parseDuration(value, fallbackMs) {
 	if (typeof value === "number") {
@@ -264,6 +265,28 @@ module.exports = class CustomerMonitorService extends cds.ApplicationService {
 			}
 		});
 
+		// Virtuelle Felder (waitingText, can*-Flags, …) existieren nicht in der DB: $filter/$orderby darauf → 400 statt 500
+		const VIRTUAL = new Set(Object.values(Requests.elements).filter((e) => e.virtual).map((e) => e.name));
+		const virtualRef = (node) => {
+			if (Array.isArray(node)) {
+				return node.map(virtualRef).find(Boolean);
+			}
+			if (!node || typeof node !== "object") {
+				return undefined;
+			}
+			if (node.ref && node.ref.length === 1 && VIRTUAL.has(node.ref[0])) {
+				return node.ref[0];
+			}
+			return virtualRef(node.xpr) || virtualRef(node.args);
+		};
+		this.before("READ", [Requests, Requests.drafts], (req) => {
+			const { where, orderBy } = req.query.SELECT || {};
+			const name = virtualRef(where) || virtualRef(orderBy);
+			if (name) {
+				req.reject(400, t(req, "VIRTUAL_NOT_QUERYABLE", [name]));
+			}
+		});
+
 		// IDs der Vorgänge mit gültiger Draft-Sperre: Entwurf vorhanden und letzte Änderung jünger als draft_lock_timeout
 		// (wie lean draft bei draftEdit). Abgelaufene Sperren blockieren keine Schritte mehr; eine spätere Aktivierung
 		// schreibt nur editierbare Felder und kann ein Schrittergebnis nicht zurückdrehen.
@@ -276,16 +299,19 @@ module.exports = class CustomerMonitorService extends cds.ApplicationService {
 		};
 
 		/**
-		 * can*-Flags, isEditable und editHidden am Datensatz setzen – nie null
-		 * (Fiori Elements zeigt null als sichtbar, aber deaktiviert). Entwürfe und gesperrte Vorgänge: keine Schritte.
+		 * Abgeleitete Werte am Datensatz setzen: can*-Flags, isEditable und editHidden – nie null
+		 * (Fiori Elements zeigt null als sichtbar, aber deaktiviert) – sowie waitingText (F-24, Sprache des Requests).
+		 * Entwürfe und gesperrte Vorgänge: keine Schritte.
+		 * ctx = { processSteps, steps, userRoles, req, now (ms) }
 		 */
-		const setFlags = (row, state, processSteps, userRoles, { draft = false, locked = false } = {}) => {
+		const setDerived = (row, state, { processSteps, userRoles, req, now }, { draft = false, locked = false } = {}) => {
 			const codes = draft || locked ? [] : sm.availableStepCodes(state, processSteps, userRoles);
 			for (const [step, name] of Object.entries(STEP_FLAGS)) {
 				row[name] = codes.includes(step);
 			}
 			row.isEditable = draft ? true : sm.isEditable(state, userRoles.isEditor);
 			row.editHidden = !row.isEditable;
+			row.waitingText = waitingText(state.waitingSince, now, (key, args) => t(req, key, args));
 		};
 
 		// Flags für aktive Vorgänge und eigene Entwürfe; HasDraftEntity wird erst nach den Handlern gefüllt → eigene Abfrage
@@ -302,9 +328,9 @@ module.exports = class CustomerMonitorService extends cds.ApplicationService {
 				incomplete.length ? SELECT.from(db.Requests).columns(...FLAG_INPUT).where({ ID: { in: incomplete.map((r) => r.ID) } }) : []
 			]);
 			const lookup = new Map(found.map((f) => [f.ID, f]));
-			const userRoles = roles(req);
+			const ctx = { processSteps, steps: [], userRoles: roles(req), req, now: Date.now() };
 			for (const row of rows) {
-				setFlags(row, lookup.get(row.ID) || row, processSteps, userRoles, { draft, locked: drafted.has(row.ID) });
+				setDerived(row, lookup.get(row.ID) || row, ctx, { draft, locked: drafted.has(row.ID) });
 			}
 		});
 
@@ -471,7 +497,7 @@ module.exports = class CustomerMonitorService extends cds.ApplicationService {
 			}
 
 			const updated = await SELECT.one.from(db.Requests).where({ ID });
-			setFlags(updated, updated, processSteps, roles(req));
+			setDerived(updated, updated, { processSteps, steps, userRoles: roles(req), req, now: Date.now() }, {});
 			return { ...updated, IsActiveEntity: true, HasActiveEntity: false, HasDraftEntity: false };
 		});
 

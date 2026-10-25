@@ -94,6 +94,8 @@ annotate S.Requests with {
   orderCriticality   @UI.Hidden;
   releaseCriticality @UI.Hidden;
   editHidden         @UI.Hidden;
+  // relative Wartezeit ist virtuell: weder filter- noch sortierbar (sortiert wird über waitingSince)
+  waitingText        @UI.HiddenFilter;
 };
 
 annotate S.Statuses with {
@@ -135,6 +137,8 @@ annotate S.Requests with {
   releaseProcedure     @title: '{i18n>field.releaseProcedure}';
   releasedBy           @title: '{i18n>field.releasedBy}';
   releasedAt           @title: '{i18n>field.releasedAt}';
+  waitingSince         @title: '{i18n>field.waitingSince}';
+  waitingText          @title: '{i18n>field.waitingText}';
   inClarification      @title: '{i18n>field.inClarification}';
   clarificationComment @title: '{i18n>field.clarificationComment}';
   title                @title: '{i18n>field.title}';

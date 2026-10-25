@@ -502,3 +502,32 @@ describe("Demo data (#14–#26)", () => {
 		expect((await invoke(26, "changeCustomerAssignment", { businessPartner: "1000030" })).data.status_code).toBe("110");
 	});
 });
+
+describe("F-24 waiting time", () => {
+	const waiting = async (n, user = ALICE, lang) => (await GET(url(n, "?$select=waitingSince,waitingText"), lang ? { ...user, headers: { "Accept-Language": lang } } : user)).data;
+	test("#1 waits since its last change, text is localized", async () => {
+		const en = await waiting(1);
+		expect(Date.parse(en.waitingSince)).toBe(Date.parse("2026-10-01T08:15:00Z"));
+		expect(en.waitingText).toMatch(/^\d+ days$/);
+		expect((await waiting(1, ALICE, "de")).waitingText).toMatch(/^\d+ Tage$/);
+	});
+	test("release advances waitingSince, a failing step does not, draft activation does not", async () => {
+		const before = (await waiting(2)).waitingSince;
+		await invoke(2, "release");
+		const after = await waiting(2);
+		expect(Date.parse(after.waitingSince)).toBeGreaterThan(Date.parse(before));
+		expect(after.waitingText).toBe("just now");
+		const failed = (await waiting(3)).waitingSince;
+		await invoke(3, "createCustomer"); // FEHLER → 150 stays 150
+		expect((await waiting(3)).waitingSince).toBe(failed);
+		const edited = (await waiting(6)).waitingSince;
+		await edit(6); await patchDraft(6, "", { name2: "Zweig" }); await activate(6);
+		expect((await waiting(6)).waitingSince).toBe(edited);
+	});
+	test("waitingSince is sortable, waitingText is neither filterable nor sortable", async () => {
+		const { data } = await GET(`${BASE}/Requests?$orderby=waitingSince asc&$select=ID&$top=1`, ALICE);
+		expect(data.value[0].ID).toBe(id(10));
+		expect((await failure(GET(`${BASE}/Requests?$filter=waitingText eq 'x'`, ALICE))).status).toBe(400);
+		expect((await failure(GET(`${BASE}/Requests?$orderby=waitingText`, ALICE))).status).toBe(400);
+	});
+});

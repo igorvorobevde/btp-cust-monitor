@@ -95,6 +95,10 @@ entity Requests : cuid, managed {
   statusCriticality    : Integer    = status.criticality;
   orderCriticality     : Integer    = case when orderExists = true then 5 else 0 end; // Zeilen-Highlight
   releaseCriticality   : Integer    = case when released = true then 3 else 2 end;
+  // Wartezeit (F-24): letzte Zustandsänderung (Status, Klärung, Freigabe), gesetzt von den Schrittaktionen;
+  // waitingText = relative Zeit dazu, im Service berechnet und lokalisiert
+  waitingSince         : Timestamp;
+  virtual waitingText  : String(40);
   // berechnet stored (Assoziation releaseStateRef braucht eine Spalte; Neuberechnung bei UPDATE) – F-11
   releaseState         : String(12) = (case when released = true then releaseProcedure else 'NOT_RELEASED' end) stored;
   // berechnet: Status offen (0xx/1xx), freigegeben und Benutzer hat Rolle MonitorEditor

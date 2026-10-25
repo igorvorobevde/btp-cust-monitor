@@ -137,6 +137,20 @@ function normalizeBp(bp) {
 	return String(bp || "").trim().replace(/^0+/, "");
 }
 
+// Zustandsfelder, deren Änderung die Wartezeit neu startet (F-24)
+const STATE_FIELDS = ["status_code", "inClarification", "released"];
+
+/**
+ * Ändert der Schritt den Zustand (Status, Klärung, Freigabe)? Felder ohne Änderungseintrag zählen nicht.
+ *
+ * @param {object} request aktueller Vorgang
+ * @param {object} changes requestChanges des Schritts
+ * @returns {boolean}
+ */
+function stateChanged(request, changes) {
+	return STATE_FIELDS.some((f) => f in changes && changes[f] !== request[f]);
+}
+
 function containsErrorMarker(...names) {
 	return names.some((n) => /FEHLER/i.test(n || ""));
 }
@@ -317,6 +331,9 @@ function executeStep(step, request, params, ctx) {
 		default:
 			throw new StepError(400, ErrorCodes.STEP_NOT_ALLOWED, "STEP_NOT_ALLOWED", [step]);
 	}
+	if (stateChanged(request, rc)) {
+		rc.waitingSince = ctx.now;
+	}
 	return result;
 }
 
@@ -330,5 +347,6 @@ module.exports = {
 	toStepOptions,
 	validateInput,
 	normalizeBp,
+	stateChanged,
 	executeStep
 };

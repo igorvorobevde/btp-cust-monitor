@@ -104,7 +104,10 @@ entity Requests : cuid, managed {            // managed: createdAt/By, modifiedA
   orderCriticality     : Integer    = case when orderExists = true then 5 else 0 end;
   releaseCriticality   : Integer    = case when released = true then 3 else 2 end;
   releaseState         : String(12) = (case when released = true then releaseProcedure else 'NOT_RELEASED' end) stored;
+  // Wartezeit (F-24): letzte Zustandsänderung (Status, Klärung, Freigabe), read-only, sortierbar; gesetzt von den Schrittaktionen (§5.2)
+  waitingSince         : Timestamp;
   // berechnet
+  virtual waitingText  : String(40);         // relative Zeit seit waitingSince, lokalisiert („3 Tage“); weder filter- noch sortierbar (§8)
   virtual isEditable   : Boolean;            // Status offen (0xx/1xx), freigegeben und Rolle MonitorEditor; auf eigenem Entwurf true
   virtual editHidden   : Boolean;            // = !isEditable → UI.UpdateHidden (Sichtbarkeit „Bearbeiten“, E-12)
 }
@@ -224,7 +227,7 @@ service CustomerMonitorService @(path: '/odata/v4/monitor') {
     @Core.OperationAvailable: ( :in.canChangeCustomerAssignment )
     action changeCustomerAssignment(in : $self, @mandatory businessPartner : String(10)) returns Requests; // CNG_DEBI
   };
-  // Jede Aktion trägt @Common.SideEffects (Status, Flags, Zuordnung, modifiedAt; log, admin, shipTo, salesData)
+  // Jede Aktion trägt @Common.SideEffects (Status, Flags, Zuordnung, modifiedAt, waitingSince/waitingText; log, admin, shipTo, salesData)
 
   entity SalesData      as projection on db.SalesData;
   entity ContactPersons as projection on db.ContactPersons;
@@ -319,6 +322,7 @@ Siehe [01_fachkonzept.md §6](01_fachkonzept.md#6-schritte). Zusätzlich im Mock
 - **CNG_NEW** führt die Freigabeprüfung erneut aus (07 R-02). Ergebnis kann `released = false` sein.
 - **CHNG_OLD** prüft wie CNG_DEBI die bestehende Magento-Zuordnung (07 R-06).
 - Jeder Schritt schreibt mindestens einen Logeintrag und aktualisiert `modifiedAt/By`.
+- Jeder Schritt, der Status, Klärung oder Freigabe ändert (`status_code`, `inClarification`, `released`), setzt `waitingSince` auf den Ausführungszeitpunkt (= neues `modifiedAt`). Ein Schritt ohne Zustandsänderung (z. B. CREATE 150 → 150 bei erneutem Fehler) und die Draft-Aktivierung lassen `waitingSince` unverändert (F-24).
 - Meldungen: Bei Erfolg genau eine Erfolgsmeldung in `sap-messages` (`ACTION_DONE_STATUS` „{Schritt}: neuer Status „{Status}““ bzw. `ACTION_DONE` „{Schritt} ausgeführt“, Texte aus `Steps`/`Statuses` je `Accept-Language`); Warnungen des Schritts (z. B. „Vorgang muss manuell freigegeben werden“ nach CNG_NEW) zusätzlich als Warnung. Alle Einzelmeldungen stehen im Protokoll.
 
 ## 6. Bearbeiten (Draft, E-12)
@@ -369,6 +373,8 @@ Implementiert in `srv/monitor-service.js` + `srv/lib/status-machine.js`.
 
 Customizing-CSV = Kopie der Systemtabellen (Stand 19.10.2026, siehe 01).
 
+`waitingSince` in den Testdaten = `modifiedAt` des Vorgangs (#10 wartet am längsten).
+
 **Mock-Stammdaten** (`db/data/hydac.custmon-MockBusinessPartners.csv`, nicht exponiert): BP-Nummer, Debitor, `hasCustomerRole`, `crmNumber`, `magentoCompany` – für BP-Prüfungen.
 Wichtige BPs für Schritte mit BP-Eingabe: `1000030` (Debitor 4000030, frei → keine Rückfrage), `1000002` (Debitor 4000002, Magento-Company 999 → `CONFIRM_REQUIRED`), `1000003` / `1000031` (keine Debitorrolle → `BP_NOT_CUSTOMER`), jede andere Nummer → `BP_NOT_FOUND`.
 
@@ -396,6 +402,8 @@ Fiori Elements leitet Farben/Icons aus Kritikalitätswerten (`UI.CriticalityType
 | `Requests.orderCriticality` | `orderExists` (on-read) | 5 bei Bestellung (Zeilen-Highlight), sonst 0 |
 | `Requests.releaseState` | `released` + `releaseProcedure` (stored, neu berechnet bei UPDATE) | NOT_RELEASED (nicht freigegeben), NOT_REL / AUTOMATIC / MANUAL (freigegeben); Text über `releaseStateRef` aus `ReleaseStates` |
 | `Requests.releaseCriticality` | `released` (on-read) | 3 freigegeben, 2 nicht freigegeben |
+| `Requests.waitingSince` | gespeichert, gesetzt von Schritten mit Zustandsänderung (§5.2) | Zeitpunkt der letzten Zustandsänderung; sortierbar (`$orderby=waitingSince`), read-only |
+| `Requests.waitingText` | `waitingSince` (virtuell, beim Lesen und in der Aktionsantwort berechnet) | Texte `WAITING_NOW` (< 1 min, auch Zeitpunkt in der Zukunft), `WAITING_MINUTES` `{0} min`, `WAITING_HOURS` `{0} h`, `WAITING_DAY` „1 Tag“, `WAITING_DAYS` `{0} Tage` (abgerundet) aus `_i18n/messages*.properties` je `Accept-Language`; `null` ohne gültiges `waitingSince`. `@UI.HiddenFilter`; `$filter`/`$orderby` auf virtuelle Felder → 400 |
 | `Requests.processTypeRef` | unmanaged Assoziation auf `ProcessTypes` | Text der Prozessart (`$expand=processTypeRef`), `processType` bleibt Enum |
 | `LogEntries.criticality` | `messageType` (on-read) | S 3, W 2, E/A 1, I 5 |
 

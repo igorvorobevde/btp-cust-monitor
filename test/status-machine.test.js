@@ -112,14 +112,14 @@ describe("executeStep", () => {
 
 	test("RESET of rejected CR_DEB without customer → CR_DEB/120", () => {
 		const result = sm.executeStep("RESET", request({ status_code: "899", customer: null }), {}, ctx());
-		expect(result.requestChanges).toEqual({ processType: "CR_DEB", status_code: "120" });
+		expect(result.requestChanges).toEqual({ processType: "CR_DEB", status_code: "120", waitingSince: "2026-10-19T10:00:00.000Z" });
 	});
 
 	test("RESET of completed CR_DEB → CH_DEB/000, CR_WE → 010", () => {
 		expect(sm.executeStep("RESET", request({ status_code: "999", customer: "4711" }), {}, ctx()).requestChanges)
-			.toEqual({ processType: "CH_DEB", status_code: "000" });
+			.toEqual({ processType: "CH_DEB", status_code: "000", waitingSince: "2026-10-19T10:00:00.000Z" });
 		expect(sm.executeStep("RESET", request({ processType: "CR_WE", status_code: "999" }), {}, ctx()).requestChanges)
-			.toEqual({ status_code: "010" });
+			.toEqual({ status_code: "010", waitingSince: "2026-10-19T10:00:00.000Z" });
 	});
 
 	test("CNG_NEW re-checks release (R-02)", () => {
@@ -152,5 +152,22 @@ describe("executeStep", () => {
 		}
 		expect(error).toBeInstanceOf(StepError);
 		expect(error).toMatchObject({ status: 422, code: "STEP_ABORTED", logEntry: true });
+	});
+});
+
+describe("waitingSince", () => {
+	test("RELEASE and CLARIFY set waitingSince to now", () => {
+		expect(sm.executeStep("RELEASE", request({ released: false }), {}, ctx()).requestChanges.waitingSince).toBe("2026-10-19T10:00:00.000Z");
+		expect(sm.executeStep("CLARIFY", request(), { text: "x" }, ctx()).requestChanges.waitingSince).toBe("2026-10-19T10:00:00.000Z");
+	});
+	test("a failing CREATE on status 150 keeps waitingSince (no state change)", () => {
+		const result = sm.executeStep("CREATE", request({ status_code: "150", name: "FEHLER AG" }), {}, ctx());
+		expect(result.failed).toBe(true);
+		expect(result.requestChanges.waitingSince).toBeUndefined();
+	});
+	test("stateChanged compares only status, clarification and release", () => {
+		expect(sm.stateChanged(request(), { customer: "1" })).toBe(false);
+		expect(sm.stateChanged(request(), { status_code: "000" })).toBe(false);
+		expect(sm.stateChanged(request(), { status_code: "999" })).toBe(true);
 	});
 });
