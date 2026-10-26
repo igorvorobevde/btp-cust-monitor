@@ -60,7 +60,7 @@ Responsive Tabelle, keine Zeilenselektion, Zeilenklick öffnet das Detail; Titel
 | Erstellt | `createdAt` / `createdBy` (`FieldGroup#Created`) | ja |
 | Geändert | `modifiedAt` / `modifiedBy` (`FieldGroup#Changed`) | ja |
 
-Zeilen mit Bestellung sind blau hervorgehoben (`UI.LineItem.@UI.Criticality: orderCriticality`). Leerzustand: FE-Standard („Keine Daten …“). Spaltenbreiten sind im Manifest festgelegt (`controlConfiguration … columns … width`, Summe ≈ 91 rem), damit alle Spalten in der Ein-Spalten-Ansicht ab 1.500 px passen; in der Zwei-Spalten-Ansicht wandern Medium-Spalten in den Popin, den die Tabellen-Schaltfläche „Details anzeigen“ ein-/ausblendet.
+Fehlerzeilen rot, Zeilen mit Bestellung blau (`UI.LineItem.@UI.Criticality: rowCriticality`). Leerzustand: FE-Standard („Keine Daten …“). Spaltenbreiten sind im Manifest festgelegt (`controlConfiguration … columns … width`, Summe ≈ 91 rem), damit alle Spalten in der Ein-Spalten-Ansicht ab 1.500 px passen; in der Zwei-Spalten-Ansicht wandern Medium-Spalten in den Popin, den die Tabellen-Schaltfläche „Details anzeigen“ ein-/ausblendet.
 
 ## 3. Detail (Object Page)
 

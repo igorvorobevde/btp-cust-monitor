@@ -91,7 +91,7 @@ annotate S.Requests with {
   };
   // Hilfsfelder für Kritikalität/Sichtbarkeit: nicht als Felder anzeigen
   statusCriticality  @UI.Hidden;
-  orderCriticality   @UI.Hidden;
+  rowCriticality     @UI.Hidden;
   releaseCriticality @UI.Hidden;
   editHidden         @UI.Hidden;
   // relative Wartezeit ist virtuell: weder filter- noch sortierbar (sortiert wird über waitingSince)
@@ -140,6 +140,7 @@ annotate S.Requests with {
   releaseProcedure     @title: '{i18n>field.releaseProcedure}';
   releasedBy           @title: '{i18n>field.releasedBy}';
   releasedAt           @title: '{i18n>field.releasedAt}';
+  priority             @title: '{i18n>field.priority}';
   waitingSince         @title: '{i18n>field.waitingSince}';
   waitingText          @title: '{i18n>field.waitingText}';
   nextStep             @title: '{i18n>field.nextStep}';

@@ -101,13 +101,16 @@ entity Requests : cuid, managed {            // managed: createdAt/By, modifiedA
   // berechnet on-read, read-only, filter-/sortierbar – F-11 (siehe §8)
   statusGroup          : String(10) = status.group;
   statusCriticality    : Integer    = status.criticality;
-  orderCriticality     : Integer    = case when orderExists = true then 5 else 0 end;
+  // Zeilen-Highlight: Fehler rot (1), sonst Bestellung blau (5), sonst neutral – F-24
+  rowCriticality       : Integer    = case when status.group = 'ERROR' then 1 when orderExists = true then 5 else 0 end;
+  // Arbeitsvorrat-Priorität (Standardsortierung): Fehler 1, offen 2, abgelehnt 3, erledigt 4 – F-24
+  priority             : Integer    = case when status.group = 'ERROR' then 1 when status.group = 'OPEN' then 2 when status.group = 'REJECTED' then 3 else 4 end;
   releaseCriticality   : Integer    = case when released = true then 3 else 2 end;
   releaseState         : String(12) = (case when released = true then releaseProcedure else 'NOT_RELEASED' end) stored;
   // Wartezeit (F-24): letzte Zustandsänderung (Status, Klärung, Freigabe), read-only, sortierbar; gesetzt von den Schrittaktionen (§5.2)
   waitingSince         : Timestamp;
   // berechnet
-  virtual waitingText  : String(40);         // relative Zeit seit waitingSince, lokalisiert („3 Tage“); weder filter- noch sortierbar (§8)
+  virtual waitingText  : String(40);         // relative Zeit seit waitingSince, lokalisiert („3 Tage“); weder filter- noch sortierbar (`Capabilities` `NonSortableProperties`/`NonFilterableProperties` mit nextStep, nextStepText; §8)
   virtual nextStep     : StepCode;           // empfohlener nächster Schritt (§4.1), null ohne Empfehlung
   virtual nextStepText : String(60);         // lokalisierter Text des Schritts aus Steps (§4.1)
   virtual isEditable   : Boolean;            // Status offen (0xx/1xx), freigegeben und Rolle MonitorEditor; auf eigenem Entwurf true
@@ -229,7 +232,7 @@ service CustomerMonitorService @(path: '/odata/v4/monitor') {
     @Core.OperationAvailable: ( :in.canChangeCustomerAssignment )
     action changeCustomerAssignment(in : $self, @mandatory businessPartner : String(10)) returns Requests; // CNG_DEBI
   };
-  // Jede Aktion trägt @Common.SideEffects (Status, Flags, Zuordnung, modifiedAt, waitingSince/waitingText, nextStep/nextStepText; log, admin, shipTo, salesData)
+  // Jede Aktion trägt @Common.SideEffects (Status, Flags, Zuordnung, modifiedAt, waitingSince/waitingText, nextStep/nextStepText, priority/rowCriticality; log, admin, shipTo, salesData)
 
   entity SalesData      as projection on db.SalesData;
   entity ContactPersons as projection on db.ContactPersons;
@@ -419,7 +422,8 @@ Fiori Elements leitet Farben/Icons aus Kritikalitätswerten (`UI.CriticalityType
 | `Statuses.criticality` | Customizing-CSV | 5 Information (Gruppe OPEN), 1 Negative (ERROR), 0 Neutral (REJECTED), 3 Positive (DONE) |
 | `Requests.statusGroup` | `status.group` (on-read) | OPEN, ERROR, REJECTED, DONE – filterbar (`$filter=statusGroup eq 'OPEN'`), Wertehilfe `StatusGroups` |
 | `Requests.statusCriticality` | `status.criticality` (on-read) | wie `Statuses.criticality`; sortierbar |
-| `Requests.orderCriticality` | `orderExists` (on-read) | 5 bei Bestellung (Zeilen-Highlight), sonst 0 |
+| `Requests.rowCriticality` | `status.group`, `orderExists` (on-read) | Zeilen-Highlight: 1 bei Fehler (rot), sonst 5 bei Bestellung (blau), sonst 0 |
+| `Requests.priority` | `status.group` (on-read) | Arbeitsvorrat-Priorität: ERROR 1, OPEN 2, REJECTED 3, DONE 4; Standardsortierung `priority asc, waitingSince asc` |
 | `Requests.releaseState` | `released` + `releaseProcedure` (stored, neu berechnet bei UPDATE) | NOT_RELEASED (nicht freigegeben), NOT_REL / AUTOMATIC / MANUAL (freigegeben); Text über `releaseStateRef` aus `ReleaseStates` |
 | `Requests.releaseCriticality` | `released` (on-read) | 3 freigegeben, 2 nicht freigegeben |
 | `Requests.waitingSince` | gespeichert, gesetzt von Schritten mit Zustandsänderung (§5.2) | Zeitpunkt der letzten Zustandsänderung; sortierbar (`$orderby=waitingSince`), read-only |
@@ -441,6 +445,6 @@ Alle Elemente sind read-only; Texte folgen `Accept-Language` wie bei den übrige
 | Wertehilfen mit festen Werten | `Common.ValueListWithFixedValues` + `Common.ValueList` auf `status_code`, `processType`, `statusGroup` | `Statuses`, `ProcessTypes`, `StatusGroups` |
 | Wertehilfen VKORG / Quelle | `Common.ValueList` auf `salesOrganization`, `source` | `SalesOrganizations`, `Sources` (§3) |
 | Volltextsuche | `@cds.search: { name, name2, magentoCompany }` | `$search` der Liste |
-| Hilfsfelder | `@UI.Hidden` auf `statusCriticality`, `orderCriticality`, `releaseCriticality`, `editHidden`, `LogEntries.criticality` | nur für Kritikalität/Sichtbarkeit, nicht als Feld sichtbar |
+| Hilfsfelder | `@UI.Hidden` auf `statusCriticality`, `rowCriticality`, `releaseCriticality`, `editHidden`, `LogEntries.criticality` | nur für Kritikalität/Sichtbarkeit, nicht als Feld sichtbar |
 
 `_i18n/messages*.properties` bleibt das Bundle für Fehler-, `sap-messages`- und Protokolltexte.

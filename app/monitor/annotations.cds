@@ -126,7 +126,7 @@ annotate service.Requests with @(
     }
   ],
   // Zeilen-Highlight „Bestellung vorhanden“ (5 = Information)
-  UI.LineItem.@UI.Criticality             : orderCriticality,
+  UI.LineItem.@UI.Criticality             : rowCriticality,
 
   UI.FieldGroup #Name                     : {Data: [
     {Value: name},

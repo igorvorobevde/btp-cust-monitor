@@ -14,7 +14,7 @@ const NS = "hydac.custmon";
 
 // Felder, die per PATCH nicht geändert werden dürfen bzw. nicht protokolliert werden
 const TECHNICAL_FIELDS = new Set(["ID", "request_ID", "modifiedAt", "modifiedBy", "createdAt", "createdBy", "isEditable", "editHidden",
-	"releaseState", "statusGroup", "statusCriticality", "orderCriticality", "releaseCriticality", "waitingSince", "waitingText",
+	"releaseState", "statusGroup", "statusCriticality", "rowCriticality", "priority", "releaseCriticality", "waitingSince", "waitingText",
 	"nextStep", "nextStepText",
 	"IsActiveEntity", "HasActiveEntity", "HasDraftEntity", "DraftAdministrativeData_DraftUUID"]);
 

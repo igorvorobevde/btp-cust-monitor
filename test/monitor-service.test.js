@@ -144,11 +144,35 @@ describe("F-11 calculated fields", () => {
 		expect(data.releaseStateRef.text).toBe("Freigegeben (nicht erforderlich)");
 	});
 
-	test("orderCriticality and log criticality", async () => {
-		expect((await GET(url(2, "?$select=orderCriticality"), ALICE)).data.orderCriticality).toBe(5);
-		expect((await GET(url(1, "?$select=orderCriticality"), ALICE)).data.orderCriticality).toBe(0);
+	test("rowCriticality and log criticality", async () => {
+		const crit = async (n) => (await GET(url(n, "?$select=rowCriticality"), ALICE)).data.rowCriticality;
+		expect(await crit(3)).toBe(1); expect(await crit(12)).toBe(5); expect(await crit(1)).toBe(0);
+		expect(await crit(26)).toBe(5); // open with order
 		const { data } = await GET(url(1, "/log?$select=messageType,criticality&$top=1"), ALICE);
 		expect(data.value[0]).toMatchObject({ messageType: "S", criticality: 3 });
+	});
+});
+
+describe("F-24 priority", () => {
+	test("priority follows the status group and sorts errors first, then longest waiting", async () => {
+		const { data } = await GET(`${BASE}/Requests?$orderby=priority asc,waitingSince asc&$select=ID,priority,statusGroup`, ALICE);
+		expect(data.value.slice(0, 4).map((r) => r.statusGroup)).toEqual(["ERROR", "ERROR", "ERROR", "ERROR"]);
+		expect(data.value[0].ID).toBe(id(3));
+		expect(data.value[4].statusGroup).toBe("OPEN");
+		expect(data.value.at(-1).priority).toBe(4);
+		expect((await GET(`${BASE}/Requests?$filter=priority eq 3&$count=true&$top=0`, ALICE)).data["@odata.count"]).toBe(2); // #11, #23
+	});
+	test("$metadata: capabilities, side effects and no orderCriticality", async () => {
+		const meta = (await GET(`${BASE}/$metadata`, ALICE)).data;
+		expect(meta).toMatch(/NonSortableProperties[\s\S]*?<PropertyPath>nextStepText<\/PropertyPath>/);
+		expect(meta).toMatch(/NonFilterableProperties[\s\S]*?<PropertyPath>waitingText<\/PropertyPath>/);
+		for (const term of ["NonSortableProperties", "NonFilterableProperties"]) {
+			const block = meta.match(new RegExp(`${term}[\\s\\S]*?</Collection>`))[0];
+			for (const f of ["waitingText", "nextStep", "nextStepText"]) expect(block).toContain(`<PropertyPath>${f}</PropertyPath>`);
+		}
+		expect((meta.match(/in\/rowCriticality/g) || []).length).toBe(11);
+		expect((meta.match(/in\/priority/g) || []).length).toBe(11);
+		expect(meta).not.toMatch(/Name="orderCriticality"/);
 	});
 });
 

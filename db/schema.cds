@@ -93,7 +93,10 @@ entity Requests : cuid, managed {
   // berechnet on-read (filter-/sortierbar): Statusgruppe und Kritikalität für Fiori Elements – F-11
   statusGroup          : String(10) = status.group;
   statusCriticality    : Integer    = status.criticality;
-  orderCriticality     : Integer    = case when orderExists = true then 5 else 0 end; // Zeilen-Highlight
+  // Zeilen-Highlight: Fehler rot (1), sonst Bestellung blau (5), sonst neutral – F-24
+  rowCriticality       : Integer    = case when status.group = 'ERROR' then 1 when orderExists = true then 5 else 0 end;
+  // Arbeitsvorrat-Priorität (Standardsortierung): Fehler 1, offen 2, abgelehnt 3, erledigt 4 – F-24
+  priority             : Integer    = case when status.group = 'ERROR' then 1 when status.group = 'OPEN' then 2 when status.group = 'REJECTED' then 3 else 4 end;
   releaseCriticality   : Integer    = case when released = true then 3 else 2 end;
   // Wartezeit (F-24): letzte Zustandsänderung (Status, Klärung, Freigabe), gesetzt von den Schrittaktionen;
   // waitingText = relative Zeit dazu, im Service berechnet und lokalisiert

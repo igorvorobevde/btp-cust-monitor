@@ -174,7 +174,7 @@ processTypeRef     : Association to ProcessTypes  on processTypeRef.code  = proc
 releaseStateRef    : Association to ReleaseStates on releaseStateRef.code = releaseState;
 statusGroup        : String(10) = status.group;                 // calculated on-read; $filter/$orderby/groupby verified
 statusCriticality  : Integer    = status.criticality;
-orderCriticality   : Integer    = case when orderExists = true then 5 else 0 end;          // row highlight (5 = Information)
+rowCriticality     : Integer    = case when status.group = 'ERROR' then 1 when orderExists = true then 5 else 0 end;          // row highlight (5 = Information)
 releaseCriticality : Integer    = case when released = true then 3 else 2 end;
 releaseState       : String(12) = (case when released = true then releaseProcedure else 'NOT_RELEASED' end) stored;
 virtual isEditable : Boolean;  virtual editHidden : Boolean;  virtual canRelease : Boolean;  /* … all can* … */
@@ -191,7 +191,7 @@ virtual isEditable : Boolean;  virtual editHidden : Boolean;  virtual canRelease
 
 - `status_code @Common.Text: status.text @Common.TextArrangement: #TextOnly`; `processType @Common.Text: processTypeRef.text`; `releaseState @Common.Text: releaseStateRef.text`.
 - `@Common.ValueListWithFixedValues` + `@Common.ValueList` for `status_code` → `Statuses`, `processType` → `ProcessTypes`, `statusGroup` → `StatusGroups`; `@Common.ValueList` for `salesOrganization` → `SalesOrganizations`, `source` → `Sources`.
-- `@title: '{i18n>field.*}'` on every element and action parameter; `@UI.Hidden` on `statusCriticality`, `orderCriticality`, `releaseCriticality`, `editHidden`.
+- `@title: '{i18n>field.*}'` on every element and action parameter; `@UI.Hidden` on `statusCriticality`, `rowCriticality`, `releaseCriticality`, `editHidden`.
 - `@cds.search` on `name`, `name2`, `magentoCompany` (FE basic search sends `$search`).
 
 ### 4.6 i18n
@@ -236,7 +236,7 @@ Deleted at cutover: `controller/*`, `view/*`, `view/fragments/*`, `model/*`, `se
 - **HeaderInfo**: `TypeName` / `TypeNamePlural` (`{i18n>request}` / `{i18n>requests}` → table title "Vorgänge (n)"), `Title: name`, `Description` = `odata.concat(processTypeRef/text, ' · ', magentoCompany)` (*V* secondary; fallback: backend `headerSubtitle`).
 - **SelectionFields**: `statusGroup, released, inClarification, customer, salesOrganization, processType, status_code, source, orderExists, createdAt, createdBy, modifiedAt, modifiedBy`. Basic search is on by default *V*.
 - **Default filter**: `UI.SelectionPresentationVariant#Default` → `UI.SelectionVariant#Default` (`SelectOptions` on `statusGroup` with ranges `EQ 'OPEN'`, `EQ 'ERROR'`) + `UI.PresentationVariant#Default` (`SortOrder createdAt` ascending, `Visualizations: ['@UI.LineItem']`). Multi-value defaults need this route; `Common.FilterDefaultValue` is single-value only *V*.
-- **LineItem** (order as [04](04_ui_spezifikation.md) §2.2; `@UI.Importance #High` = never pop-in, `#Medium` = pop-in *V*): `status_code` (Criticality `statusCriticality`, `CriticalityRepresentation #WithIcon`, High) → custom column Hints → `processType` → `DataFieldForAnnotation → FieldGroup#Name` (`name`, `name2`, High) → `customer` → `salesOrganization` → `magentoCompany` → `orderVolume` (currency via `@Measures.ISOCurrency`) → `FieldGroup#Created` (`createdAt`, `createdBy`) → `FieldGroup#Changed`. FieldGroup columns are supported *V* (not sortable as a whole). Row highlight: `UI.LineItem.@UI.Criticality: orderCriticality` *V*.
+- **LineItem** (order as [04](04_ui_spezifikation.md) §2.2; `@UI.Importance #High` = never pop-in, `#Medium` = pop-in *V*): `status_code` (Criticality `statusCriticality`, `CriticalityRepresentation #WithIcon`, High) → custom column Hints → `processType` → `DataFieldForAnnotation → FieldGroup#Name` (`name`, `name2`, High) → `customer` → `salesOrganization` → `magentoCompany` → `orderVolume` (currency via `@Measures.ISOCurrency`) → `FieldGroup#Created` (`createdAt`, `createdBy`) → `FieldGroup#Changed`. FieldGroup columns are supported *V* (not sortable as a whole). Row highlight: `UI.LineItem.@UI.Criticality: rowCriticality` *V*.
 - **Object Page header**: `UI.HeaderFacets` = `DataPoint#Status` (`status_code`, Criticality `statusCriticality`), `DataPoint#Release` (`releaseState`, Criticality `releaseCriticality`), `FieldGroup#KeyFigures` (`customer`, `businessPartner`, `salesOrganization`, `orderExists`, `orderVolume`), `FieldGroup#AdminData` (`createdBy/At`, `modifiedBy/At`) *V*. Klärung strip = custom header facet placed before `StatusPoint`.
 - **Header actions**: `UI.Identification` with exactly one `UI.DataFieldForActionGroup` (`ID: Steps`, label "Schritt ausführen") containing the 11 `UI.DataFieldForAction`s in annotation order — **`rejectRequest` and `reset` last**. The group is disabled when all items are disabled and hidden when all are hidden *V*. `Criticality` on `DataFieldForAction` is not used (no effect inside a menu; as a button it would force left-most placement).
 - **Facets**:
