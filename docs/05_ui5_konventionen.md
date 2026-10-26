@@ -58,7 +58,12 @@ Vertrags-Semantik (Labels, `Common.Text`, Wertehilfen, Kritikalität, Side Effec
       "targets": {
         "RequestsList": { "type": "Component", "name": "sap.fe.templates.ListReport", "controlAggregation": "beginColumnPages",
           "options": { "settings": { "contextPath": "/Requests",
-            "defaultTemplateAnnotationPath": "com.sap.vocabularies.UI.v1.SelectionPresentationVariant#Default",
+            "views": { "paths": [ { "key": "MyWork", "annotationPath": "com.sap.vocabularies.UI.v1.SelectionVariant#MyWork" },
+                                  { "key": "Error", "annotationPath": "com.sap.vocabularies.UI.v1.SelectionVariant#Error" },
+                                  { "key": "Clarification", "annotationPath": "com.sap.vocabularies.UI.v1.SelectionVariant#Clarification" },
+                                  { "key": "Release", "annotationPath": "com.sap.vocabularies.UI.v1.SelectionVariant#Release" },
+                                  { "key": "All", "annotationPath": "com.sap.vocabularies.UI.v1.SelectionVariant#All" } ],
+                       "showCounts": true },
             "initialLoad": "Enabled", "variantManagement": "None",
             "controlConfiguration": { "@com.sap.vocabularies.UI.v1.LineItem": { "tableSettings": { "type": "ResponsiveTable", "selectionMode": "None" },
               "columns": { "HintsColumn": { "template": "hydac.custmon.ext.fragment.HintsColumn", "properties": ["released", "inClarification", "orderExists"],
