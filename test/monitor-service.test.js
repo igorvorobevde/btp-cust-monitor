@@ -465,6 +465,12 @@ describe("Optimistic concurrency (412)", () => {
 		expect((await failure(POST(url(6, "/CustomerMonitorService.completeManually"), {}, ALICE))).status).toBe(412);
 		expect((await failure(invoke(6, "completeManually", {}, { ifMatch: "*" }))).status).toBe(412);
 	});
+	test("draftEdit with If-Match: * → 412, no draft created", async () => {
+		const res = await failure(POST(url(7, "/CustomerMonitorService.draftEdit"), { PreserveChanges: true }, { ...ALICE, headers: { "If-Match": "*" } }));
+		expect(res.status).toBe(412);
+		expect(res.data.error.message).toMatch(/ETag|reload|neu laden/i);
+		expect((await failure(GET(url(7, "", false), ALICE))).status).toBe(404);
+	});
 });
 
 describe("F-12 draft editing", () => {

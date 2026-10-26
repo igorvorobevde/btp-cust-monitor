@@ -348,8 +348,12 @@ module.exports = class CustomerMonitorService extends cds.ApplicationService {
 		});
 
 		// ---------- Bearbeiten per Draft (03 §6, E-12) ----------
-		// draftEdit: ETag prüft CAP generisch (428 → 412); hier nur die fachliche Bearbeitbarkeit (E-11)
+		// draftEdit: fehlendes/veraltetes ETag prüft CAP generisch (428 → 412), If-Match: * akzeptiert CAP aber – Vertrag: 412 (03 §3);
+		// danach die fachliche Bearbeitbarkeit (E-11)
 		this.before("EDIT", Requests, async (req) => {
+			if (parseETag(req.headers["if-match"]) === "*") {
+				req.reject(412, t(req, "ETAG_REQUIRED"));
+			}
 			const request = await loadRequest(req, lastKey(req));
 			if (!sm.isEditable(request, roles(req).isEditor)) {
 				req.reject({ status: 409, code: ErrorCodes.NOT_EDITABLE, message: t(req, "NOT_EDITABLE") });
