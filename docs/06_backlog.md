@@ -110,9 +110,10 @@ JourneyRunner, Page Objects (ListReport/ObjectPage), vier Journeys (Liste/Filter
 Spaltenbreiten, Popin-Layout, Tooltips, Leerzustände (FE Illustrated Message), Tastaturbedienung, Deep-Link-Doku, Hinweis zur Draft-Sperre (15 min) in der Benutzerdoku; schließt F-10 ab.
 **AK:** Visueller Abgleich mit 04 §2/§3; keine Konsolenfehler.
 
-### F-23 Sichtbarkeit von Kind-Entitäten und Protokoll — offen
+### F-23 Sichtbarkeit von Kind-Entitäten und Protokoll — erledigt
 Befund Review 25.10.2026 (bestand schon vor der Migration): Der VKORG-/Freigabe-Filter wirkt nur auf `Requests`; `bob` kann `Requests(#2)/log`, `/salesData`, `/LogEntries` und alle `ContactPersons` auch zu nicht sichtbaren Vorgängen lesen (07 R-08). Sichtbarkeitsfilter auf `SalesData`, `ContactPersons`, `ShipToParties`, `LogEntries` (über `request`) ergänzen, inkl. `$expand` von `LogEntries` auf `request`.
 **AK:** `GET /Requests(#2)/log`, `/salesData`, `/ContactPersons` als `bob` → 404 bzw. leer; Jest-Tests je Entität; alice unverändert.
+**Umsetzung:** `before READ` auf `SalesData`, `ContactPersons`, `ShipToParties`, `LogEntries` hängt die VKORG-/Freigabe-Bedingung der Vorgänge über den Pfad `request.*` an (eine Quelle: `visibilityWhere`); Jest „F-23 …“ je Entität, Navigation von #2 und `LogEntries?$expand=request`; 03 §3.
 
 **Nachtrag Review Backend (25.10.2026):** Aktivierung schreibt nur editierbare Felder (read-only/berechnete Werte aus der Draft-Kopie werden verworfen); Schrittaktionen schreiben bedingt (`modifiedAt` unverändert, sonst 412) – die ETag-Prüfung der Schrittaktionen liegt allein im Service (CAP prüft bei Draft-Entitäten nur Aktionen auf dem Entwurf). Offen (gering): `draftEdit` akzeptiert `If-Match: *`; Prozessart-Regel für Kind-Änderungen ohne Testdaten; `statusGroup` ohne `Common.Text`; Hinweis bei abgelaufener Draft-Sperre; `ProcessSteps`-Cache vor Phase 2.
 

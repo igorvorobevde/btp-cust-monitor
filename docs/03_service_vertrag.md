@@ -265,7 +265,7 @@ service CustomerMonitorService @(path: '/odata/v4/monitor') {
 - Read-only-Felder per `@readonly` / `@Core.Computed` annotieren (siehe Kommentare im Modell).
 - Bearbeiten nur, wenn `isEditable = true`: `draftEdit` wird sonst mit 409 `NOT_EDITABLE` abgelehnt (E-11); dieselbe Prüfung läuft bei der Aktivierung. `admin` darf nur bei Prozessart ≠ CR_WE, `shipTo` nur bei CR_WE geändert werden (sonst 409 `NOT_EDITABLE` bei der Aktivierung).
 - **`isEditable` berücksichtigt die Rolle (entschieden 19.10.2026):** `true` nur bei offenem Status, freigegebenem Vorgang **und** Rolle `MonitorEditor`. Die UI blendet „Bearbeiten“ über `editHidden` (= `!isEditable`, `@UI.UpdateHidden`) ein – kein separater User-Info-Endpunkt.
-- Sichtbarkeit: VKORG aus Benutzerattribut `SalesOrg`, nicht freigegebene Vorgänge nur mit `MonitorReleaser` (Mock: Handler-Filter, 02 §5).
+- Sichtbarkeit: VKORG aus Benutzerattribut `SalesOrg`, nicht freigegebene Vorgänge nur mit `MonitorReleaser` (Mock: Handler-Filter, 02 §5). Dieselbe Bedingung gilt über `request` für `SalesData`, `ContactPersons`, `ShipToParties` und `LogEntries` – direkt, per Navigation (`Requests(…)/log`) und per `$expand`; zu einem unsichtbaren Vorgang liefern sie 404 bzw. eine leere Menge (F-23).
 - Wertehilfen `SalesOrganizations` / `Sources` (F-11): Distinct-Werte aus `Requests`, nur Codes. `SalesOrganizations` ist deklarativ auf `$user.SalesOrg` eingeschränkt; die `released`-Einschränkung für Nicht-Freigeber gilt hier bewusst nicht (keine Vorgangsdaten).
 
 ## 4. Aktionsverfügbarkeit (`can*`-Flags)

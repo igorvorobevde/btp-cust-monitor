@@ -158,7 +158,7 @@ function lastKey(req) {
 
 module.exports = class CustomerMonitorService extends cds.ApplicationService {
 	async init() {
-		const { Requests, SalesData, ContactPersons, ShipToParties } = this.entities;
+		const { Requests, SalesData, ContactPersons, ShipToParties, LogEntries } = this.entities;
 		const db = cds.entities(NS);
 		const editableChildren = [SalesData, ContactPersons, ShipToParties];
 
@@ -263,6 +263,13 @@ module.exports = class CustomerMonitorService extends cds.ApplicationService {
 		this.before("READ", Requests, (req) => {
 			for (const w of visibilityWhere(req) || []) {
 				req.query.where(w);
+			}
+		});
+		// Kinder und Protokoll nur zu sichtbaren Vorgängen (F-23, R-08): dieselbe Bedingung über den Pfad request.*;
+		// greift auch bei Navigation (Requests(#2)/log) und $expand=request
+		this.before("READ", [...editableChildren, LogEntries], (req) => {
+			for (const w of visibilityWhere(req) || []) {
+				req.query.where(Object.fromEntries(Object.entries(w).map(([k, v]) => ["request." + k, v])));
 			}
 		});
 

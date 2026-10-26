@@ -228,6 +228,37 @@ describe("Authorization", () => {
 	test("viewer cannot read unreleased request of other VKORG", async () => {
 		expect((await failure(GET(url(2), BOB))).status).toBe(404);
 	});
+
+	describe("F-23 child entities and log follow the request's visibility", () => {
+		const CHILDREN = ["SalesData", "ContactPersons", "ShipToParties", "LogEntries"];
+		const visibleIds = async (user) => new Set((await GET(`${BASE}/Requests?$select=ID`, user)).data.value.map((r) => r.ID));
+		const requestIds = async (entity, user) => (await GET(`${BASE}/${entity}?$select=request_ID`, user)).data.value.map((r) => r.request_ID);
+		test.each(CHILDREN)("bob reads %s only of requests he can see", async (entity) => {
+			const visible = await visibleIds(BOB);
+			const ids = await requestIds(entity, BOB);
+			expect(ids.length).toBeGreaterThan(0);
+			expect(ids.filter((rid) => !visible.has(rid))).toEqual([]);
+		});
+		test.each(CHILDREN)("alice still reads every %s row", async (entity) => {
+			const all = await cds.db.run(SELECT.from(`hydac.custmon.${entity}`).columns("request_ID"));
+			expect((await requestIds(entity, ALICE)).length).toBe(all.length);
+		});
+		test("bob gets nothing via navigation from an invisible request (#2)", async () => {
+			const log = await GET(url(2, "/log"), BOB).then((r) => r.data.value, (e) => e.response.status);
+			expect(log === 404 || (Array.isArray(log) && log.length === 0)).toBe(true);
+			for (const path of ["/salesData", "/admin", "/shipTo"]) {
+				const status = await GET(url(2, path), BOB).then((r) => (r.status === 200 && r.data && r.data.ID ? "data" : r.status), (e) => e.response.status);
+				expect([path, status]).toEqual([path, expect.not.stringMatching(/^data$/)]);
+			}
+			const { data } = await GET(`${BASE}/LogEntries?$filter=request_ID eq ${id(2)}`, BOB);
+			expect(data.value).toEqual([]);
+		});
+		test("LogEntries $expand=request only shows bob's requests", async () => {
+			const { data } = await GET(`${BASE}/LogEntries?$expand=request($select=salesOrganization,released)`, BOB);
+			expect(data.value.length).toBeGreaterThan(0);
+			expect(data.value.every((e) => e.request && e.request.salesOrganization === "0001" && e.request.released)).toBe(true);
+		});
+	});
 });
 
 describe("F-13 availability flags", () => {
