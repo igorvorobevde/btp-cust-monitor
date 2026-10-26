@@ -19,7 +19,7 @@ FlexibleColumnLayout (FE-Root-View `sap.fe.templates.RootContainer.view.Fcl`), S
 
 ## 2. Liste (List Report)
 
-`UI.SelectionFields`, `UI.SelectionPresentationVariant#Default`, `UI.LineItem` in `app/monitor/annotations.cds`; Wertehilfen und Texte aus dem Service.
+`UI.SelectionFields`, `UI.SelectionVariant#MyWork/#Error/#Clarification/#Release/#All`, `UI.PresentationVariant`, `UI.LineItem` in `app/monitor/annotations.cds`, Sichten im Manifest (`views`, F-26); Wertehilfen und Texte aus dem Service.
 
 ### 2.1 Filterleiste
 
@@ -29,7 +29,7 @@ Filter wirken mit **Start** (Go); „Filter anpassen“ erlaubt weitere Felder (
 |---|---|---|---|
 | Suche | Suchfeld (`$search` über name, name2, magentoCompany) | – | `@cds.search` |
 | Bearbeitungsstatus | FE-Standardfilter für Draft-Entitäten (Alle / eigene Entwürfe …) | Alle | FE |
-| Statusgruppe | Multi-Combo (feste Werte) | **OPEN + ERROR** (= offene Vorgänge, ersetzt die alten Haken „Erledigte/Abgelehnte einbeziehen“) | `statusGroup`, Wertehilfe `StatusGroups` |
+| Statusgruppe | Multi-Combo (feste Werte) | – (offene Vorgänge zeigt die Sicht „Meine Arbeit“, ersetzt die alten Haken „Erledigte/Abgelehnte einbeziehen“) | `statusGroup`, Wertehilfe `StatusGroups` |
 | Freigegeben | Boolean-Auswahl | – | `released` |
 | In Klärung | Boolean-Auswahl | – | `inClarification` |
 | Debitor | Eingabe | – | `customer` |
@@ -43,9 +43,19 @@ Filter wirken mit **Start** (Go); „Filter anpassen“ erlaubt weitere Felder (
 
 Der Filterzustand bleibt beim Wechsel Liste ↔ Detail erhalten (FE-App-State).
 
+**Sichten (F-26, D-7, D-13).** Über der Tabelle eine Registerkartenleiste (FE-Multi-Table-Modus, Manifest `views.paths` + `showCounts: true`); jede Registerkarte zeigt ihren Zähler, alle Zähler sind gleichzeitig sichtbar, z. B. „Meine Arbeit (18)“, „Fehler (4)“. Jede Registerkarte ist eine eigene Tabelle mit demselben `UI.LineItem` (Spalten, Breiten und Tabelleneinstellungen gelten für alle; Tabellen-IDs `fe::table::<key>::LineItem`). Der Sichtfilter wird mit der Filterleiste UND-verknüpft. Zähler = ein `$count` je Registerkarte bei jedem Start; nach einem Schritt auf der Object Page laufen Suche und Zähler neu (§4.2).
+
+| Sicht (Key) | Filter | Zweck |
+|---|---|---|
+| Meine Arbeit (`MyWork`, initial) | `statusGroup` in (OPEN, ERROR) | offene und fehlerhafte Vorgänge – Arbeitsvorrat aller |
+| Fehler (`Error`) | `statusGroup` = ERROR | Vorgänge, die repariert werden müssen |
+| Klärung (`Clarification`) | `inClarification` = true und `statusGroup` in (OPEN, ERROR) | Vorgänge in Klärung; nur offene/fehlerhafte, weil in Phase 1 nichts das Kennzeichen löscht (S/4-Regel) |
+| Freigabe (`Release`) | `released` = false und `statusGroup` = OPEN | Freigabe-Arbeitsvorrat (wer nicht freigeben darf, sieht keine unfreigegebenen Vorgänge → Zähler 0) |
+| Alle (`All`) | – | alle sichtbaren Vorgänge |
+
 ### 2.2 Tabelle
 
-Responsive Tabelle, keine Zeilenselektion, Zeilenklick öffnet das Detail; Titel „Vorgänge (n)“ (`HeaderInfo.TypeNamePlural` + `$count`); Standardsortierung `createdAt` aufsteigend (`PresentationVariant#Default`); Sortierung und Spaltenauswahl über die Tabelleneinstellungen (Personalisierung Spalten/Sortierung).
+Responsive Tabelle, keine Zeilenselektion, Zeilenklick öffnet das Detail; Titel „Vorgänge (n)“ (`HeaderInfo.TypeNamePlural` + `$count`); Standardsortierung (D-10, F-24) `priority` aufsteigend (Fehler zuerst), dann `waitingSince` aufsteigend (am längsten wartend zuerst) – unqualifizierte `UI.PresentationVariant`, `$orderby=priority,waitingSince`; Sortierung und Spaltenauswahl über die Tabelleneinstellungen (Personalisierung Spalten/Sortierung).
 
 | Spalte | Inhalt | Popin (< Desktop) |
 |---|---|---|
@@ -54,14 +64,16 @@ Responsive Tabelle, keine Zeilenselektion, Zeilenklick öffnet das Detail; Titel
 | Freigabegrund | Text des Freigabegrunds (`releaseReason` + `Common.Text` aus `ReleaseReasons`, F-25), z. B. „Manuelle Freigabe vorgeschrieben (Customizing)“ | ja |
 | Prozessart | Text (`processType` + `Common.Text`) | ja |
 | Name | Name 1 / Name 2 untereinander (`FieldGroup#Name`) | nein (High) |
+| Nächster Schritt | empfohlener Schritt als Text (`nextStepText`, F-24); leer, wenn nichts zu tun ist | nein (High) |
+| Wartet seit | Wartezeit seit der letzten Zustandsänderung als Text (`waitingText`, z. B. „3 Tage“; sortiert wird über `waitingSince`) | nein (High) |
 | Debitor | `customer` | ja |
 | VKORG | `salesOrganization` | ja |
-| Magento-Company | `magentoCompany` | ja |
-| Bestellvolumen | `orderVolume` mit Währung | ja |
-| Erstellt | `createdAt` / `createdBy` (`FieldGroup#Created`) | ja |
-| Geändert | `modifiedAt` / `modifiedBy` (`FieldGroup#Changed`) | ja |
+| Magento-Company | `magentoCompany` | ja, zuerst (Low) |
+| Bestellvolumen | `orderVolume` mit Währung | ja, zuerst (Low) |
+| Erstellt | `createdAt` / `createdBy` (`FieldGroup#Created`) | ja, zuerst (Low) |
+| Geändert | `modifiedAt` / `modifiedBy` (`FieldGroup#Changed`) | ja, zuerst (Low) |
 
-Fehlerzeilen rot, Zeilen mit Bestellung blau (`UI.LineItem.@UI.Criticality: rowCriticality`). Leerzustand: FE-Standard („Keine Daten …“). Spaltenbreiten sind im Manifest festgelegt (`controlConfiguration … columns … width`, Summe ≈ 102,5 rem ≈ 1.640 px inkl. Freigabegrund 11 rem); ist die Tabelle schmaler, wandern Medium-Spalten (zuerst Erstellt/Geändert) automatisch in den Popin; in der Zwei-Spalten-Ansicht wandern Medium-Spalten in den Popin, den die Tabellen-Schaltfläche „Details anzeigen“ ein-/ausblendet.
+Fehlerzeilen rot, Zeilen mit Bestellung blau (`UI.LineItem.@UI.Criticality: rowCriticality`). Leerzustand: FE-Standard („Keine Daten …“). Spaltenbreiten sind im Manifest festgelegt (`controlConfiguration … columns … width`, Summe aller Spalten 122,5 rem ≈ 1.960 px inkl. Freigabegrund 11 rem, Nächster Schritt 13 rem, Wartet seit 7 rem). Damit die einspaltige Liste bei 1.500 px passt, sind Magento-Company, Bestellvolumen, Erstellt und Geändert (zusammen 36 rem) `UI.Importance: #Low`: die High- und Medium-Spalten summieren sich auf 86,5 rem ≈ 1.384 px und stehen bei 1.500 px nebeneinander; ist die Tabelle schmaler, wandern zuerst die Low-, dann die Medium-Spalten automatisch in den Popin (Low-Spalten im Popin blendet die Tabellen-Schaltfläche „Details anzeigen“ ein); in der Zwei-Spalten-Ansicht wandern Medium-Spalten in den Popin, den die Tabellen-Schaltfläche „Details anzeigen“ ein-/ausblendet.
 
 ## 3. Detail (Object Page)
 
@@ -69,7 +81,7 @@ Fehlerzeilen rot, Zeilen mit Bestellung blau (`UI.LineItem.@UI.Criticality: rowC
 
 - Titel `name`, Untertitel Prozessart (Text), FE-Draft-Indikator.
 - Custom Header Facet `ClarificationStrip`: Warn-Strip „In Klärung: {clarificationComment}“, nur bei `inClarification`.
-- Kopf-Facetten: DataPoint **Status** (`status_code`, `statusCriticality`), DataPoint **Freigabe** (`releaseState` mit Text aus `ReleaseStates`, grün freigegeben / orange nicht freigegeben), **Kennzahlen** (Debitor, Geschäftspartner, VKORG, Bestellung vorhanden, Bestellvolumen), **Verwaltungsdaten** (erstellt/geändert von/am).
+- Kopf-Facetten: DataPoint **Status** (`status_code`, `statusCriticality`), DataPoint **Freigabe** (`releaseState` mit Text aus `ReleaseStates`, grün freigegeben / orange nicht freigegeben), DataPoint **Nächster Schritt** (`UI.DataPoint#NextStep`, `nextStepText`; leer, wenn nichts zu tun ist; Side Effects jedes Schritts laden ihn neu), **Kennzahlen** (Debitor, Geschäftspartner, VKORG, Bestellung vorhanden, Bestellvolumen), **Verwaltungsdaten** (erstellt/geändert von/am).
 
 ### 3.2 Kopfaktionen
 
@@ -111,7 +123,7 @@ Abschnitte werden von FE lazy geladen (beim Scrollen bzw. Anklicken des Reiters)
 2. Parameterlose Schritte (Freigeben, Erneut bearbeiten, Anlegen …) → FE-Bestätigungsdialog (`Common.IsActionCritical`, Texte `C_OPERATIONS_ACTION_CONFIRM_MESSAGE|Requests|<Aktion>` im App-Bundle, das im Manifest-Target der Object Page als `enhanceI18n` eingetragen ist).
 3. Anfrage ablehnen / In Klärung → FE-Parameterdialog mit Pflichttext (max. 100 Zeichen, `@mandatory`, `@UI.MultiLineText`). Debitor zuordnen → Parameterdialog Geschäftspartner (Pflicht, 1–10 Ziffern; Phase 2: Wertehilfe).
 4. Rückfrage des Backends (z. B. Debitor gehört anderer Magento-Company): Strict Handling – 412 mit Frage → FE-Bestätigungsdialog → Wiederholung ohne `Prefer`-Header ([03 §5.3](03_service_vertrag.md)).
-5. Ergebnis: Side Effects laden Status, Flags, Zuordnung, Protokoll und Kinder neu; die Listenzeile aktualisiert sich. Erfolg → Toast „{Schritt}: neuer Status „{Status}““; Fehlerstatus (140/150/160) → Meldungsdialog mit Warnungen; Abbruch (422 `STEP_ABORTED`) → Fehlerdialog, Eintrag im Protokoll.
+5. Ergebnis: Side Effects laden Status, Flags, Zuordnung, Protokoll und Kinder neu; die Listenzeile aktualisiert sich. Danach läuft die Suche der Liste neu (`ObjectPageExt` überschreibt `editFlow.onAfterActionExecution` → List-Report-`ExtensionAPI.refresh()`, D-14): ein reparierter Vorgang verlässt „Fehler“, ein erledigter „Meine Arbeit“, die Zähler ändern sich, ohne dass Start gedrückt wird (FE markiert die Liste im FCL nicht selbst als veraltet, Side Effects können die Entitätsmenge nicht adressieren). Erfolg → Toast „{Schritt}: neuer Status „{Status}““; Fehlerstatus (140/150/160) → Meldungsdialog mit Warnungen; Abbruch (422 `STEP_ABORTED`) → Fehlerdialog, Eintrag im Protokoll.
 6. ETag-Konflikt (412 ohne `Preference-Applied`) → Fehlerdialog „zwischenzeitlich geändert“, danach **Aktualisieren**.
 
 ### 4.3 Meldungen

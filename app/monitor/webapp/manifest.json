@@ -119,9 +119,33 @@
 						"settings": {
 							"contextPath": "/Requests",
 							"enhanceI18n": ["i18n"],
-							"defaultTemplateAnnotationPath": "com.sap.vocabularies.UI.v1.SelectionPresentationVariant#Default",
 							"initialLoad": "Enabled",
 							"variantManagement": "None",
+							"views": {
+								"paths": [
+									{
+										"key": "MyWork",
+										"annotationPath": "com.sap.vocabularies.UI.v1.SelectionVariant#MyWork"
+									},
+									{
+										"key": "Error",
+										"annotationPath": "com.sap.vocabularies.UI.v1.SelectionVariant#Error"
+									},
+									{
+										"key": "Clarification",
+										"annotationPath": "com.sap.vocabularies.UI.v1.SelectionVariant#Clarification"
+									},
+									{
+										"key": "Release",
+										"annotationPath": "com.sap.vocabularies.UI.v1.SelectionVariant#Release"
+									},
+									{
+										"key": "All",
+										"annotationPath": "com.sap.vocabularies.UI.v1.SelectionVariant#All"
+									}
+								],
+								"showCounts": true
+							},
 							"navigation": {
 								"Requests": {
 									"detail": {
@@ -154,6 +178,12 @@
 										},
 										"DataFieldForAnnotation::FieldGroup::Name": {
 											"width": "15rem"
+										},
+										"DataField::nextStepText": {
+											"width": "13rem"
+										},
+										"DataField::waitingText": {
+											"width": "7rem"
 										},
 										"DataField::customer": {
 											"width": "7rem"

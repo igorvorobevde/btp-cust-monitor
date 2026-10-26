@@ -97,7 +97,7 @@ Eigene JSON-Modelle gibt es nicht; Zustand (Filter, Bearbeitungsmodus, Layout) h
 
 - Module ausschließlich per `sap.ui.define([...], function (...) { "use strict"; ... })`.
 - Controller-Extensions erben von `sap/ui/core/mvc/ControllerExtension`; Overrides im `override`-Block, eigene Handler `onXxx` (im Manifest als `.extension.<voller Name>.onXxx` referenziert).
-- Keine globalen IDs, kein `sap.ui.getCore()`; Controls nur über die FE-APIs oder Bindings.
+- Keine globalen IDs, kein `sap.ui.getCore()`; Controls nur über die FE-APIs oder Bindings. Benannte Ausnahmen: (1) `Component.js` mit dem Umschreiben alter Lesezeichen (§1); (2) `ObjectPageExt` `editFlow.onAfterActionExecution` (D-14) sucht die List-Report-View über ihre ID `hydac.custmon::RequestsList` (`Element.getElementById`) und ruft deren `ExtensionAPI.refresh()`, damit Registerkarten und Zähler einem Schritt folgen – FE bietet dafür keine Annotation; fehlt die View, passiert nichts.
 - Keine Inline-Styles; falls nötig `css/style.css` mit Präfix `custmon`.
 - Keine Formatter (Kritikalität/Texte kommen aus dem Service). Expression Bindings nur für Sichtbarkeit/Verkettung in Fragmenten.
 - Strings: nur i18n (`{i18n>…}` im Fragment/Manifest, `{i18n>…}` in CDS für `_i18n`).

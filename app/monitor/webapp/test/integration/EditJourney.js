@@ -32,10 +32,10 @@ sap.ui.define(["sap/ui/test/opaQunit"], function (opaTest) {
 				Then.onTheDetail.iSeeThisPage();
 				When.onTheDetail.onHeader().iExecuteEdit();
 				When.onTheDetail.onForm({ section: "MainSection", fieldGroup: "MainName" }).iChangeField({ property: "name2" }, "Verwerfen");
-				When.onTheList.onTable().iPressRow({ magentoCompany: "MC101" }); // #1 – matched on a plain column (Name is a FieldGroup column)
+				When.onTheList.onTable("MyWork").iPressRow({ magentoCompany: "MC101" }); // #1 – matched on a plain column (Name is a FieldGroup column)
 				Then.onTheDetail.onHeader().iCheckTitle("Müller Hydraulik GmbH");
 				Then.onTheDetail.iSeeObjectPageInDisplayMode();
-				When.onTheList.onTable().iPressRow({ magentoCompany: "MC106" }); // back to #6 → own draft opens in edit mode
+				When.onTheList.onTable("MyWork").iPressRow({ magentoCompany: "MC106" }); // back to #6 → own draft opens in edit mode
 				Then.onTheDetail.iSeeObjectPageInEditMode();
 				When.onTheDetail.onFooter().iExecuteCancel();
 				When.onTheDetail.onFooter().iConfirmCancel(); // "Discard draft?" popover (the draft has changes)

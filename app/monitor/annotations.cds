@@ -36,9 +36,9 @@ annotate service.Requests with @(
     modifiedBy
   ],
 
-  // Standardfilter: Statusgruppe OPEN + ERROR (= offene Vorgänge), Sortierung createdAt aufsteigend
-  UI.SelectionVariant #Default            : {
-    Text         : 'Default',
+  // ---------- Liste: Sichten (Registerkarten mit Zählern, views im Manifest; F-26, D-13) ----------
+  UI.SelectionVariant #MyWork             : {
+    Text         : '{i18n>view.myWork}',
     SelectOptions: [{
       $Type       : 'UI.SelectOptionType',
       PropertyName: statusGroup,
@@ -58,20 +58,99 @@ annotate service.Requests with @(
       ]
     }]
   },
-  UI.PresentationVariant #Default         : {
-    SortOrder     : [{
-      Property  : createdAt,
-      Descending: false
-    }],
+  UI.SelectionVariant #Error              : {
+    Text         : '{i18n>view.error}',
+    SelectOptions: [{
+      $Type       : 'UI.SelectOptionType',
+      PropertyName: statusGroup,
+      Ranges      : [{
+        $Type : 'UI.SelectionRangeType',
+        Sign  : #I,
+        Option: #EQ,
+        Low   : 'ERROR'
+      }]
+    }]
+  },
+  // nur offene/fehlerhafte: nichts löscht das Kennzeichen in Phase 1 (S/4-Regel)
+  UI.SelectionVariant #Clarification      : {
+    Text         : '{i18n>view.clarification}',
+    SelectOptions: [
+      {
+        $Type       : 'UI.SelectOptionType',
+        PropertyName: inClarification,
+        Ranges      : [{
+          $Type : 'UI.SelectionRangeType',
+          Sign  : #I,
+          Option: #EQ,
+          Low   : true
+        }]
+      },
+      {
+        $Type       : 'UI.SelectOptionType',
+        PropertyName: statusGroup,
+        Ranges      : [
+          {
+            $Type : 'UI.SelectionRangeType',
+            Sign  : #I,
+            Option: #EQ,
+            Low   : 'OPEN'
+          },
+          {
+            $Type : 'UI.SelectionRangeType',
+            Sign  : #I,
+            Option: #EQ,
+            Low   : 'ERROR'
+          }
+        ]
+      }
+    ]
+  },
+  UI.SelectionVariant #Release            : {
+    Text         : '{i18n>view.release}',
+    SelectOptions: [
+      {
+        $Type       : 'UI.SelectOptionType',
+        PropertyName: released,
+        Ranges      : [{
+          $Type : 'UI.SelectionRangeType',
+          Sign  : #I,
+          Option: #EQ,
+          Low   : false
+        }]
+      },
+      {
+        $Type       : 'UI.SelectOptionType',
+        PropertyName: statusGroup,
+        Ranges      : [{
+          $Type : 'UI.SelectionRangeType',
+          Sign  : #I,
+          Option: #EQ,
+          Low   : 'OPEN'
+        }]
+      }
+    ]
+  },
+  UI.SelectionVariant #All                : {
+    Text         : '{i18n>view.all}',
+    SelectOptions: []
+  },
+  // Standardsortierung: Fehler zuerst, dann am längsten wartend (priority, waitingSince – F-24)
+  UI.PresentationVariant                  : {
+    SortOrder     : [
+      {
+        Property  : priority,
+        Descending: false
+      },
+      {
+        Property  : waitingSince,
+        Descending: false
+      }
+    ],
     Visualizations: ['@UI.LineItem']
   },
-  UI.SelectionPresentationVariant #Default: {
-    Text               : 'Default',
-    SelectionVariant   : ![@UI.SelectionVariant#Default],
-    PresentationVariant: ![@UI.PresentationVariant#Default]
-  },
 
-  // ---------- Liste: Spalten (docs/04 §2.2; Importance High = kein Popin) ----------
+  // ---------- Liste: Spalten (docs/04 §2.2; Importance High = kein Popin, Low = zuerst in den Popin, damit
+  // High + Medium bei 1.500 px nebeneinander passen) ----------
   UI.LineItem                             : [
     {
       $Type                    : 'UI.DataField',
@@ -100,6 +179,16 @@ annotate service.Requests with @(
     },
     {
       $Type            : 'UI.DataField',
+      Value            : nextStepText,
+      ![@UI.Importance]: #High
+    },
+    {
+      $Type            : 'UI.DataField',
+      Value            : waitingText,
+      ![@UI.Importance]: #High
+    },
+    {
+      $Type            : 'UI.DataField',
       Value            : customer,
       ![@UI.Importance]: #Medium
     },
@@ -111,24 +200,24 @@ annotate service.Requests with @(
     {
       $Type            : 'UI.DataField',
       Value            : magentoCompany,
-      ![@UI.Importance]: #Medium
+      ![@UI.Importance]: #Low
     },
     {
       $Type            : 'UI.DataField',
       Value            : orderVolume,
-      ![@UI.Importance]: #Medium
+      ![@UI.Importance]: #Low
     },
     {
       $Type            : 'UI.DataFieldForAnnotation',
       Target           : '@UI.FieldGroup#Created',
       Label            : '{i18n>column.created}',
-      ![@UI.Importance]: #Medium
+      ![@UI.Importance]: #Low
     },
     {
       $Type            : 'UI.DataFieldForAnnotation',
       Target           : '@UI.FieldGroup#Changed',
       Label            : '{i18n>column.changed}',
-      ![@UI.Importance]: #Medium
+      ![@UI.Importance]: #Low
     }
   ],
   // Zeilen-Highlight: Fehler rot (1), Bestellung blau (5)
@@ -228,6 +317,11 @@ annotate service.Requests with @(
     },
     {
       $Type : 'UI.ReferenceFacet',
+      ID    : 'NextStepPoint',
+      Target: '@UI.DataPoint#NextStep'
+    },
+    {
+      $Type : 'UI.ReferenceFacet',
       ID    : 'KeyFigures',
       Label : '{i18n>facet.keyFigures}',
       Target: '@UI.FieldGroup#KeyFigures'
@@ -248,6 +342,10 @@ annotate service.Requests with @(
     Value      : releaseState,
     Title      : '{i18n>facet.release}',
     Criticality: releaseCriticality
+  },
+  UI.DataPoint #NextStep       : {
+    Value: nextStepText,
+    Title: '{i18n>facet.nextStep}'
   },
   UI.FieldGroup #KeyFigures    : {Data: [
     {Value: customer},
