@@ -146,6 +146,9 @@
 										"DataField::status_code": {
 											"width": "12rem"
 										},
+										"DataField::releaseReason": {
+											"width": "11rem"
+										},
 										"DataField::processType": {
 											"width": "10rem"
 										},

@@ -52,6 +52,8 @@ entity Requests : cuid, managed {
   releaseProcedure     : ReleaseProc;
   releasedBy           : String(255);
   releasedAt           : Timestamp;
+  releaseReason        : String(20);
+  releaseLimit         : Decimal(15, 2);
   inClarification      : Boolean;
   clarificationComment : String(100);
   // Hauptdaten (editierbar)
@@ -90,6 +92,8 @@ entity Requests : cuid, managed {
                            on processTypeRef.code = processType;
   releaseStateRef      : Association to ReleaseStates
                            on releaseStateRef.code = releaseState;
+  releaseReasonRef     : Association to ReleaseReasons
+                           on releaseReasonRef.code = releaseReason;
   // berechnet on-read (filter-/sortierbar): Statusgruppe und Kritikalität für Fiori Elements – F-11
   statusGroup          : String(10) = status.group;
   statusCriticality    : Integer    = status.criticality;
@@ -222,6 +226,12 @@ entity StatusGroups {
 /** Freigabezustand als Codeliste (Kopfanzeige „Freigabe“) */
 entity ReleaseStates {
   key code : String(12); // NOT_RELEASED | NOT_REL | AUTOMATIC | MANUAL
+      text : localized String(60);
+}
+
+/** Freigabegrund als Codeliste (Ergebnis der Freigabeprüfung 01 §4; MANUAL = im Monitor freigegeben) – F-25 */
+entity ReleaseReasons {
+  key code : String(20); // ALWAYS | NO_RULE | NOT_REQUIRED | CREDIT_CARD | UNDER_LIMIT | OVER_LIMIT | NO_VOLUME | MANUAL_REQUIRED | MANUAL
       text : localized String(60);
 }
 

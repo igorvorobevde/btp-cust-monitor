@@ -51,6 +51,7 @@ Responsive Tabelle, keine Zeilenselektion, Zeilenklick öffnet das Detail; Titel
 |---|---|---|
 | Status | Statustext mit Kritikalität und Icon (`status_code` + `Common.Text`, `statusCriticality`) | nein (High) |
 | Hinweise | Custom Column `ext/fragment/HintsColumn.fragment.xml`: Schloss (nicht freigegeben), ? (in Klärung), Wagen (Bestellung) | nein (High) |
+| Freigabegrund | Text des Freigabegrunds (`releaseReason` + `Common.Text` aus `ReleaseReasons`, F-25), z. B. „Manuelle Freigabe vorgeschrieben (Customizing)“ | ja |
 | Prozessart | Text (`processType` + `Common.Text`) | ja |
 | Name | Name 1 / Name 2 untereinander (`FieldGroup#Name`) | nein (High) |
 | Debitor | `customer` | ja |
@@ -60,7 +61,7 @@ Responsive Tabelle, keine Zeilenselektion, Zeilenklick öffnet das Detail; Titel
 | Erstellt | `createdAt` / `createdBy` (`FieldGroup#Created`) | ja |
 | Geändert | `modifiedAt` / `modifiedBy` (`FieldGroup#Changed`) | ja |
 
-Fehlerzeilen rot, Zeilen mit Bestellung blau (`UI.LineItem.@UI.Criticality: rowCriticality`). Leerzustand: FE-Standard („Keine Daten …“). Spaltenbreiten sind im Manifest festgelegt (`controlConfiguration … columns … width`, Summe ≈ 91 rem), damit alle Spalten in der Ein-Spalten-Ansicht ab 1.500 px passen; in der Zwei-Spalten-Ansicht wandern Medium-Spalten in den Popin, den die Tabellen-Schaltfläche „Details anzeigen“ ein-/ausblendet.
+Fehlerzeilen rot, Zeilen mit Bestellung blau (`UI.LineItem.@UI.Criticality: rowCriticality`). Leerzustand: FE-Standard („Keine Daten …“). Spaltenbreiten sind im Manifest festgelegt (`controlConfiguration … columns … width`, Summe ≈ 102,5 rem ≈ 1.640 px inkl. Freigabegrund 11 rem); ist die Tabelle schmaler, wandern Medium-Spalten (zuerst Erstellt/Geändert) automatisch in den Popin; in der Zwei-Spalten-Ansicht wandern Medium-Spalten in den Popin, den die Tabellen-Schaltfläche „Details anzeigen“ ein-/ausblendet.
 
 ## 3. Detail (Object Page)
 
@@ -89,7 +90,7 @@ Anzeige über `UI.Facets`; Felder als `UI.FieldGroup`s, Kind-Entitäten über di
 | Ansprechpartner (`admin`) | `processType ≠ CR_WE` (`UI.Hidden`-Ausdruck) | ro: AP-Nummer, GP, Magento-Customer; editierbar: Webshop-Rolle, Anrede, Vorname, Nachname, Funktion, Abteilung, Sprache, Telefon, E-Mail |
 | Vertriebsdaten (`salesData`) | immer | ro: VKORG; editierbar: Vertriebsweg, Sparte, Verkäufergruppe, Verkaufsbüro, Kundengruppe, Verkaufsbezirk, Incoterms 1/2 |
 | Warenempfänger (`shipTo`) | `processType = CR_WE` | ro: WE-Nummer, GP, Magento-Address, Adresse in Auftrag verwendet; editierbar: Name 1–4, Straße, Hausnummer, Straße 4/5, PLZ, Ort, Land, USt-IdNr. |
-| Zuordnung (Gruppen SAP-Nummern, Magento, Freigabe) | immer | alle ro: Debitor, GP, Warenempfänger, AP-Nummer; Magento-Company/-Customer/-Address, Quelle; Freigabeverfahren, freigegeben von/am |
+| Zuordnung (Gruppen SAP-Nummern, Magento, Freigabe) | immer | alle ro: Debitor, GP, Warenempfänger, AP-Nummer; Magento-Company/-Customer/-Address, Quelle; Freigabeverfahren, Freigabegrund (Text aus `ReleaseReasons`), Freigabelimit (mit Währung, leer ohne Limit), freigegeben von/am |
 | Protokoll (`log`) | immer | Tabelle: Typ (Icon mit Kritikalität), Zeitpunkt, Benutzer, Schritt, Meldung, Feld, alter/neuer Wert; neueste zuerst (`PresentationVariant#Log`) |
 
 Abschnitte werden von FE lazy geladen (beim Scrollen bzw. Anklicken des Reiters).

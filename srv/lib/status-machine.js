@@ -35,28 +35,36 @@ function isEditable(request, isEditor) {
  * Freigabeprüfung gemäß 01 §4 (Logik ZEC_CUST_APPROV).
  * @param {object} request processType, source, salesOrganization, creditCardPayment, orderVolume
  * @param {object[]} rules ApprovalRules
- * @returns {{released: boolean, releaseProcedure: string|null}}
+ * @returns {{released: boolean, releaseProcedure: string|null, releaseReason: string, releaseLimit: number|null}}
  */
 function checkRelease(request, rules) {
+	const result = (released, releaseProcedure, releaseReason, releaseLimit = null) => ({ released, releaseProcedure, releaseReason, releaseLimit });
 	if (request.processType === "CH_AP") {
-		return { released: true, releaseProcedure: "NOT_REL" };
+		return result(true, "NOT_REL", "ALWAYS");
 	}
 	const rule = rules.find((r) =>
 		r.processType === request.processType &&
 		r.source === request.source &&
 		r.salesOrganization === request.salesOrganization);
 	if (!rule) {
-		return { released: false, releaseProcedure: null };
+		return result(false, null, "NO_RULE");
 	}
 	if (rule.notRequired) {
-		return { released: true, releaseProcedure: "NOT_REL" };
+		return result(true, "NOT_REL", "NOT_REQUIRED");
 	}
 	const volume = Number(request.orderVolume) || 0;
 	const limit = Number(rule.limit) || 0;
-	if ((rule.creditCard && request.creditCardPayment) || (volume > 0 && volume <= limit)) {
-		return { released: true, releaseProcedure: "AUTOMATIC" };
+	const releaseLimit = limit > 0 ? limit : null;
+	if (rule.creditCard && request.creditCardPayment) {
+		return result(true, "AUTOMATIC", "CREDIT_CARD", releaseLimit);
 	}
-	return { released: false, releaseProcedure: null };
+	if (volume > 0 && volume <= limit) {
+		return result(true, "AUTOMATIC", "UNDER_LIMIT", releaseLimit);
+	}
+	if (limit > 0) {
+		return result(false, null, volume > limit ? "OVER_LIMIT" : "NO_VOLUME", releaseLimit);
+	}
+	return result(false, null, "MANUAL_REQUIRED");
 }
 
 /**
@@ -206,7 +214,7 @@ function executeStep(step, request, params, ctx) {
 
 	switch (step) {
 		case "RELEASE":
-			Object.assign(rc, { released: true, releaseProcedure: "MANUAL", releasedBy: ctx.user, releasedAt: ctx.now });
+			Object.assign(rc, { released: true, releaseProcedure: "MANUAL", releaseReason: "MANUAL", releasedBy: ctx.user, releasedAt: ctx.now });
 			msg("S", "LOG_RELEASED", [ctx.user]);
 			break;
 

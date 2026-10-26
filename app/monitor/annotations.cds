@@ -81,6 +81,12 @@ annotate service.Requests with @(
       ![@UI.Importance]        : #High
     },
     // Spalte „Hinweise“: Custom Column (manifest), verankert nach status_code
+    // Freigabegrund (F-25) direkt nach status_code → Reihenfolge Status | Hinweise | Freigabegrund
+    {
+      $Type            : 'UI.DataField',
+      Value            : releaseReason,
+      ![@UI.Importance]: #Medium
+    },
     {
       $Type            : 'UI.DataField',
       Value            : processType,
@@ -125,7 +131,7 @@ annotate service.Requests with @(
       ![@UI.Importance]: #Medium
     }
   ],
-  // Zeilen-Highlight „Bestellung vorhanden“ (5 = Information)
+  // Zeilen-Highlight: Fehler rot (1), Bestellung blau (5)
   UI.LineItem.@UI.Criticality             : rowCriticality,
 
   UI.FieldGroup #Name                     : {Data: [
@@ -391,6 +397,8 @@ annotate service.Requests with @(
   ]},
   UI.FieldGroup #ReleaseGrp    : {Data: [
     {Value: releaseProcedure},
+    {Value: releaseReason},
+    {Value: releaseLimit},
     {Value: releasedBy},
     {Value: releasedAt}
   ]}

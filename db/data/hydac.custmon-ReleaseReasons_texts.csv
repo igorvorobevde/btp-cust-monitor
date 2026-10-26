@@ -1,0 +1,19 @@
+locale;code;text
+de;ALWAYS;Keine Freigabe nötig (Ansprechpartner-Änderung)
+en;ALWAYS;No release required (contact change)
+de;NO_RULE;Kein Customizing-Eintrag
+en;NO_RULE;No customizing entry
+de;NOT_REQUIRED;Nicht erforderlich (Customizing)
+en;NOT_REQUIRED;Not required (customizing)
+de;CREDIT_CARD;Kreditkartenzahlung
+en;CREDIT_CARD;Credit card payment
+de;UNDER_LIMIT;Bestellvolumen innerhalb des Limits
+en;UNDER_LIMIT;Order volume within limit
+de;OVER_LIMIT;Bestellvolumen über Limit
+en;OVER_LIMIT;Order volume above limit
+de;NO_VOLUME;Kein Bestellvolumen
+en;NO_VOLUME;No order volume
+de;MANUAL_REQUIRED;Manuelle Freigabe vorgeschrieben (Customizing)
+en;MANUAL_REQUIRED;Manual release required (customizing)
+de;MANUAL;Manuell freigegeben
+en;MANUAL;Released manually

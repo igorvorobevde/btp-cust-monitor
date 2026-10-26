@@ -176,6 +176,35 @@ describe("F-24 priority", () => {
 	});
 });
 
+describe("F-25 release reason", () => {
+	const reason = async (n, user = ALICE) => (await GET(url(n, "?$select=released,releaseProcedure,releaseReason,releaseLimit"), user)).data;
+	test("demo data carries the reason of the release check", async () => {
+		expect(await reason(1)).toMatchObject({ releaseReason: "NOT_REQUIRED", releaseLimit: null });
+		expect(await reason(2)).toMatchObject({ released: false, releaseReason: "MANUAL_REQUIRED", releaseLimit: null });
+		expect(await reason(10)).toMatchObject({ releaseReason: "ALWAYS" });
+		const cc = await reason(3); expect(cc.releaseReason).toBe("CREDIT_CARD"); expect(Number(cc.releaseLimit)).toBe(5000);
+		expect((await reason(11)).releaseReason).toBe("UNDER_LIMIT");
+		const manual = await reason(15); expect(manual).toMatchObject({ releaseReason: "MANUAL", releaseProcedure: "MANUAL" }); expect(Number(manual.releaseLimit)).toBe(5000);
+	});
+	test("release → MANUAL; convertToNewCustomer re-check → NO_VOLUME (#5) and UNDER_LIMIT (#26)", async () => {
+		expect((await invoke(2, "release")).data).toMatchObject({ released: true, releaseProcedure: "MANUAL", releaseReason: "MANUAL" });
+		const noVolume = (await invoke(5, "convertToNewCustomer")).data;
+		expect(noVolume).toMatchObject({ released: false, releaseReason: "NO_VOLUME" }); expect(Number(noVolume.releaseLimit)).toBe(5000);
+		const under = (await invoke(26, "convertToNewCustomer")).data;
+		expect(under).toMatchObject({ released: true, releaseProcedure: "AUTOMATIC", releaseReason: "UNDER_LIMIT" });
+	});
+	test("releaseReasonRef expands with localized texts; ReleaseReasons is a code list; $metadata carries Common.Text", async () => {
+		const expand = "?$select=releaseReason&$expand=releaseReasonRef($select=text)";
+		expect((await GET(url(2, expand), { ...ALICE, headers: { "Accept-Language": "de" } })).data.releaseReasonRef.text).toBe("Manuelle Freigabe vorgeschrieben (Customizing)");
+		expect((await GET(url(2, expand), ALICE)).data.releaseReasonRef.text).toBe("Manual release required (customizing)");
+		expect((await GET(`${BASE}/ReleaseReasons`, ALICE)).data.value.map((r) => r.code).sort())
+			.toEqual(["ALWAYS", "CREDIT_CARD", "MANUAL", "MANUAL_REQUIRED", "NOT_REQUIRED", "NO_RULE", "NO_VOLUME", "OVER_LIMIT", "UNDER_LIMIT"]);
+		const meta = (await GET(`${BASE}/$metadata`, ALICE)).data;
+		expect(meta).toMatch(/Common.Text" Path="releaseReasonRef\/text"/);
+		expect((meta.match(/in\/releaseReason/g) || []).length).toBe(11);
+	});
+});
+
 describe("F-11 value helps", () => {
 	test("SalesOrganizations are distinct and restricted to the user's VKORG", async () => {
 		expect((await GET(`${BASE}/SalesOrganizations`, ALICE)).data.value.map((v) => v.salesOrganization).sort()).toEqual(["0001", "2000", "7050"]);

@@ -67,6 +67,9 @@ entity Requests : cuid, managed {            // managed: createdAt/By, modifiedA
   releaseProcedure     : ReleaseProc;
   releasedBy           : String(255);
   releasedAt           : Timestamp;
+  // Ergebnis der Freigabeprüfung (F-25, W-7/W-8; §5.2, §8): Grund-Code und angewandtes Limit der Regel (null ohne Limit)
+  releaseReason        : String(20);
+  releaseLimit         : Decimal(15,2);   // Währung = currency des Vorgangs
   inClarification      : Boolean;
   clarificationComment : String(100);
   // Hauptdaten (editierbar)
@@ -98,6 +101,7 @@ entity Requests : cuid, managed {            // managed: createdAt/By, modifiedA
   // Codelisten-Navigation (unmanaged, keine neuen Spalten) – F-11
   processTypeRef       : Association to ProcessTypes  on processTypeRef.code  = processType;
   releaseStateRef      : Association to ReleaseStates on releaseStateRef.code = releaseState;
+  releaseReasonRef     : Association to ReleaseReasons on releaseReasonRef.code = releaseReason;   // F-25
   // berechnet on-read, read-only, filter-/sortierbar – F-11 (siehe §8)
   statusGroup          : String(10) = status.group;
   statusCriticality    : Integer    = status.criticality;
@@ -187,6 +191,7 @@ entity Statuses     { key code : StatusCode;  text : localized String(60); icon 
                       criticality : Integer; /* UI.CriticalityType: 5 Information (OPEN), 1 Negative (ERROR), 0 Neutral (REJECTED), 3 Positive (DONE) – F-11 */ }
 entity StatusGroups  { key code : String(10); text : localized String(60); }   // OPEN|ERROR|REJECTED|DONE – Codeliste für den Filter „Statusgruppe“ (F-11)
 entity ReleaseStates { key code : String(12); text : localized String(60); }   // NOT_RELEASED|NOT_REL|AUTOMATIC|MANUAL – Codeliste für die Kopfanzeige „Freigabe“ (F-11)
+entity ReleaseReasons { key code : String(20); text : localized String(60); }  // Freigabegrund, 9 Codes (§8) – F-25
 entity ProcessTypes { key code : ProcessType; text : localized String(60); }
 entity Steps        { key code : StepCode;    text : localized String(60); successStatus : StatusCode; errorStatus : StatusCode; input : StepInput; }
 entity ProcessSteps { key source : String(10); key processType : ProcessType; key status : StatusCode; key step : StepCode; }   // nur Mock, nicht exponiert
@@ -243,6 +248,7 @@ service CustomerMonitorService @(path: '/odata/v4/monitor') {
   @readonly entity Steps        as projection on db.Steps;
   @readonly entity StatusGroups  as projection on db.StatusGroups;   // F-11
   @readonly entity ReleaseStates as projection on db.ReleaseStates;  // F-11
+  @readonly entity ReleaseReasons as projection on db.ReleaseReasons; // F-25
 
   // Wertehilfen (Distinct-Werte, nur Codes) – F-11
   @readonly @cds.redirection.target: false
@@ -342,7 +348,8 @@ Fiori Elements sendet bei jedem Aktionsaufruf `Prefer: handling=strict`. Erforde
 
 Siehe [01_fachkonzept.md §6](01_fachkonzept.md#6-schritte). Zusätzlich im Mock und als Ziel für Phase 2:
 
-- **CNG_NEW** führt die Freigabeprüfung erneut aus (07 R-02). Ergebnis kann `released = false` sein.
+- **CNG_NEW** führt die Freigabeprüfung erneut aus (07 R-02). Ergebnis kann `released = false` sein; `releaseReason` und `releaseLimit` werden mit dem Ergebnis der Prüfung überschrieben (F-25).
+- **RELEASE** setzt `released = true`, `releaseProcedure = MANUAL`, `releaseReason = MANUAL`, `releasedBy/At`; `releaseLimit` bleibt unverändert (zeigt weiter das Limit, das die manuelle Freigabe erforderte). Eine Änderung nur von `releaseReason` zählt nicht als Zustandsänderung für `waitingSince`.
 - **CHNG_OLD** prüft wie CNG_DEBI die bestehende Magento-Zuordnung (07 R-06).
 - Jeder Schritt schreibt mindestens einen Logeintrag und aktualisiert `modifiedAt/By`.
 - Jeder Schritt, der Status, Klärung oder Freigabe ändert (`status_code`, `inClarification`, `released`), setzt `waitingSince` auf den Ausführungszeitpunkt (= neues `modifiedAt`). Ein Schritt ohne Zustandsänderung (z. B. CREATE 150 → 150 bei erneutem Fehler) und die Draft-Aktivierung lassen `waitingSince` unverändert (F-24).
@@ -398,6 +405,26 @@ Customizing-CSV = Kopie der Systemtabellen (Stand 19.10.2026, siehe 01).
 
 `waitingSince` in den Testdaten = `modifiedAt` des Vorgangs (#10 wartet am längsten).
 
+`releaseReason` / `releaseLimit` in den Testdaten = Ergebnis der Freigabeprüfung gegen `ApprovalRules.csv` (manuell freigegebene Vorgänge: `MANUAL`, Limit der Regel bleibt) – F-25:
+
+| # | releaseReason | releaseLimit | # | releaseReason | releaseLimit |
+|---|---|---|---|---|---|
+| 1 | NOT_REQUIRED | | 14 | CREDIT_CARD | 5000.00 |
+| 2 | MANUAL_REQUIRED | | 15 | MANUAL | 5000.00 |
+| 3 | CREDIT_CARD | 5000.00 | 16 | NOT_REQUIRED | |
+| 4 | NOT_REQUIRED | | 17 | NOT_REQUIRED | |
+| 5 | NOT_REQUIRED | | 18 | MANUAL_REQUIRED | |
+| 6 | NOT_REQUIRED | | 19 | MANUAL_REQUIRED | |
+| 7 | NOT_REQUIRED | | 20 | NOT_REQUIRED | |
+| 8 | MANUAL_REQUIRED | | 21 | NOT_REQUIRED | |
+| 9 | NOT_REQUIRED | | 22 | NOT_REQUIRED | |
+| 10 | ALWAYS | | 23 | NOT_REQUIRED | |
+| 11 | UNDER_LIMIT | 5000.00 | 24 | UNDER_LIMIT | 5000.00 |
+| 12 | NOT_REQUIRED | | 25 | ALWAYS | |
+| 13 | NOT_REQUIRED | | 26 | NOT_REQUIRED | |
+
+Customizing-Währung = EUR; `releaseLimit` wird in der Währung des Vorgangs (`currency`) angezeigt. Phase 2 muss die Regelwährung mitführen.
+
 **Mock-Stammdaten** (`db/data/hydac.custmon-MockBusinessPartners.csv`, nicht exponiert): BP-Nummer, Debitor, `hasCustomerRole`, `crmNumber`, `magentoCompany` – für BP-Prüfungen.
 Wichtige BPs für Schritte mit BP-Eingabe: `1000030` (Debitor 4000030, frei → keine Rückfrage), `1000002` (Debitor 4000002, Magento-Company 999 → `CONFIRM_REQUIRED`), `1000003` / `1000031` (keine Debitorrolle → `BP_NOT_CUSTOMER`), jede andere Nummer → `BP_NOT_FOUND`.
 
@@ -426,6 +453,9 @@ Fiori Elements leitet Farben/Icons aus Kritikalitätswerten (`UI.CriticalityType
 | `Requests.priority` | `status.group` (on-read) | Arbeitsvorrat-Priorität: ERROR 1, OPEN 2, REJECTED 3, DONE 4; Standardsortierung `priority asc, waitingSince asc` |
 | `Requests.releaseState` | `released` + `releaseProcedure` (stored, neu berechnet bei UPDATE) | NOT_RELEASED (nicht freigegeben), NOT_REL / AUTOMATIC / MANUAL (freigegeben); Text über `releaseStateRef` aus `ReleaseStates` |
 | `Requests.releaseCriticality` | `released` (on-read) | 3 freigegeben, 2 nicht freigegeben |
+| `Requests.releaseReason` | gespeichert, gesetzt von der Freigabeprüfung (Statusmaschine `checkRelease`), RELEASE und CNG_NEW (§5.2) | Grund-Code (Tabelle unten); filterbar, Wertehilfe `ReleaseReasons`; read-only |
+| `Requests.releaseReasonRef` | unmanaged Assoziation auf `ReleaseReasons` | Text des Freigabegrunds (`$expand=releaseReasonRef`), `Common.Text` auf `releaseReason` |
+| `Requests.releaseLimit` | gespeichert, Limit der angewandten Regel (nur wenn > 0, sonst `null`; RELEASE lässt es unverändert) | `Decimal(15,2)`, `@Measures.ISOCurrency: currency`; read-only |
 | `Requests.waitingSince` | gespeichert, gesetzt von Schritten mit Zustandsänderung (§5.2) | Zeitpunkt der letzten Zustandsänderung; sortierbar (`$orderby=waitingSince`), read-only |
 | `Requests.waitingText` | `waitingSince` (virtuell, beim Lesen und in der Aktionsantwort berechnet) | Texte `WAITING_NOW` (< 1 min, auch Zeitpunkt in der Zukunft), `WAITING_MINUTES` `{0} min`, `WAITING_HOURS` `{0} h`, `WAITING_DAY` „1 Tag“, `WAITING_DAYS` `{0} Tage` (abgerundet) aus `_i18n/messages*.properties` je `Accept-Language`; `null` ohne gültiges `waitingSince`. `@UI.HiddenFilter`; `$filter`/`$orderby` auf virtuelle Felder → 400 |
 | `Requests.nextStep` | Statusmaschine (virtuell, beim Lesen und in der Aktionsantwort berechnet, §4.1) | Schrittcode nach W-1 oder `null` (W-2); `@UI.Hidden`; `$filter`/`$orderby` → 400 |
@@ -435,14 +465,28 @@ Fiori Elements leitet Farben/Icons aus Kritikalitätswerten (`UI.CriticalityType
 
 Alle Elemente sind read-only; Texte folgen `Accept-Language` wie bei den übrigen Codelisten.
 
+**Freigabegründe (`ReleaseReasons`, W-7)** – je ein Code pro Zweig der Freigabeprüfung (01 §4) plus manuelle Freigabe:
+
+| Code | Bedingung | `released` / `releaseProcedure` | `releaseLimit` | Text (DE) |
+|---|---|---|---|---|
+| `ALWAYS` | Prozessart CH_AP | true / NOT_REL | null | Keine Freigabe nötig (Ansprechpartner-Änderung) |
+| `NO_RULE` | kein Customizing-Eintrag zu Prozessart/Quelle/VKORG | false / null | null | Kein Customizing-Eintrag |
+| `NOT_REQUIRED` | Regel mit `notRequired` | true / NOT_REL | null | Nicht erforderlich (Customizing) |
+| `CREDIT_CARD` | Regel mit `creditCard` und Kreditkartenzahlung | true / AUTOMATIC | Limit (> 0) | Kreditkartenzahlung |
+| `UNDER_LIMIT` | 0 < Volumen ≤ Limit | true / AUTOMATIC | Limit | Bestellvolumen innerhalb des Limits |
+| `OVER_LIMIT` | Limit > 0, Volumen > Limit | false / null | Limit | Bestellvolumen über Limit |
+| `NO_VOLUME` | Limit > 0, kein Bestellvolumen | false / null | Limit | Kein Bestellvolumen |
+| `MANUAL_REQUIRED` | Regel ohne Limit und ohne passende Kreditkarte (z. B. VKORG 7050) | false / null | null | Manuelle Freigabe vorgeschrieben (Customizing) |
+| `MANUAL` | im Monitor freigegeben (RELEASE) | true / MANUAL | unverändert | Manuell freigegeben |
+
 **Labels, Texte, Wertehilfen, Suche (F-15, `srv/monitor-annotations.cds` – Vertragsbestandteil, E-13):**
 
 | Was | Annotation | Quelle |
 |---|---|---|
 | Feldbezeichner (`Common.Label`) aller Elemente und Aktionsparameter | `@title: '{i18n>field.*}'` / `'{i18n>param.*}'` | `_i18n/i18n.properties` (EN), `_i18n/i18n_de.properties`; `$metadata` folgt `Accept-Language` |
 | Aktionsbezeichner | `{i18n>action.*}` (Layout-Annotation in der App referenziert sie) | dieselben Bundles |
-| Status-/Prozessart-/Freigabetext | `Common.Text` + `TextArrangement #TextOnly` auf `status_code`, `processType`, `releaseState` | `Statuses.text`, `ProcessTypes.text` (über `processTypeRef`), `ReleaseStates.text` (über `releaseStateRef`) |
-| Wertehilfen mit festen Werten | `Common.ValueListWithFixedValues` + `Common.ValueList` auf `status_code`, `processType`, `statusGroup` | `Statuses`, `ProcessTypes`, `StatusGroups` |
+| Status-/Prozessart-/Freigabetext | `Common.Text` + `TextArrangement #TextOnly` auf `status_code`, `processType`, `releaseState`, `releaseReason` | `Statuses.text`, `ProcessTypes.text` (über `processTypeRef`), `ReleaseStates.text` (über `releaseStateRef`), `ReleaseReasons.text` (über `releaseReasonRef`) |
+| Wertehilfen mit festen Werten | `Common.ValueListWithFixedValues` + `Common.ValueList` auf `status_code`, `processType`, `statusGroup`, `releaseReason` | `Statuses`, `ProcessTypes`, `StatusGroups`, `ReleaseReasons` |
 | Wertehilfen VKORG / Quelle | `Common.ValueList` auf `salesOrganization`, `source` | `SalesOrganizations`, `Sources` (§3) |
 | Volltextsuche | `@cds.search: { name, name2, magentoCompany }` | `$search` der Liste |
 | Hilfsfelder | `@UI.Hidden` auf `statusCriticality`, `rowCriticality`, `releaseCriticality`, `editHidden`, `LogEntries.criticality` | nur für Kritikalität/Sichtbarkeit, nicht als Feld sichtbar |

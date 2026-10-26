@@ -22,7 +22,8 @@ const steps = [
 
 const approvalRules = [
 	{ processType: "CR_DEB", source: "SHOP", salesOrganization: "0001", limit: 5000, creditCard: true, notRequired: false },
-	{ processType: "CR_DEB", source: "SHOP", salesOrganization: "2000", notRequired: true }
+	{ processType: "CR_DEB", source: "SHOP", salesOrganization: "2000", notRequired: true },
+	{ processType: "CR_DEB", source: "SHOP", salesOrganization: "7050", limit: 0, creditCard: false, notRequired: false }
 ];
 
 const editor = { isEditor: true, isReleaser: true };
@@ -70,22 +71,24 @@ describe("toStepOptions", () => {
 	});
 });
 
-describe("checkRelease", () => {
-	test("CH_AP always released", () => {
-		expect(sm.checkRelease({ processType: "CH_AP" }, [])).toEqual({ released: true, releaseProcedure: "NOT_REL" });
-	});
-	test("no rule → not released", () => {
-		expect(sm.checkRelease({ processType: "CR_DEB", source: "SHOP", salesOrganization: "7020" }, approvalRules).released).toBe(false);
-	});
-	test("credit card or volume within limit → automatic", () => {
-		const base = { processType: "CR_DEB", source: "SHOP", salesOrganization: "0001" };
-		expect(sm.checkRelease({ ...base, creditCardPayment: true }, approvalRules).releaseProcedure).toBe("AUTOMATIC");
-		expect(sm.checkRelease({ ...base, orderVolume: 5000 }, approvalRules).releaseProcedure).toBe("AUTOMATIC");
-		expect(sm.checkRelease({ ...base, orderVolume: 5000.01 }, approvalRules).released).toBe(false);
-		expect(sm.checkRelease({ ...base, orderVolume: 0 }, approvalRules).released).toBe(false);
-	});
-	test("notRequired → NOT_REL", () => {
-		expect(sm.checkRelease({ processType: "CR_DEB", source: "SHOP", salesOrganization: "2000" }, approvalRules).releaseProcedure).toBe("NOT_REL");
+describe("checkRelease reasons (01 §4)", () => {
+	const base = { processType: "CR_DEB", source: "SHOP", salesOrganization: "0001" };
+	test.each([
+		["ALWAYS", { processType: "CH_AP" }, { released: true, releaseProcedure: "NOT_REL", releaseLimit: null }],
+		["NO_RULE", { ...base, salesOrganization: "7020" }, { released: false, releaseProcedure: null, releaseLimit: null }],
+		["NOT_REQUIRED", { ...base, salesOrganization: "2000" }, { released: true, releaseProcedure: "NOT_REL", releaseLimit: null }],
+		["CREDIT_CARD", { ...base, creditCardPayment: true, orderVolume: 9000 }, { released: true, releaseProcedure: "AUTOMATIC", releaseLimit: 5000 }],
+		["UNDER_LIMIT", { ...base, orderVolume: 5000 }, { released: true, releaseProcedure: "AUTOMATIC", releaseLimit: 5000 }],
+		["OVER_LIMIT", { ...base, orderVolume: 5000.01 }, { released: false, releaseProcedure: null, releaseLimit: 5000 }],
+		["NO_VOLUME", { ...base, orderVolume: 0 }, { released: false, releaseProcedure: null, releaseLimit: 5000 }],
+		["MANUAL_REQUIRED", { ...base, salesOrganization: "7050", orderVolume: 8200 }, { released: false, releaseProcedure: null, releaseLimit: null }]
+	])("%s", (releaseReason, req, expected) => expect(sm.checkRelease(req, approvalRules)).toEqual({ ...expected, releaseReason }));
+	test("RELEASE sets MANUAL and leaves the limit alone; CNG_NEW overwrites reason and limit", () => {
+		const released = sm.executeStep("RELEASE", request({ released: false }), {}, ctx()).requestChanges;
+		expect(released).toMatchObject({ released: true, releaseProcedure: "MANUAL", releaseReason: "MANUAL" });
+		expect(released).not.toHaveProperty("releaseLimit");
+		const converted = sm.executeStep("CNG_NEW", request({ processType: "CH_DEB", salesOrganization: "0001", orderVolume: 9000 }), {}, ctx()).requestChanges;
+		expect(converted).toMatchObject({ released: false, releaseReason: "OVER_LIMIT", releaseLimit: 5000 });
 	});
 });
 

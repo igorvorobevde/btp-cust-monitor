@@ -1,0 +1,10 @@
+code;text
+ALWAYS;No release required (contact change)
+NO_RULE;No customizing entry
+NOT_REQUIRED;Not required (customizing)
+CREDIT_CARD;Credit card payment
+UNDER_LIMIT;Order volume within limit
+OVER_LIMIT;Order volume above limit
+NO_VOLUME;No order volume
+MANUAL_REQUIRED;Manual release required (customizing)
+MANUAL;Released manually

@@ -73,6 +73,26 @@ annotate S.Requests with {
     Common.Text           : releaseStateRef.text,
     Common.TextArrangement: #TextOnly
   );
+  // Freigabegrund aus der Freigabeprüfung (F-25): Text aus der Codeliste, filterbar über feste Werte
+  releaseReason     @(
+    Common.Text                    : releaseReasonRef.text,
+    Common.TextArrangement         : #TextOnly,
+    Common.ValueListWithFixedValues: true,
+    Common.ValueList               : {
+      CollectionPath: 'ReleaseReasons',
+      Parameters    : [
+        {
+          $Type            : 'Common.ValueListParameterInOut',
+          LocalDataProperty: releaseReason,
+          ValueListProperty: 'code'
+        },
+        {
+          $Type            : 'Common.ValueListParameterDisplayOnly',
+          ValueListProperty: 'text'
+        }
+      ]
+    }
+  );
   salesOrganization @Common.ValueList: {
     CollectionPath: 'SalesOrganizations',
     Parameters    : [{
@@ -117,6 +137,10 @@ annotate S.ReleaseStates with {
   code @Common.Text: text  @Common.TextArrangement: #TextOnly;
 };
 
+annotate S.ReleaseReasons with {
+  code @Common.Text: text  @Common.TextArrangement: #TextOnly;
+};
+
 // Labels (Common.Label) – Schlüssel wie im bisherigen App-Bundle
 annotate S.Requests with {
   processType          @title: '{i18n>field.processType}';
@@ -140,6 +164,8 @@ annotate S.Requests with {
   releaseProcedure     @title: '{i18n>field.releaseProcedure}';
   releasedBy           @title: '{i18n>field.releasedBy}';
   releasedAt           @title: '{i18n>field.releasedAt}';
+  releaseReason        @title: '{i18n>field.releaseReason}';
+  releaseLimit         @title: '{i18n>field.releaseLimit}';
   priority             @title: '{i18n>field.priority}';
   waitingSince         @title: '{i18n>field.waitingSince}';
   waitingText          @title: '{i18n>field.waitingText}';
