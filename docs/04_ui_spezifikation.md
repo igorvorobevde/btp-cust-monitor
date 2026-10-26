@@ -55,7 +55,7 @@ Der Filterzustand bleibt beim Wechsel Liste ↔ Detail erhalten (FE-App-State).
 
 ### 2.2 Tabelle
 
-Responsive Tabelle, keine Zeilenselektion, Zeilenklick öffnet das Detail; Titel „Vorgänge (n)“ (`HeaderInfo.TypeNamePlural` + `$count`); Standardsortierung (D-10, F-24) `priority` aufsteigend (Fehler zuerst), dann `waitingSince` aufsteigend (am längsten wartend zuerst) – unqualifizierte `UI.PresentationVariant`, `$orderby=priority,waitingSince`; Sortierung und Spaltenauswahl über die Tabelleneinstellungen (Personalisierung Spalten/Sortierung).
+Responsive Tabelle, keine Zeilenselektion, Zeilenklick öffnet das Detail; Titel „Vorgänge“ (`HeaderInfo.TypeNamePlural`; im Multi-Table-Modus ohne Zähler – die Anzahl steht auf den Registerkarten, §2.1); Standardsortierung (D-10, F-24) `priority` aufsteigend (Fehler zuerst), dann `waitingSince` aufsteigend (am längsten wartend zuerst) – unqualifizierte `UI.PresentationVariant`, `$orderby=priority,waitingSince`; Sortierung und Spaltenauswahl über die Tabelleneinstellungen (Personalisierung Spalten/Sortierung).
 
 | Spalte | Inhalt | Popin (< Desktop) |
 |---|---|---|

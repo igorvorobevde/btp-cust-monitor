@@ -89,7 +89,7 @@ Eigene JSON-Modelle gibt es nicht; Zustand (Filter, Bearbeitungsmodus, Layout) h
 - Kein manuelles HTTP, kein eigenes `bindContext`/`submitBatch`/`resetChanges` in Extensions: Lesen, Bearbeiten (Draft), Aktionen, Side Effects und Meldungen macht Fiori Elements anhand der Annotationen.
 - Extensions greifen über `this.base.getExtensionAPI()` zu (`refresh()`, `getSelectedContexts()`, `invokeAction()` bei Bedarf) und über `override.editFlow.*` auf die Lebenszyklus-Hooks (`onBeforeEdit`, `onBeforeSave`, …).
 - ETag/Draft-Sperre/Strict Handling laufen automatisch (03 §3/§5.3/§6); nie `If-Match: *` erzwingen, nie `disableStrictHandling`.
-- Nachladen nach Aktionen ausschließlich über `@Common.SideEffects` im Service, nicht per Code.
+- Nachladen nach Aktionen ausschließlich über `@Common.SideEffects` im Service, nicht per Code (Ausnahme: die Liste folgt einem Schritt – Suche und Registerkarten-Zähler neu, §6 / D-14).
 - Fragmente binden auf den Seitenkontext (z. B. `{inClarification}`); Custom Columns deklarieren ihre benötigten Properties im Manifest (`properties`), damit sie im `$select` landen.
 - **Typen in Ausdrücken:** Boolean-Werte in Expression Bindings mit `!!${...}` bzw. `!${...}` auswerten (Fragmente ohne `targetType`).
 

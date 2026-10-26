@@ -1,7 +1,8 @@
 sap.ui.define([
 	"sap/ui/core/mvc/ControllerExtension",
-	"sap/ui/core/Element"
-], function (ControllerExtension, Element) {
+	"sap/ui/core/Element",
+	"sap/base/Log"
+], function (ControllerExtension, Element, Log) {
 	"use strict";
 
 	/**
@@ -18,11 +19,17 @@ sap.ui.define([
 				},
 				// FE marks the list dirty only outside the FCL and side effects cannot target the entity set: after a step the
 				// repaired/completed request must leave its tab and the counts must change → re-run the List Report search (D-14).
-				onAfterActionExecution: function () {
+				// FE does not await the hook: a failed refresh is logged instead of becoming an unhandled rejection.
+				onAfterActionExecution: async function () {
 					const oListView = Element.getElementById("hydac.custmon::RequestsList");
 					const oApi = oListView && oListView.getController().getExtensionAPI();
-					if (oApi) {
-						oApi.refresh();
+					if (!oApi) {
+						return;
+					}
+					try {
+						await oApi.refresh();
+					} catch (oError) {
+						Log.error("List Report refresh after step failed", oError, "hydac.custmon.ext.controller.ObjectPageExt");
 					}
 				}
 			}

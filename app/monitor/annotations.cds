@@ -5,7 +5,7 @@
 using CustomerMonitorService as service from '../../srv/monitor-service';
 
 annotate service.Requests with @(
-  // ---------- Kopf (Liste: Tabellentitel „Vorgänge (n)“, Detail: Titel/Untertitel) ----------
+  // ---------- Kopf (Liste: Tabellentitel „Vorgänge“, Zähler auf den Registerkarten; Detail: Titel/Untertitel) ----------
   UI.HeaderInfo                           : {
     TypeName      : '{i18n>request}',
     TypeNamePlural: '{i18n>requests}',
