@@ -112,7 +112,7 @@ entity Requests : cuid, managed {            // managed: createdAt/By, modifiedA
   releaseCriticality   : Integer    = case when released = true then 3 else 2 end;
   releaseState         : String(12) = (case when released = true then releaseProcedure else 'NOT_RELEASED' end) stored;
   // Wartezeit (F-24): letzte Zustandsänderung (Status, Klärung, Freigabe), read-only, sortierbar; gesetzt von den Schrittaktionen (§5.2)
-  waitingSince         : Timestamp;
+  waitingSince         : Timestamp @cds.on.insert: $now;
   // berechnet
   virtual waitingText  : String(40);         // relative Zeit seit waitingSince, lokalisiert („3 Tage“); weder filter- noch sortierbar (`Capabilities` `NonSortableProperties`/`NonFilterableProperties` mit nextStep, nextStepText; §8)
   virtual nextStep     : StepCode;           // empfohlener nächster Schritt (§4.1), null ohne Empfehlung
@@ -456,7 +456,7 @@ Fiori Elements leitet Farben/Icons aus Kritikalitätswerten (`UI.CriticalityType
 | `Requests.releaseReason` | gespeichert, gesetzt von der Freigabeprüfung (Statusmaschine `checkRelease`), RELEASE und CNG_NEW (§5.2) | Grund-Code (Tabelle unten); filterbar, Wertehilfe `ReleaseReasons`; read-only |
 | `Requests.releaseReasonRef` | unmanaged Assoziation auf `ReleaseReasons` | Text des Freigabegrunds (`$expand=releaseReasonRef`), `Common.Text` auf `releaseReason` |
 | `Requests.releaseLimit` | gespeichert, Limit der angewandten Regel (nur wenn > 0, sonst `null`; RELEASE lässt es unverändert) | `Decimal(15,2)`, `@Measures.ISOCurrency: currency`; read-only |
-| `Requests.waitingSince` | gespeichert, gesetzt von Schritten mit Zustandsänderung (§5.2) | Zeitpunkt der letzten Zustandsänderung; sortierbar (`$orderby=waitingSince`), read-only |
+| `Requests.waitingSince` | gespeichert, beim Anlegen `$now` (`@cds.on.insert`), danach gesetzt von Schritten mit Zustandsänderung (§5.2) | Zeitpunkt der letzten Zustandsänderung; nie leer, ein neuer Vorgang sortiert also nicht vor alle anderen; sortierbar (`$orderby=waitingSince`), read-only |
 | `Requests.waitingText` | `waitingSince` (virtuell, beim Lesen und in der Aktionsantwort berechnet) | Texte `WAITING_NOW` (< 1 min, auch Zeitpunkt in der Zukunft), `WAITING_MINUTES` `{0} min`, `WAITING_HOURS` `{0} h`, `WAITING_DAY` „1 Tag“, `WAITING_DAYS` `{0} Tage` (abgerundet) aus `_i18n/messages*.properties` je `Accept-Language`; `null` ohne gültiges `waitingSince`. `@UI.HiddenFilter`; `$filter`/`$orderby` auf virtuelle Felder → 400 |
 | `Requests.nextStep` | Statusmaschine (virtuell, beim Lesen und in der Aktionsantwort berechnet, §4.1) | Schrittcode nach W-1 oder `null` (W-2); `@UI.Hidden`; `$filter`/`$orderby` → 400 |
 | `Requests.nextStepText` | `nextStep` + `Steps.text` (virtuell) | lokalisierter Schritttext je `Accept-Language`, `null` ohne Empfehlung; `@UI.HiddenFilter`; `$filter`/`$orderby` → 400 |
@@ -464,6 +464,8 @@ Fiori Elements leitet Farben/Icons aus Kritikalitätswerten (`UI.CriticalityType
 | `LogEntries.criticality` | `messageType` (on-read) | S 3, W 2, E/A 1, I 5 |
 
 Alle Elemente sind read-only; Texte folgen `Accept-Language` wie bei den übrigen Codelisten.
+
+**Sprachabdeckung (Phase 1):** Feldbezeichner (`_i18n/i18n*`), Meldungen und `waitingText` (`_i18n/messages*`) sowie die Codelisten `ProcessTypes`, `StatusGroups`, `ReleaseStates` und `ReleaseReasons` gibt es nur in EN und DE. `Statuses` ist zusätzlich in FR/IT, `Steps` in FR/IT/NL/SV gepflegt (übernommen aus dem Customizing). Für jede andere Sprache fällt jeder Text einzeln auf EN zurück; eine Antwort mit `Accept-Language: fr` mischt daher z. B. einen französischen `nextStepText` mit englischem `waitingText` und englischem `releaseReason`-Text. Das ist bekannt: die App ist zweisprachig EN/DE angelegt (CLAUDE.md Regel 4); weitere Sprachen sind ein Backlog-Thema.
 
 **Freigabegründe (`ReleaseReasons`, W-7)** – je ein Code pro Zweig der Freigabeprüfung (01 §4) plus manuelle Freigabe:
 

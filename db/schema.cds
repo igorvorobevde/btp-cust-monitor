@@ -104,7 +104,7 @@ entity Requests : cuid, managed {
   releaseCriticality   : Integer    = case when released = true then 3 else 2 end;
   // Wartezeit (F-24): letzte Zustandsänderung (Status, Klärung, Freigabe), gesetzt von den Schrittaktionen;
   // waitingText = relative Zeit dazu, im Service berechnet und lokalisiert
-  waitingSince         : Timestamp;
+  waitingSince         : Timestamp @cds.on.insert: $now;
   virtual waitingText  : String(40);
   // empfohlener nächster Schritt (F-24, W-1) und sein lokalisierter Text, im Service aus der Statusmaschine berechnet
   virtual nextStep     : StepCode;

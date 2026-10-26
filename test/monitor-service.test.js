@@ -577,6 +577,14 @@ describe("F-24 waiting time", () => {
 		await edit(6); await patchDraft(6, "", { name2: "Zweig" }); await activate(6);
 		expect((await waiting(6)).waitingSince).toBe(edited);
 	});
+	test("a new request without waitingSince waits since its insert (does not sort first as NULL)", async () => {
+		await cds.db.run(INSERT.into("hydac.custmon.Requests").entries({ ID: id(99), processType: "CR_DEB", source: "SHOP", status_code: "000",
+			salesOrganization: "2000", released: true, name: "Neuer Interessent GmbH" }));
+		const fresh = await waiting(99);
+		expect(Math.abs(Date.parse(fresh.waitingSince) - Date.now())).toBeLessThan(60000);
+		expect(fresh.waitingText).toBe("just now");
+		await cds.db.run(DELETE.from("hydac.custmon.Requests").where({ ID: id(99) }));
+	});
 	test("waitingSince is sortable, waitingText is neither filterable nor sortable", async () => {
 		const { data } = await GET(`${BASE}/Requests?$orderby=waitingSince asc&$select=ID&$top=1`, ALICE);
 		expect(data.value[0].ID).toBe(id(10));
