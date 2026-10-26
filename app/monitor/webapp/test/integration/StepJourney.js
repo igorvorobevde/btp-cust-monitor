@@ -16,6 +16,7 @@ sap.ui.define(["sap/ui/test/opaQunit"], function (opaTest) {
 				When.onTheDetail.onActionDialog().iChangeDialogField({ property: "businessPartner" }, "1000002").and.iConfirm();
 				When.onTheDetail.onConfirmationDialog().iConfirm(); // strict handling: "already assigned to Magento company … ?"
 				Then.onTheDetail.onHeader().iCheckDataPoint("Status", "Customer Assignment Changed");
+				Then.onTheDetail.onHeader().iCheckDataPoint("Next Step", "Create/Change Contact Person"); // side effect refreshes the recommendation
 				Then.iTeardownMyApp();
 			});
 
@@ -36,6 +37,10 @@ sap.ui.define(["sap/ui/test/opaQunit"], function (opaTest) {
 				Then.onTheDetail.iSeeDialogText("Complete the request manually?");
 				When.onTheDetail.onConfirmationDialog().iConfirm();
 				Then.onTheDetail.onHeader().iCheckDataPoint("Status", "Manually Completed");
+				Then.onTheDetail.onHeader().iCheckDataPoint("Next Step", "");
+				// D-14: the list follows the step – #15 leaves "My Work"
+				Then.onTheList.iCheckView({ key: "MyWork" }, { count: "17" });
+				Then.onTheList.onTable("MyWork").iCheckRows({ magentoCompany: "MC115" }, 0);
 				Then.iTeardownMyApp();
 			});
 
