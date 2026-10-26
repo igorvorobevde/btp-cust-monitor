@@ -1,6 +1,6 @@
 # Design: Worklist — the Kundenmonitor as a clerk's queue, not a report
 
-Date: 2026-10-25 · Status: proposed (awaiting approval) · Owner: Purplecat · Backlog: F-24 (service), F-25 (UI), F-26 (release reason)
+Date: 2026-10-25 · Status: approved, implemented · Owner: Purplecat · Backlog: F-24 (service), F-25 (release reason), F-26 (UI)
 
 ## 1. Intent and why
 
@@ -41,6 +41,8 @@ Decided with the user on 2026-10-25:
 ## 4. The design
 
 ### 4.1 Views (D-7, D-13)
+
+_Note: the absolute-path side-effect mechanism described below for refreshing the list after a step was replaced by D-14, the `editFlow.onAfterActionExecution` hook, because FE 1.148 has no absolute-path side effects._
 
 | View | Filter | Who cares |
 |---|---|---|

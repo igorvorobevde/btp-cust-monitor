@@ -341,6 +341,8 @@ hidden via manifest; drafts are volatile in phase 1.
 
 _To be filled during F-11/F-12._
 
+**F-26 (Arbeitsvorrat), Punkt f – übersprungen:** Hervorhebung des empfohlenen Eintrags im Schrittmenü (`Criticality` auf dem Menüeintrag der Aktionsgruppe). FE 1.148 rendert `Criticality` nur auf Einzelbuttons, nicht auf Menüeinträgen; der Datenpunkt „Nächster Schritt“ im Kopf und die Listenspalte übernehmen die Empfehlung. Zusätzlich: FE 1.148 kennt keine Side Effects mit absolutem Pfad auf die Entitätsmenge, die Liste folgt einem Schritt daher über `editFlow.onAfterActionExecution` (D-14, 05 §6).
+
 ## 9. Documentation changes caused by this plan
 
 | File | Change |

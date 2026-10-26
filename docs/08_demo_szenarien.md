@@ -12,11 +12,11 @@ Vorgänge sind über die Suche (Name) schnell auffindbar. Nummer = Testdatensatz
 
 ## 1. Liste und Filter (F-16)
 
-1. Start: Statusgruppe „Offen“ + „Fehler“ vorbelegt → 18 Vorgänge, älteste zuerst; Zeilen mit Bestellung blau markiert, Hinweis-Icons (Schloss = nicht freigegeben, ? = in Klärung, Wagen = Bestellung).
-2. Prozessart „Neuer Warenempfänger“ → **Start** → 3 Vorgänge.
-3. Statusgruppe leeren → **Start** → 26 Vorgänge; Statusgruppe „Abgelehnt“ → #11, #19 (nach Ablehnen), …
-4. „Freigegeben = Nein“ → #2, #8, #18, #19 (alle VKORG 7050). „In Klärung = Ja“ → #13, #18.
-5. Sortieren über die Tabelleneinstellungen (Zahnrad) oder den Spaltenkopf (z. B. Bestellvolumen absteigend → #18 Svensk Hydraulteknik, 25.000 EUR); Spalten ein-/ausblenden ebenfalls dort.
+1. Start: Sicht „Meine Arbeit (18)“, Fehler (#3, #7, #9, #17, rot) oben, danach die am längsten wartenden; Spalten „Freigabegrund“, „Nächster Schritt“ (z. B. #1 „Debitor und Admin anlegen“, #2 „Freigeben“) und „Wartet seit“ („24 Tage“ – Werte hängen vom Datum ab).
+2. Sicht „Fehler (4)“, „Klärung (2)“ (#13, #18), „Freigabe (4)“ (#2, #8, #18, #19 – Freigabegrund „Manuelle Freigabe vorgeschrieben (Customizing)“; als `carol` sind diese Vorgänge nicht sichtbar, die Sicht zeigt 0), „Alle (26)“.
+3. Sicht + Filter: „Meine Arbeit“ + Prozessart „Neuer Warenempfänger“ → **Start** → 3.
+4. Sortieren über die Tabelleneinstellungen (Zahnrad) oder den Spaltenkopf (z. B. Bestellvolumen absteigend → #18 Svensk Hydraulteknik, 25.000 EUR); Spalten ein-/ausblenden ebenfalls dort.
+5. „Freigegeben = Nein“ → #2, #8, #18, #19 (alle VKORG 7050). „In Klärung = Ja“ → #13, #18.
 6. „Filter anpassen“ zeigt die weiteren Felder (Erstellt/Geändert von/am, Quelle, Bestellung vorhanden).
 
 ## 2. Detail (F-17)
@@ -28,6 +28,8 @@ Vorgänge sind über die Suche (Name) schnell auffindbar. Nummer = Testdatensatz
 | „Nicht freigegeben“ (orange) | #18 Svensk Hydraulteknik |
 | Protokoll mit Feldänderungen (Reiter „Protokoll“) | #16 Roth Fluidtechnik |
 | Fehlerstatus (rot) | #3, #7, #9, #17 |
+| Nächster Schritt im Kopf („Debitor und Admin anlegen“) | #1 Müller Hydraulik |
+| Freigabegrund + Limit (Kreditkartenzahlung, 5.000,00 EUR) | #3 / #14 |
 | Deep-Link / Vollbild / Schließen | URL eines Details kopieren und in neuem Tab öffnen; alter Link `#/requests/<uuid>` funktioniert weiter |
 
 ## 3. Bearbeiten (F-19, Draft)
@@ -58,6 +60,8 @@ Menü **Schritt ausführen** im Kopf; inaktive Einträge = vom Backend nicht erl
 | Anfrage ablehnen | #19 Göteborg Maskin | Begründung Pflicht, Status „Abgelehnt“ (Vorgang verschwindet aus der Standardliste) |
 | Manuell erledigen | #15 Lindner Automation | Status „Manuell erledigt“ |
 | Erneut bearbeiten | #11 (CR_DEB ohne Debitor → 120), #21 (CR_WE → 010), #23 / #24 (→ Bestehender Debitor / 000) | Bestätigung, dann neuer Status |
+
+Freigabegrund nach Schritten (Spalte bzw. Reiter Zuordnung → Freigabe): nach „Freigeben“ auf #2 „Manuell freigegeben“; „Umwandeln in Neukunde“ auf #26 → „Bestellvolumen innerhalb des Limits“ (freigegeben), auf #5 → „Kein Bestellvolumen“ (nicht freigegeben). Nach jedem Schritt wechselt der Vorgang beim Zurückgehen die Registerkarte, die Zähler ändern sich ohne **Start**.
 
 Destruktive Schritte (Ablehnen, Erneut bearbeiten) stehen im Menü zuletzt. Busy-Zustände sichtbarer machen: `MOCK_LATENCY_MS=1500 cds watch`.
 
