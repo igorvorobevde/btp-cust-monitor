@@ -34,7 +34,7 @@ untracked reference only (`.gitignore`).
 | D-8 | **`waitingSince` = waiting time in the current state**, set on every state change (status, Klärung, Freigabe), not creation time. | Backend field plus virtual `waitingText`; [03](03_service_vertrag.md). |
 | D-9 | **Next step is a backend recommendation** (`nextStep`/`nextStepText` from the status machine); the UI shows it, never derives it. | Rule 7; priority list in [03](03_service_vertrag.md), F-24. |
 | D-10 | **Sort by `priority` asc, then `waitingSince` asc**, with `rowCriticality` for row highlighting. | Replaces `orderCriticality`; unqualified `UI.PresentationVariant`. |
-| D-11 | **Release reason is data** (why unreleased, how released) delivered by the service, texts from the `ReleaseStates` code list. | No UI logic; F-25. |
+| D-11 | **Release reason is data** (why unreleased, how released) delivered by the service, nine codes with texts from the `ReleaseReasons` code list, plus the applied `releaseLimit`. | No UI logic; F-25. |
 | D-12 | **Execution with subagents directly on `main`** (implementer/reviewer per task, one commit per task). | Consistent with project rule 11. |
 | D-13 | **IconTabBar with all counts visible** (`views.showCounts: true`); dropdown only as fallback. | Multi-table mode; table title "Vorgänge" carries no count. |
 | D-14 | **List refresh after a step**: `editFlow.onAfterActionExecution` in `ObjectPageExt.controller.js` calls the List Report `ExtensionAPI.refresh()`. | FE 1.148 does not refresh tab membership and counts after an action in the FCL; ≈10 lines, [05](05_ui5_konventionen.md) §6. |
