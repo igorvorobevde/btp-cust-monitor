@@ -21,7 +21,7 @@ CSV für Statuses (+ `_texts` DE/EN/FR/IT), ProcessTypes, Steps (+ `_texts` DE/E
 **AK:** Jest-Tests decken je Prozessart Erfolg, Fehlerstatus, `CONFIRM_REQUIRED`, `STEP_ABORTED`, `BP_NOT_CUSTOMER`, RESET-Sonderfall, 412 ab.
 
 ### F-04 Liste mit Filtern — erledigt
-List-View gemäß 04 §2 inkl. Default-Filter (ohne 8xx/9xx), Zählung, Sortierung, Hinweis-Icons, Highlight.
+List-View gemäß 04 §2 inkl. Default-Filter (ohne 8xx/9xx), Zählung, Sortierung, Hinweis-Icons, Highlight. (Default-Filter und Zählung im Tabellentitel ersetzt durch F-26)
 **AK:** Alle Filter wirken (OPA prüft mind. Status, Prozessart, „Abgelehnte einbeziehen“); Zeilenklick öffnet Detail; Filterzustand bleibt beim Zurücknavigieren erhalten.
 
 ### F-05 Detail lesend — erledigt
@@ -83,7 +83,7 @@ Backend-Items zuerst (F-11–F-15, additiv bis auf F-12), FE-App parallel in `ap
 - Die Freestyle-App (`app/monitor`) ist seit F-12/F-13 nicht mehr lauffähig (Draft-Keys, Aktionen) und wird mit F-21 entfernt.
 
 ### F-16 FE-App-Gerüst und Liste — erledigt
-`app/monitor-fe`: Component (`sap.fe.core.AppComponent`), manifest gemäß 09 §5.2, `annotations.cds` (SelectionFields, SelectionPresentationVariant #Default, LineItem mit FieldGroup-Spalten und Kritikalität), Hinweis-Spalte als Custom Column, i18n; `ui5.yaml` mountPath `/monitor-fe`; 05 §1–§3.
+`app/monitor-fe`: Component (`sap.fe.core.AppComponent`), manifest gemäß 09 §5.2, `annotations.cds` (SelectionFields, SelectionPresentationVariant #Default (ersetzt durch F-26), LineItem mit FieldGroup-Spalten und Kritikalität), Hinweis-Spalte als Custom Column, i18n; `ui5.yaml` mountPath `/monitor-fe`; 05 §1–§3.
 **AK:** App startet unter `/monitor-fe/index.html`; Standardfilter `statusGroup = OPEN,ERROR` vorbelegt, 18 Vorgänge initial geladen; alle 13 Filterfelder wirken (Prozessart/Status/Statusgruppe als Dropdown mit Text); Spalten inkl. Hinweis-Icons und Zeilen-Highlight (Bestellung) wie 04 §2.2; Sortierung `createdAt` aufsteigend; Popin unterhalb Desktop; `npm run lint` grün.
 
 ### F-17 Object Page lesend — erledigt
