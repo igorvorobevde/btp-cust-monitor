@@ -548,6 +548,29 @@ describe("F-12 draft editing", () => {
 	});
 });
 
+describe("F-23 process-type rule for child changes (03 §3)", () => {
+	// Über die UI nicht auslösbar (CR_WE hat kein admin, die übrigen kein shipTo) – daher direkt am Service
+	const asAlice = async (query) => {
+		const srv = await cds.connect.to("CustomerMonitorService");
+		const user = new cds.User({ id: "alice", roles: ["MonitorViewer", "MonitorEditor", "MonitorReleaser"], attr: { SalesOrg: ["0001", "2000", "7050"] } });
+		return srv.tx({ user }, (tx) => tx.run(query(tx.entities)));
+	};
+	test("CR_WE (#8): a contact-person change is rejected with NOT_EDITABLE", async () => {
+		await expect(asAlice(({ Requests }) => UPDATE(Requests, { ID: id(8), IsActiveEntity: true }).with({ admin: { lastName: "Neu" } })))
+			.rejects.toMatchObject({ code: "NOT_EDITABLE" });
+	});
+	test("CR_DEB (#6): a ship-to change is rejected with NOT_EDITABLE", async () => {
+		await expect(asAlice(({ Requests }) => UPDATE(Requests, { ID: id(6), IsActiveEntity: true }).with({ shipTo: { name: "Neu" } })))
+			.rejects.toMatchObject({ code: "NOT_EDITABLE" });
+	});
+	test("CR_DEB (#6): a contact-person change is allowed", async () => {
+		const adminId = (await GET(url(6, "/admin?$select=ID"), ALICE)).data.ID;
+		await asAlice(({ Requests }) => UPDATE(Requests, { ID: id(6), IsActiveEntity: true }).with({ admin: { ID: adminId, function: "02" } }));
+		const { data } = await GET(url(6, "/admin?$select=function"), ALICE);
+		expect(data.function).toBe("02");
+	});
+});
+
 describe("Demo data (#14–#26)", () => {
 	test("every process type and status group is present", async () => {
 		const { data } = await GET(`${BASE}/Requests?$select=processType,status_code`, ALICE);

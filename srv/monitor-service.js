@@ -94,9 +94,11 @@ const normalize = (value) => (value === "" || value == null ? null : value);
  * @returns {Array<{field: string, fieldName: string, oldValue: string, newValue: string}>}
  */
 function diffFields(prefix, oldRow, newRow, entity) {
-	if (!oldRow || !newRow) {
+	if (!newRow) {
 		return [];
 	}
+	// Kind ohne bisherige Zeile (deep UPDATE legt es an) zählt als Änderung – sonst umginge es die Prozessart-Regel
+	oldRow = oldRow || {};
 	const elements = entity.elements;
 	// virtuelle/berechnete Elemente (Flags, isEditable) kommen im Draft-Payload mit, sind aber keine Fachänderung
 	return Object.keys(newRow)
