@@ -182,7 +182,7 @@ processTypeRef     : Association to ProcessTypes  on processTypeRef.code  = proc
 releaseStateRef    : Association to ReleaseStates on releaseStateRef.code = releaseState;
 statusGroup        : String(10) = status.group;                 // calculated on-read; $filter/$orderby/groupby verified
 statusCriticality  : Integer    = status.criticality;
-rowCriticality     : Integer    = case when status.group = 'ERROR' then 1 when orderExists = true then 5 else 0 end;          // row highlight (5 = Information)
+rowCriticality     : Integer    = case when status.group = 'ERROR' then 1 when orderExists = true then 5 else 0 end;          // row highlight: 1 error (red, wins over order), 5 order (blue), else 0 – F-24
 releaseCriticality : Integer    = case when released = true then 3 else 2 end;
 releaseState       : String(12) = (case when released = true then releaseProcedure else 'NOT_RELEASED' end) stored;
 virtual isEditable : Boolean;  virtual editHidden : Boolean;  virtual canRelease : Boolean;  /* … all can* … */

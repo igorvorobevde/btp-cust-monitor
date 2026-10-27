@@ -174,8 +174,6 @@ describe("F-24 priority", () => {
 	});
 	test("$metadata: capabilities, side effects and no orderCriticality", async () => {
 		const meta = (await GET(`${BASE}/$metadata`, ALICE)).data;
-		expect(meta).toMatch(/NonSortableProperties[\s\S]*?<PropertyPath>nextStepText<\/PropertyPath>/);
-		expect(meta).toMatch(/NonFilterableProperties[\s\S]*?<PropertyPath>waitingText<\/PropertyPath>/);
 		for (const term of ["NonSortableProperties", "NonFilterableProperties"]) {
 			const block = meta.match(new RegExp(`${term}[\\s\\S]*?</Collection>`))[0];
 			for (const f of ["waitingText", "nextStep", "nextStepText"]) expect(block).toContain(`<PropertyPath>${f}</PropertyPath>`);
@@ -197,7 +195,10 @@ describe("F-25 release reason", () => {
 		const manual = await reason(15); expect(manual).toMatchObject({ releaseReason: "MANUAL", releaseProcedure: "MANUAL" }); expect(Number(manual.releaseLimit)).toBe(5000);
 	});
 	test("release → MANUAL; convertToNewCustomer re-check → NO_VOLUME (#5) and UNDER_LIMIT (#26)", async () => {
-		expect((await invoke(2, "release")).data).toMatchObject({ released: true, releaseProcedure: "MANUAL", releaseReason: "MANUAL" });
+		await cds.db.run(UPDATE("hydac.custmon.Requests", id(2)).with({ releaseLimit: 7500 }));
+		const released = (await invoke(2, "release")).data;
+		expect(released).toMatchObject({ released: true, releaseProcedure: "MANUAL", releaseReason: "MANUAL" });
+		expect(Number(released.releaseLimit)).toBe(7500); // manuelle Freigabe lässt das Limit stehen (03 §5.2)
 		const noVolume = (await invoke(5, "convertToNewCustomer")).data;
 		expect(noVolume).toMatchObject({ released: false, releaseReason: "NO_VOLUME" }); expect(Number(noVolume.releaseLimit)).toBe(5000);
 		const under = (await invoke(26, "convertToNewCustomer")).data;
@@ -212,6 +213,7 @@ describe("F-25 release reason", () => {
 		const meta = (await GET(`${BASE}/$metadata`, ALICE)).data;
 		expect(meta).toMatch(/Common.Text" Path="releaseReasonRef\/text"/);
 		expect((meta.match(/in\/releaseReason/g) || []).length).toBe(11);
+		expect((meta.match(/in\/releaseLimit/g) || []).length).toBe(11);
 	});
 });
 
@@ -564,8 +566,9 @@ describe("F-12 draft editing", () => {
 		const warning = messages(saved).find((m) => m.code === "DRAFT_CHANGED_MEANWHILE");
 		expect(warning).toMatchObject({ numericSeverity: 3 });
 		expect(warning.message).toMatch(/changed|geändert/i);
-		const { data } = await GET(url(26, "?$select=name2,inClarification"), ALICE);
+		const { data } = await GET(url(26, "?$select=name2,inClarification,waitingSince"), ALICE);
 		expect(data).toEqual(expect.objectContaining({ name2: "Nach Zwischenschritt", inClarification: true }));
+		expect(Date.now() - Date.parse(data.waitingSince)).toBeLessThan(60000); // Zeitpunkt des Schritts, nicht die Kopie aus dem Entwurf
 	});
 
 	test("editHidden mirrors isEditable", async () => {
@@ -694,7 +697,10 @@ describe("F-24 waiting time", () => {
 	test("waitingSince is sortable, waitingText is neither filterable nor sortable", async () => {
 		const { data } = await GET(`${BASE}/Requests?$orderby=waitingSince asc&$select=ID&$top=1`, ALICE);
 		expect(data.value[0].ID).toBe(id(10));
-		expect((await failure(GET(`${BASE}/Requests?$filter=waitingText eq 'x'`, ALICE))).status).toBe(400);
+		const rejected = await failure(GET(`${BASE}/Requests?$filter=waitingText eq 'x'`, ALICE));
+		expect(rejected.status).toBe(400);
+		expect(rejected.data.error.code).toBe("VIRTUAL_NOT_QUERYABLE");
+		expect((await failure(GET(`${BASE}/Requests?$filter=canRelease eq true`, ALICE))).data.error.code).toBe("VIRTUAL_NOT_QUERYABLE");
 		expect((await failure(GET(`${BASE}/Requests?$orderby=waitingText`, ALICE))).status).toBe(400);
 	});
 	test("Fiori Elements editing-status filters stay allowed (draft elements are not blocked by the virtual guard)", async () => {

@@ -289,15 +289,17 @@ Der Service liefert je Vorgang und Benutzer `nextStep` (Schrittcode) und `nextSt
 - **W-1:** Empfohlen wird der erste Schritt der Prioritätsliste `RELEASE`, `CREATE`, `CREATE_WE`, `AP_MODIFY`, `CHNG_OLD`, `CNG_DEBI`, `CNG_NEW`, der nach §4 erlaubt ist. `REJECT`, `MANUAL_OK`, `CLARIFY` und `RESET` werden nie empfohlen.
 - **W-2:** Ist kein empfehlbarer Schritt erlaubt, sind beide Felder `null`. Einen Text „Wartet auf Freigabe“ gibt es nicht: in Phase 1 sehen nur Freigeber nicht freigegebene Vorgänge.
 
+Die Tabelle nennt Beispiele; maßgeblich ist die Prioritätsliste W-1 gegen die erlaubten Schritte aus `ProcessSteps` (z. B. auch CR_DEB 120 → `CREATE`, CH_DEB 110/130/140 je nach Customizing).
+
 | Fall | `nextStep` | `nextStepText` (EN) |
 |---|---|---|
-| Nicht freigegeben, Benutzer ist Freigeber (#2) | `RELEASE` | Release |
-| CR_DEB 000 oder 150 (#1) | `CREATE` | Create Customer and Admin |
+| Nicht freigegeben, Benutzer ist Freigeber (z. B. #2) | `RELEASE` | Release |
+| CR_DEB 000 oder 150 (z. B. #1) | `CREATE` | Create Customer and Admin |
 | CR_WE 010 oder 160 | `CREATE_WE` | Create Ship-To Party |
-| CH_DEB 000 (#6), CR_AP 000 | `AP_MODIFY` | Create/Change Contact Person |
+| z. B. CH_DEB 000, CR_AP 000 (#6) | `AP_MODIFY` | Create/Change Contact Person |
 | Nur Dublettenauflösung erlaubt | `CHNG_OLD` / `CNG_DEBI` / `CNG_NEW` | Text aus `Steps` |
 | Nur Korrekturschritte erlaubt (REJECT, MANUAL_OK, CLARIFY) | `null` | `null` |
-| Ohne Rolle `MonitorEditor` (bob), Status 8xx/9xx (#12) | `null` | `null` |
+| Ohne Rolle `MonitorEditor` (bob), Status 8xx/9xx (z. B. #12) | `null` | `null` |
 | Entwurf oder aktiver Vorgang mit gültiger Entwurfssperre | `null` | `null` |
 
 ## 5. Schrittaktionen
@@ -336,6 +338,7 @@ Aktionen auf einem Entwurf (`IsActiveEntity=false`) → 400 `STEP_NOT_ALLOWED`; 
 | Harte Vorbedingung (z. B. VKORG 2000 ohne CRM-Nummer) | 422 | `STEP_ABORTED` | keine Änderung, Meldung im Log **und** in der Antwort (07 R-04) |
 | ETag fehlt, veraltet oder `*` | 412 | `412` (**ohne** `Preference-Applied`) | UI: „Vorgang wurde zwischenzeitlich geändert“ → neu laden |
 | Keine Berechtigung | 403 | – | |
+| `$filter`/`$orderby` auf ein virtuelles Feld (`can*`, `isEditable`, `editHidden`, `waitingText`, `nextStep`, `nextStepText`) | 400 | `VIRTUAL_NOT_QUERYABLE` | Lesen abgelehnt; sortiert wird über die gespeicherten Felder (z. B. `waitingSince`) |
 
 Hinweis Mock/CAP: Bei HTTP 200 können `sap-messages` nur bis Schweregrad *warning* transportiert werden; Meldungen eines Fehlerstatus (140/150/160) kommen daher als Warnung. Die UI wertet zusätzlich die Statusgruppe `ERROR` bzw. `statusCriticality` aus.
 
@@ -452,7 +455,7 @@ Fiori Elements leitet Farben/Icons aus Kritikalitätswerten (`UI.CriticalityType
 | `Statuses.criticality` | Customizing-CSV | 5 Information (Gruppe OPEN), 1 Negative (ERROR), 0 Neutral (REJECTED), 3 Positive (DONE) |
 | `Requests.statusGroup` | `status.group` (on-read) | OPEN, ERROR, REJECTED, DONE – filterbar (`$filter=statusGroup eq 'OPEN'`), Wertehilfe `StatusGroups` |
 | `Requests.statusCriticality` | `status.criticality` (on-read) | wie `Statuses.criticality`; sortierbar |
-| `Requests.rowCriticality` | `status.group`, `orderExists` (on-read) | Zeilen-Highlight: 1 bei Fehler (rot), sonst 5 bei Bestellung (blau), sonst 0 |
+| `Requests.rowCriticality` | `status.group`, `orderExists` (on-read) | Zeilen-Highlight: 1 bei Fehler (rot, hat Vorrang auch bei Bestellung), sonst 5 bei Bestellung (blau), sonst 0 |
 | `Requests.priority` | `status.group` (on-read) | Arbeitsvorrat-Priorität: ERROR 1, OPEN 2, REJECTED 3, DONE 4; Standardsortierung `priority asc, waitingSince asc` |
 | `Requests.releaseState` | `released` + `releaseProcedure` (stored, neu berechnet bei UPDATE) | NOT_RELEASED (nicht freigegeben), NOT_REL / AUTOMATIC / MANUAL (freigegeben); Text über `releaseStateRef` aus `ReleaseStates` |
 | `Requests.releaseCriticality` | `released` (on-read) | 3 freigegeben, 2 nicht freigegeben |

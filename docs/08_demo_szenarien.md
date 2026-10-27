@@ -6,16 +6,16 @@ Start: `cds watch` → http://localhost:4004/monitor/index.html. Daten liegen im
 |---|---|---|---|---|
 | `alice` | `alice` | Viewer, Editor, Releaser | 0001, 2000, 7050 | alle 26 Vorgänge |
 | `bob` | `bob` | Viewer | 0001 | 17 Vorgänge (nur 0001, nur freigegebene), kein Bearbeiten, keine Schritte |
-| `carol` | `carol` | Viewer, Editor | 0001, 2000, 7050 | wie alice ohne Freigeben – für Sperr-Demos (zweites privates Fenster) |
+| `carol` | `carol` | Viewer, Editor | 0001, 2000, 7050 | wie alice ohne Freigeben, sieht daher keine nicht freigegebenen Vorgänge (Sicht „Freigabe“ = 0) – für Sperr-Demos (zweites privates Fenster) |
 
 Vorgänge sind über die Suche (Name) schnell auffindbar. Nummer = Testdatensatz aus [03 §7](03_service_vertrag.md#7-mock-verhalten-phase-1).
 
 ## 1. Liste und Filter (F-16)
 
-1. Start: Sicht „Meine Arbeit (18)“, Fehler (#3, #7, #9, #17, rot) oben, danach die am längsten wartenden; Spalten „Freigabegrund“, „Nächster Schritt“ (z. B. #1 „Debitor und Admin anlegen“, #2 „Freigeben“) und „Wartet seit“ („24 Tage“ – Werte hängen vom Datum ab).
+1. Start: Sicht „Meine Arbeit (18)“, Fehler (#3, #7, #9, #17, rot) oben, danach die am längsten wartenden; Spalten „Freigabegrund“, „Nächster Schritt“ (z. B. #1 „Debitor und Admin anlegen“, #2 „Freigeben“) und „Wartet seit“ (z. B. „n Tage“ – die Werte hängen vom heutigen Datum ab, die Testdaten stammen vom Oktober 2026).
 2. Sicht „Fehler (4)“, „Klärung (2)“ (#13, #18), „Freigabe (4)“ (#2, #8, #18, #19 – Freigabegrund „Manuelle Freigabe vorgeschrieben (Customizing)“; als `carol` sind diese Vorgänge nicht sichtbar, die Sicht zeigt 0), „Alle (26)“.
 3. Sicht + Filter: „Meine Arbeit“ + Prozessart „Neuer Warenempfänger“ → **Start** → 3.
-4. Sortieren über die Tabelleneinstellungen (Zahnrad) oder den Spaltenkopf (z. B. Bestellvolumen absteigend → #18 Svensk Hydraulteknik, 25.000 EUR); Spalten ein-/ausblenden ebenfalls dort.
+4. Sortieren über die Tabelleneinstellungen (Zahnrad) oder den Spaltenkopf (z. B. Bestellvolumen absteigend → #18 Svensk Hydraulteknik, 25.000 EUR; Bestellvolumen ist eine Nebenspalte mit `#Low` und rutscht bei schmalem Fenster unter die Zeile – dann über das Zahnrad sortieren); Spalten ein-/ausblenden ebenfalls dort.
 5. „Freigegeben = Nein“ → #2, #8, #18, #19 (alle VKORG 7050). „In Klärung = Ja“ → #13, #18.
 6. „Filter anpassen“ zeigt die weiteren Felder (Erstellt/Geändert von/am, Quelle, Bestellung vorhanden).
 

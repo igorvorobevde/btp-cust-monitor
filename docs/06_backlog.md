@@ -57,7 +57,7 @@ Leerzustände, Busy-Indikatoren, Tastaturbedienung, Tooltips für Icon-Spalten, 
 Backend-Items zuerst (F-11–F-15, additiv bis auf F-12), FE-App parallel in `app/monitor-fe`, Cutover in F-21. Die Spike-Punkte S1–S14 aus 09 §8 wurden nicht auf einem Wegwerf-Branch, sondern als Prüf-/Rückfallschritte innerhalb von F-16–F-19 auf `main` abgearbeitet (Projektregel: nur `main`). F-10 wird mit F-22 abgeschlossen.
 
 ### F-11 Vertrag: Codelisten, berechnete Felder, Wertehilfen — erledigt
-`db/schema.cds`: `processTypeRef`, `releaseStateRef`, `statusGroup`, `statusCriticality`, `orderCriticality`, `releaseCriticality`, `releaseState` (stored), `LogEntries.criticality`, `Statuses.criticality`; Entitäten `StatusGroups`, `ReleaseStates` (+ `_texts` DE/EN); Service: `StatusGroups`, `ReleaseStates`, `SalesOrganizations` (`@restrict where`), `Sources` (`@cds.redirection.target: false`); CSV gemäß 09 §4.5; 03 §2/§3/§8.
+`db/schema.cds`: `processTypeRef`, `releaseStateRef`, `statusGroup`, `statusCriticality`, `orderCriticality` (seit F-24 ersetzt durch `rowCriticality`), `releaseCriticality`, `releaseState` (stored), `LogEntries.criticality`, `Statuses.criticality`; Entitäten `StatusGroups`, `ReleaseStates` (+ `_texts` DE/EN); Service: `StatusGroups`, `ReleaseStates`, `SalesOrganizations` (`@restrict where`), `Sources` (`@cds.redirection.target: false`); CSV gemäß 09 §4.5; 03 §2/§3/§8.
 **AK:** `cds compile srv` fehlerfrei; `GET /Requests?$filter=statusGroup eq 'OPEN'&$orderby=statusCriticality desc&$expand=processTypeRef,releaseStateRef` liefert Texte je `Accept-Language`; `releaseState` #1 = `NOT_REL`, #2 = `NOT_RELEASED`, #3 = `AUTOMATIC`; `SalesOrganizations` für `bob` nur `0001`; bestehende Jest-Tests grün.
 
 ### F-12 Draft-Bearbeitung (E-12) — erledigt

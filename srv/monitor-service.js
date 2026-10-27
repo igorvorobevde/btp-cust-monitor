@@ -153,6 +153,11 @@ function sameETag(header, modifiedAt) {
 	return parsed === Date.parse(modifiedAt);
 }
 
+/** Lokalisierter Schritttext aus Steps, sonst der Code */
+function stepText(steps, code) {
+	return (steps.find((s) => s.code === code) || {}).text || code;
+}
+
 function lastKey(req) {
 	const last = req.params[req.params.length - 1];
 	return typeof last === "object" ? last.ID : last;
@@ -312,7 +317,7 @@ module.exports = class CustomerMonitorService extends cds.ApplicationService {
 			const { where, orderBy } = req.query.SELECT || {};
 			const name = virtualRef(where) || virtualRef(orderBy);
 			if (name) {
-				req.reject(400, t(req, "VIRTUAL_NOT_QUERYABLE", [name]));
+				req.reject({ status: 400, code: ErrorCodes.VIRTUAL_NOT_QUERYABLE, message: t(req, "VIRTUAL_NOT_QUERYABLE", [name]) });
 			}
 		});
 
@@ -343,7 +348,7 @@ module.exports = class CustomerMonitorService extends cds.ApplicationService {
 			row.waitingText = waitingText(state.waitingSince, now, (key, args) => t(req, key, args));
 			const step = draft || locked ? null : sm.recommendedStep(state, processSteps, userRoles);
 			row.nextStep = step;
-			row.nextStepText = step ? ((steps.find((s) => s.code === step) || {}).text || step) : null;
+			row.nextStepText = step ? stepText(steps, step) : null;
 		};
 
 		// Flags für aktive Vorgänge und eigene Entwürfe; HasDraftEntity wird erst nach den Handlern gefüllt → eigene Abfrage
@@ -529,12 +534,12 @@ module.exports = class CustomerMonitorService extends cds.ApplicationService {
 					req.warn({ message: t(req, m.key, m.args) });
 				}
 			} else {
-				const stepText = (steps.find((s) => s.code === step) || {}).text || step;
+				const text = stepText(steps, step);
 				const newStatus = result.requestChanges.status_code;
 				const [statusRow] = newStatus ? await SELECT.localized.from(db.Statuses).where({ code: newStatus }) : [];
 				req.notify({ message: newStatus
-					? t(req, "ACTION_DONE_STATUS", [stepText, (statusRow && statusRow.text) || newStatus])
-					: t(req, "ACTION_DONE", [stepText]) });
+					? t(req, "ACTION_DONE_STATUS", [text, (statusRow && statusRow.text) || newStatus])
+					: t(req, "ACTION_DONE", [text]) });
 				for (const m of result.messages.filter((x) => x.type === "E" || x.type === "W")) {
 					req.warn({ message: t(req, m.key, m.args) });
 				}

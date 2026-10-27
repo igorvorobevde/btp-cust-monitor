@@ -189,6 +189,8 @@ describe("recommendedStep", () => {
 		expect(sm.recommendedStep(request({ status_code: "999" }), processSteps, editor)).toBeNull();
 		const onlyCorrections = [{ source: "SHOP", processType: "CR_DEB", status: "000", step: "MANUAL_OK" }, { source: "SHOP", processType: "CR_DEB", status: "000", step: "REJECT" }];
 		expect(sm.recommendedStep(request({ inClarification: true }), onlyCorrections, editor)).toBeNull();
+		expect(sm.availableStepCodes(request(), onlyCorrections, editor)).toContain("CLARIFY");
+		expect(sm.recommendedStep(request(), onlyCorrections, editor)).toBeNull(); // CLARIFY erlaubt, aber nie empfohlen
 		const duplicateOnly = [{ source: "SHOP", processType: "CR_DEB", status: "000", step: "CHNG_OLD" }, ...onlyCorrections];
 		expect(sm.recommendedStep(request(), duplicateOnly, editor)).toBe("CHNG_OLD");
 	});

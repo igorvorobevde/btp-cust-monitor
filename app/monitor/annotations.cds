@@ -220,7 +220,7 @@ annotate service.Requests with @(
       ![@UI.Importance]: #Low
     }
   ],
-  // Zeilen-Highlight: Fehler rot (1), Bestellung blau (5)
+  // Zeilen-Highlight: Fehler rot (1, hat Vorrang), sonst Bestellung blau (5) – Werte aus dem Service (rowCriticality)
   UI.LineItem.@UI.Criticality             : rowCriticality,
 
   UI.FieldGroup #Name                     : {Data: [
