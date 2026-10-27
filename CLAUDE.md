@@ -18,7 +18,8 @@ We are rebuilding the SAP GUI report `ZEC_CUSTOMER_MONITOR` (HYDAC B2B shop: Mag
 | Code style, folder layout, extensions, i18n, tests | `docs/05_ui5_konventionen.md` |
 | What to build next + acceptance criteria | `docs/06_backlog.md` |
 | Known legacy defects that the new solution must avoid | `docs/07_anforderungen_aus_altsystem.md` |
-| Why Fiori Elements, draft, actions per step, phase-2 replica (decisions D-1…D-6, E-12…E-14) | `docs/09_migration_fiori_elements.md` |
+| Why Fiori Elements, draft, actions per step, phase-2 replica (decisions D-1…D-14, E-12…E-14) | `docs/09_migration_fiori_elements.md` |
+| Draft S/4 interface for phase 2, decision memo E-07, popup → parameter mapping (B-01…B-03) | `docs/10_s4_schnittstelle.md` |
 
 If code and docs disagree, **stop and ask** instead of silently picking one. If a backlog item needs a decision that the docs don't cover, propose it and wait for confirmation.
 

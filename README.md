@@ -25,6 +25,7 @@ Neuentwicklung des SAP-GUI-Kundenmonitors `ZEC_CUSTOMER_MONITOR` (HYDAC eCommerc
 | [docs/07_anforderungen_aus_altsystem.md](docs/07_anforderungen_aus_altsystem.md) | Befunde im Altsystem → Anforderungen an die Neuentwicklung | Design-Entscheidungen |
 | [docs/08_demo_szenarien.md](docs/08_demo_szenarien.md) | Demo-Drehbuch: welcher Testvorgang zeigt welche Funktion | Demo vorbereiten |
 | [docs/09_migration_fiori_elements.md](docs/09_migration_fiori_elements.md) | Architektur und Entscheidungen der Migration auf Fiori Elements (EN) | Warum Draft, Aktionen je Schritt, Replik in Phase 2 |
+| [docs/10_s4_schnittstelle.md](docs/10_s4_schnittstelle.md) | Entwurf der S/4-Schnittstelle (Lesen, Delta, Funktionen, Versionszähler, Fehler), Entscheidungsvorlage E-07, Popups → Parameter | Phase 2 mit dem S/4-Team abstimmen |
 
 Referenz Altsystem: Confluence EXTHYDAC › Australien › *Kundenmonitor (ZEC_CUSTOMER_MONITOR) – Technische und fachliche Dokumentation*
 (https://techdivision.atlassian.net/wiki/spaces/EXTHYDAC/pages/2419851266)
