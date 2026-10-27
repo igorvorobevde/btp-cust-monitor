@@ -316,6 +316,8 @@ therefore fail on every `draftEdit` and every step action — independent of the
 | `statusGroup`, `releaseState`, criticality, value helps | evaluated locally on the replica (no filter translation) |
 | Synchronisation | delta pull on list read (changed since last sync via S/4 delta query or version counter) and after each S/4 call; full resync job; S/4 version conflict → 412 |
 
+Seam already in place (B-04, phase 1): `srv/backend/index.js` defines the interface the facade uses — `loadCustomizing(req)`, `executeStep(request, step, params, ctx)` (→ `execute_function`), `saveChanges(request, changes, ctx)` (→ `change_data`, called in the activation handler before the local UPDATE). `srv/backend/mock.js` implements it with the status machine; an S/4 adapter is registered with `registerBackend("s4", …)` and selected via `cds.requires.backend.kind`. Flags, editability and the recommendation stay local on the replica (`sm.availableStepCodes`, `sm.isEditable`, `sm.recommendedStep`). `test/backend.test.js` proves that steps and activation pass through the interface.
+
 Requirements for the S/4 service (addition to [02](02_architektur.md) §6): delta read (changed-since), version counter per
 request, `get_functions` / `execute_function` / `change_data` as remote functions without GUI popups.
 

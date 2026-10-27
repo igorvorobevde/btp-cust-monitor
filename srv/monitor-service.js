@@ -8,6 +8,7 @@ const cds = require("@sap/cds");
 const sm = require("./lib/status-machine");
 const { waitingText } = require("./lib/relative-time");
 const { StepError, ErrorCodes } = require("./lib/errors");
+const { createBackend } = require("./backend");
 
 const LOG = cds.log("monitor");
 const NS = "hydac.custmon";
@@ -113,20 +114,6 @@ function diffFields(prefix, oldRow, newRow, entity) {
 		}));
 }
 
-// Nummernkreise für simulierte S/4-Anlagen (03 §7)
-const numberRanges = {
-	customer: { prefix: "4", next: 1000001, width: 8 },
-	businessPartner: { prefix: "1", next: 1000001, width: 8 },
-	contactPerson: { prefix: "0", next: 100000001, width: 10 },
-	shipTo: { prefix: "4", next: 2000001, width: 8 }
-};
-
-function newNumber(kind) {
-	const range = numberRanges[kind];
-	const value = String(range.next++);
-	return (range.prefix + value).slice(-range.width).padStart(range.width, "0");
-}
-
 function delay() {
 	const ms = Number(process.env.MOCK_LATENCY_MS) || 0;
 	return ms > 0 ? new Promise((resolve) => setTimeout(resolve, ms)) : Promise.resolve();
@@ -172,23 +159,8 @@ module.exports = class CustomerMonitorService extends cds.ApplicationService {
 		// Ohne Accept-Language ist req.locale undefined – dann ersetzt cds.i18n keine Platzhalter
 		const t = (req, key, args) => cds.i18n.messages.at(key, req.locale || "", args) || key;
 
-		// Customizing (ProcessSteps, ApprovalRules, Steps je Sprache) ändert sich zur Laufzeit nicht: einmal lesen statt je Request
-		// (F-23 Nachtrag, vor Phase 2 – dort kommt es aus S/4). Fehlgeschlagene Lesezugriffe werden nicht gemerkt.
-		const cache = new Map();
-		const cached = (key, read) => {
-			if (!cache.has(key)) {
-				cache.set(key, Promise.resolve(read()).catch((e) => { // cds.ql-Queries sind nur thenables
-					cache.delete(key);
-					throw e;
-				}));
-			}
-			return cache.get(key);
-		};
-		const customizing = {
-			processSteps: () => cached("ProcessSteps", () => SELECT.from(db.ProcessSteps)),
-			approvalRules: () => cached("ApprovalRules", () => SELECT.from(db.ApprovalRules)),
-			steps: (req) => cached("Steps:" + (req.locale || ""), () => SELECT.localized.from(db.Steps))
-		};
+		// Führendes System hinter einer Schnittstelle (B-04): Phase 1 Mock, Phase 2 S/4-Adapter (./backend)
+		const backend = createBackend();
 
 		const roles = (req) => ({
 			isEditor: req.user.is("MonitorEditor"),
@@ -359,9 +331,8 @@ module.exports = class CustomerMonitorService extends cds.ApplicationService {
 			}
 			const draft = !!req.target.isDraft;
 			const incomplete = rows.filter((r) => FLAG_INPUT.some((f) => r[f] === undefined));
-			const [processSteps, steps, drafted, found] = await Promise.all([
-				customizing.processSteps(),
-				customizing.steps(req),
+			const [{ processSteps, steps }, drafted, found] = await Promise.all([
+				backend.loadCustomizing(req),
 				draft ? new Set() : hasDraft(rows.map((r) => r.ID)),
 				incomplete.length ? SELECT.from(db.Requests).columns(...FLAG_INPUT).where({ ID: { in: incomplete.map((r) => r.ID) } }) : []
 			]);
@@ -424,6 +395,7 @@ module.exports = class CustomerMonitorService extends cds.ApplicationService {
 			stripReadOnly(req.data.salesData, SalesData);
 			stripReadOnly(req.data.admin, ContactPersons);
 			stripReadOnly(req.data.shipTo, ShipToParties);
+			await backend.saveChanges(old, changes, { req }); // Phase 2: change_data in S/4 vor dem lokalen UPDATE (E-14)
 			await writeLog(req, ID, changes.map((c) => ({
 				messageType: "S",
 				messageNumber: "040",
@@ -456,26 +428,11 @@ module.exports = class CustomerMonitorService extends cds.ApplicationService {
 				params[key] = req.data[param];
 			}
 			const { businessPartner, text, force } = params;
-			const [processSteps, steps, approvalRules, partners] = await Promise.all([
-				customizing.processSteps(),
-				customizing.steps(req),
-				customizing.approvalRules(),
-				SELECT.from(db.MockBusinessPartners)
-			]);
+			const { processSteps, steps } = await backend.loadCustomizing(req);
 			const now = new Date().toISOString();
 			let result;
 			try {
-				result = sm.executeStep(step, request, { businessPartner, text, force }, {
-					processSteps,
-					steps,
-					approvalRules,
-					findBusinessPartner: (bp) => partners.find((p) => p.businessPartner === bp),
-					findBusinessPartnerByCustomer: (customer) => customer && partners.find((p) => p.customer === customer),
-					newNumber,
-					roles: roles(req),
-					user: req.user.id,
-					now
-				});
+				result = await backend.executeStep(request, step, { businessPartner, text, force }, { req, roles: roles(req), user: req.user.id, now });
 			} catch (e) {
 				if (!(e instanceof StepError)) {
 					throw e;

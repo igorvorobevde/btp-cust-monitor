@@ -70,6 +70,7 @@ kundenmonitor-btp/
 │   ├── monitor-service.cds       # Entitäten (Draft-Root), Aktionen je Schritt, Capabilities, @restrict
 │   ├── monitor-annotations.cds   # Vertrags-Semantik: Labels, Common.Text, Wertehilfen, Side Effects (E-13)
 │   ├── monitor-service.js        # Mock-Implementierung (Phase 1): Flags, Dispatcher, Strict Handling, Draft-Guards
+│   ├── backend/                  # Schnittstelle zum führenden System (B-04): index.js, mock.js (Phase 1), S/4-Adapter (Phase 2)
 │   └── lib/                      # status-machine.js (unverändert), errors.js
 ├── _i18n/                        # i18n*.properties (Labels), messages*.properties (Meldungen)
 ├── app/
