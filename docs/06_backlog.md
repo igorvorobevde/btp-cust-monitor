@@ -45,7 +45,7 @@ QUnit (formatter, FilterBuilder, StepService-Mapping), OPA-Journeys: Liste filte
 **AK:** `npm test` grün; `npm run lint` ohne Fehler.
 
 ### F-10 Feinschliff — erledigt (abgelöst durch F-22)
-Leerzustände, Busy-Indikatoren, Tastaturbedienung, Tooltips für Icon-Spalten, Responsiveness (Popin) – mit der Fiori-Elements-App (F-16–F-22) Standardverhalten. Offen geblieben: Test-Starter-Migration der Testseite (ui5lint-Warnung).
+Leerzustände, Busy-Indikatoren, Tastaturbedienung, Tooltips für Icon-Spalten, Responsiveness (Popin) – mit der Fiori-Elements-App (F-16–F-22) Standardverhalten. ~~Offen geblieben: Test-Starter-Migration der Testseite (ui5lint-Warnung).~~ Erledigt 27.10.2026: Test Starter (`test/testsuite.qunit.*`, `Test.qunit.html`), Inline-Skript der Debug-Seite nach `debugConsole.js`; ui5lint ohne Befunde.
 
 **Hinweise zur Umsetzung F-00–F-09 (19.10.2026):**
 - F-01: Abgleich mit SE11-Export der Altstrukturen steht noch aus (Export liegt nicht vor) – Feldlisten = Entwurf aus 03.

@@ -29,8 +29,9 @@ app/monitor/
     │   ├── fragment/       # HintsColumn.fragment.xml, ClarificationStrip.fragment.xml (F-17)
     │   └── controller/     # ObjectPageExt.controller.js (F-18)
     └── test/
-        ├── debug.html, debugInit.js   # Dev-Hilfe: Konsolenfehler mit Stack, mdc-Property-Duplikate (scripts/fe-console.sh)
-        └── integration/    # OPA5 mit sap.fe.test: JourneyRunner, pages/, *Journey.js
+        ├── testsuite.qunit.html/.js, Test.qunit.html   # Test Starter (createSuite/runTest, CSP-konform, ohne Inline-Skripte)
+        ├── debug.html, debugConsole.js, debugInit.js   # Dev-Hilfe: Konsolenfehler mit Stack, mdc-Property-Duplikate (scripts/fe-console.sh)
+        └── integration/    # OPA5 mit sap.fe.test: opaJourney.qunit.js (JourneyRunner), pages/, *Journey.js
 ```
 
 Vertrags-Semantik (Labels, `Common.Text`, Wertehilfen, Kritikalität, Side Effects, `UI.UpdateHidden`) liegt in `srv/monitor-annotations.cds` (E-13, [03 §8](03_service_vertrag.md)); `app/monitor/annotations.cds` wird von CAP automatisch mitgeladen (`cds.resolve('*')`).
@@ -132,7 +133,7 @@ Jeder neue Schlüssel in **beiden** Sprachdateien des jeweiligen Bundles. Keine 
 
 Keine QUnit-Unit-Tests mehr: Es gibt keine Formatter, keinen FilterBuilder und keinen StepService – die Logik liegt im Service (Jest) und in Fiori Elements. Eigener App-Code sind zwei Fragmente und eine Controller-Extension; sie werden über die Journeys abgedeckt.
 
-Journeys (`webapp/test/integration/*Journey.js`, je ein `run()` mit `opaTest`s; `opaTests.qunit.js` registriert sie beim `JourneyRunner` mit `launchParameters: { "sap-ui-language": "en" }`, damit Titel/Labels in den Tests sprachstabil sind):
+Journeys (`webapp/test/integration/*Journey.js`, je ein `run()` mit `opaTest`s; `integration/opaJourney.qunit.js` (Testmodul des Test Starters, `test/testsuite.qunit.js`; Einstieg für `ui5-test-runner`: `test/testsuite.qunit.html`) registriert sie beim `JourneyRunner` mit `launchParameters: { "sap-ui-language": "en" }`, damit Titel/Labels in den Tests sprachstabil sind):
 
 | Journey | Deckt ab |
 |---|---|
