@@ -384,6 +384,13 @@ module.exports = class CustomerMonitorService extends cds.ApplicationService {
 				...diffFields("admin.", old.admin, req.data.admin, ContactPersons),
 				...diffFields("shipTo.", old.shipTo, req.data.shipTo, ShipToParties)
 			];
+			// Hinweis an den Besitzer (F-23 Nachtrag): nach Ablauf seiner Sperre hat ein Schritt den aktiven Vorgang geändert
+			// (modifiedAt jünger als der Entwurf) – gesichert werden trotzdem nur seine Feldänderungen
+			const draft = await SELECT.one.from(Requests.drafts)
+				.columns({ ref: ["DraftAdministrativeData", "CreationDateTime"], as: "created" }).where({ ID });
+			if (draft && draft.created && Date.parse(old.modifiedAt) > Date.parse(draft.created)) {
+				req.warn({ code: ErrorCodes.DRAFT_CHANGED_MEANWHILE, message: t(req, "DRAFT_CHANGED_MEANWHILE") });
+			}
 			const forbidden = old.processType === "CR_WE" ? "admin." : "shipTo.";
 			if (changes.some((c) => c.field.startsWith(forbidden))) {
 				req.reject({ status: 409, code: ErrorCodes.NOT_EDITABLE, message: t(req, "NOT_EDITABLE") });

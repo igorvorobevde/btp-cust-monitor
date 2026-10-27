@@ -551,6 +551,23 @@ describe("F-12 draft editing", () => {
 		expect((await invoke(6, "clarify", { comment: "Sperre abgelaufen" })).status).toBe(200);
 	});
 
+	test("saving a draft after a colleague ran a step meanwhile (expired lock) warns the owner", async () => {
+		const messages = (res) => JSON.parse(res.headers["sap-messages"] || "[]");
+		await edit(26, CAROL); await patchDraft(26, "", { name2: "Ohne Zwischenschritt" }, CAROL);
+		expect(messages(await activate(26, CAROL)).map((m) => m.code)).not.toContain("DRAFT_CHANGED_MEANWHILE");
+		await edit(26, CAROL);
+		const past = new Date(Date.now() - 20 * 60 * 1000).toISOString();
+		await cds.run(UPDATE("DRAFT.DraftAdministrativeData").with({ LastChangeDateTime: past, CreationDateTime: past }));
+		await invoke(26, "clarify", { comment: "Rückfrage Kunde" }); // alice, while carol's lock has expired
+		await patchDraft(26, "", { name2: "Nach Zwischenschritt" }, CAROL);
+		const saved = await activate(26, CAROL);
+		const warning = messages(saved).find((m) => m.code === "DRAFT_CHANGED_MEANWHILE");
+		expect(warning).toMatchObject({ numericSeverity: 3 });
+		expect(warning.message).toMatch(/changed|geändert/i);
+		const { data } = await GET(url(26, "?$select=name2,inClarification"), ALICE);
+		expect(data).toEqual(expect.objectContaining({ name2: "Nach Zwischenschritt", inClarification: true }));
+	});
+
 	test("editHidden mirrors isEditable", async () => {
 		expect((await GET(url(6, "?$select=isEditable,editHidden"), ALICE)).data).toMatchObject({ isEditable: true, editHidden: false });
 		expect((await GET(url(12, "?$select=isEditable,editHidden"), ALICE)).data).toMatchObject({ isEditable: false, editHidden: true });
