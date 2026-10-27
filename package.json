@@ -10,12 +10,15 @@
     "app/*"
   ],
   "dependencies": {
+    "@cap-js/hana": "2.8.3",
     "@sap/cds": "9.9.3",
+    "@sap/xssec": "4.15.0",
     "express": "4.21.2"
   },
   "devDependencies": {
     "@cap-js/cds-test": "1.0.2",
     "@cap-js/sqlite": "2.4.3",
+    "@sap/cds-dk": "9.9.7",
     "cds-plugin-ui5": "0.17.4",
     "jest": "30.5.2"
   },
@@ -28,7 +31,8 @@
     "test": "npm run test:srv && npm run test:opa",
     "test:srv": "jest --runInBand",
     "test:opa": "npm run test:opa --workspace app/monitor",
-    "start:test": "cds-serve --profile opa --port 4004"
+    "start:test": "cds-serve --profile opa --port 4004",
+    "build": "cds build --production"
   },
   "jest": {
     "testEnvironment": "node",
@@ -36,5 +40,16 @@
       "<rootDir>/test/**/*.test.js"
     ],
     "testTimeout": 20000
+  },
+  "cds": {
+    "requires": {
+      "[production]": {
+        "db": "hana",
+        "auth": "xsuaa"
+      },
+      "destinations": true,
+      "html5-repo": true,
+      "workzone": true
+    }
   }
 }

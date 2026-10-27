@@ -46,4 +46,6 @@ npm test             # jest (srv) + OPA5-Journeys mit sap.fe.test (headless, sta
 scripts/fe-console.sh "test/debug.html#/Requests(ID=…,IsActiveEntity=true)"   # Konsolenfehler + Screenshot ohne Browserfenster
 ```
 
+Deployment auf BTP (Cloud Foundry, HANA Cloud, Work Zone): `npx mbt build -t mta_archives` und `cf deploy mta_archives/kundenmonitor-btp_0.1.0.mtar`; Details in [docs/02_architektur.md](docs/02_architektur.md#7-deployment-auf-btp-o-02).
+
 Hinweise: Entwürfe (Drafts) liegen im Mock im Speicher und sind nach einem Neustart weg; ein Entwurf sperrt den Vorgang für andere Benutzer 15 Minuten (verlängert bei jeder Änderung). Details: [docs/05_ui5_konventionen.md](docs/05_ui5_konventionen.md#9-lokale-entwicklung).

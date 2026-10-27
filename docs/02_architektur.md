@@ -63,7 +63,9 @@ kundenmonitor-btp/
 ├── .cdsrc.json
 ├── db/
 │   ├── schema.cds
-│   └── data/               # CSV: Mock-Vorgänge + Customizing-Kopie
+│   ├── data/               # CSV: Mock-Vorgänge + Customizing-Kopie
+│   ├── src/.hdiconfig      # HDI-Konfiguration (O-02)
+│   └── undeploy.json
 ├── srv/
 │   ├── monitor-service.cds       # Entitäten (Draft-Root), Aktionen je Schritt, Capabilities, @restrict
 │   ├── monitor-annotations.cds   # Vertrags-Semantik: Labels, Common.Text, Wertehilfen, Side Effects (E-13)
@@ -71,12 +73,12 @@ kundenmonitor-btp/
 │   └── lib/                      # status-machine.js (unverändert), errors.js
 ├── _i18n/                        # i18n*.properties (Labels), messages*.properties (Meldungen)
 ├── app/
-│   └── monitor/                  # Fiori-Elements-App (eigene package.json, ui5.yaml)
+│   └── monitor/                  # Fiori-Elements-App (eigene package.json, ui5.yaml; ui5-deploy.yaml, ui5-tasks/, xs-app.json für das HTML5-Repository)
 │       ├── annotations.cds       # Layout: SelectionFields, LineItem, HeaderInfo, Facets, Aktionsgruppe
 │       └── webapp/               # Component, manifest, ext/ (Fragments, Controller-Extension), i18n, test/
 ├── test/                   # Service-Tests
-├── xs-security.json        # Phase 3
-└── mta.yaml                # Phase 3
+├── xs-security.json        # Rollen, Attribut SalesOrg (O-01, §5)
+└── mta.yaml                # Deployment-Deskriptor (O-02, §7)
 ```
 
 ## 5. Berechtigungen (Ziel)
@@ -101,3 +103,24 @@ Der S/4-Service muss den CAP-Vertrag ([03](03_service_vertrag.md)) bedienen kön
 - `get_functions` → Flags `can*` je Aktion; `execute_function(step, …)` ← Aktions-Dispatcher der Fassade, ohne SAP-GUI-Popups (Eingaben kommen als Parameter); Rückfragen als Nachricht, die die Fassade als Strict-Handling-412 zurückgibt.
 - ETag-fähiges Änderungskennzeichen (heute nur `CHDAT`/`CHTIM` sekundengenau → besser Versionszähler), das die Fassade auf `modifiedAt` der Replik abbildet.
 - Die Popups in den Schrittklassen (`POPUP_TO_CONFIRM`, `POPUP_GET_VALUES*`, `ZEC_CUST_POPUP_DECLINE`) müssen durch Parameter ersetzt werden → Refactoring der Schrittklassen (Interface um Eingabestruktur erweitern).
+
+## 7. Deployment auf BTP (O-02)
+
+Erzeugt mit `cds add hana,xsuaa,html5-repo,workzone,mta` (cds-dk 9) und an das Projekt angepasst:
+
+| Baustein | Datei / Modul | Hinweis |
+|---|---|---|
+| CAP-Service (Node.js) | `mta.yaml` → `kundenmonitor-btp-srv` (`gen/srv`) | Profil `production`: `db: hana`, `auth: xsuaa` (`package.json` → `cds.requires`); lokal bleiben SQLite in-memory und Mock-Auth (`.cdsrc.json`) |
+| SAP HANA Cloud (HDI) | `kundenmonitor-btp-db-deployer` (`gen/db`), `db/src/.hdiconfig`, `db/undeploy.json` | Drafts liegen im HDI-Container (E-12). In Phase 1 deployt der Deployer auch die Demo-CSVs (`db/data`) – das System ist dann ein Mock mit Testdaten, kein Produktivsystem |
+| XSUAA | Ressource `kundenmonitor-btp-auth` → `xs-security.json` (O-01) | `xsappname` je Org/Space aus `mta.yaml` |
+| HTML5-Repository + Managed Approuter | `kundenmonitorbtpmonitor` (`app/monitor`, `npm run build` → `ui5-deploy.yaml`), `kundenmonitor-btp-app-deployer`, `kundenmonitor-btp-destinations`, `app/monitor/xs-app.json` | `sap.cloud.service` = `kundenmonitorbtp.service`; Route `^/odata/` → Destination `srv-api` (Token-Weitergabe). Der Build schreibt die OData-URI im `manifest.json` relativ (`ui5-tasks/relative-odata-uri.js`), die Quelle bleibt absolut für `cds watch` |
+| Work-Zone-Kachel | `manifest.json` → `sap.app.crossNavigation` (Intent `Kundenmonitor-display`, Titel/Untertitel aus i18n) | Im Work-Zone-Content-Manager: Content-Provider „HTML5 Apps“ aktualisieren, App einer Gruppe/Rolle zuordnen; Role Collections aus O-01 an Benutzer bzw. Gruppen |
+
+Build und Deployment:
+
+```bash
+npx mbt build -t mta_archives          # → mta_archives/kundenmonitor-btp_0.1.0.mtar (mbt global oder per npx)
+cf deploy mta_archives/kundenmonitor-btp_0.1.0.mtar
+```
+
+Voraussetzungen im Subaccount: Cloud-Foundry-Space, SAP HANA Cloud-Instanz (für `hdi-shared`), Einträge für `html5-apps-repo`, `destination`, `xsuaa`, SAP Build Work Zone (standard). Nach dem ersten Deployment prüfen: Role Collections vorhanden (siehe O-01), `SalesOrg`-Werte je Rolle gepflegt.

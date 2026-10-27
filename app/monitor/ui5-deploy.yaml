@@ -1,0 +1,28 @@
+# Build for the HTML5 application repository (O-02, mta.yaml module kundenmonitorbtpmonitor): preload bundle,
+# relative OData URI, zip with xs-app.json. Local development keeps using ui5.yaml (cds-plugin-ui5).
+specVersion: "4.0"
+metadata:
+  name: hydac.custmon
+type: application
+builder:
+  resources:
+    excludes:
+      - "/test/**"
+  customTasks:
+    - name: relative-odata-uri
+      afterTask: replaceVersion
+    - name: ui5-task-zipper
+      afterTask: generateCachebusterInfo
+      configuration:
+        archiveName: monitor
+        relativePaths: true
+        additionalFiles:
+          - xs-app.json
+---
+specVersion: "4.0"
+kind: extension
+type: task
+metadata:
+  name: relative-odata-uri
+task:
+  path: ui5-tasks/relative-odata-uri.js

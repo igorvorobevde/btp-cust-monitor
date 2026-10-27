@@ -24,6 +24,21 @@
 					"odataVersion": "4.0"
 				}
 			}
+		},
+		"crossNavigation": {
+			"inbounds": {
+				"Kundenmonitor-display": {
+					"semanticObject": "Kundenmonitor",
+					"action": "display",
+					"title": "{{appTitle}}",
+					"subTitle": "{{appDescription}}",
+					"icon": "sap-icon://customer-briefing",
+					"signature": {
+						"parameters": {},
+						"additionalParameters": "allowed"
+					}
+				}
+			}
 		}
 	},
 	"sap.ui": {
@@ -290,5 +305,9 @@
 	"sap.fiori": {
 		"registrationIds": [],
 		"archeType": "transactional"
+	},
+	"sap.cloud": {
+		"public": true,
+		"service": "kundenmonitorbtp.service"
 	}
 }
