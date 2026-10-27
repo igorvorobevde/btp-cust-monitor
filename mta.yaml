@@ -18,6 +18,9 @@ modules:
     parameters:
       instances: 1
       buildpack: nodejs_buildpack
+      # O-03: CF restarts the app when /health (CAP, no login) stops answering
+      health-check-type: http
+      health-check-http-endpoint: /health
     build-parameters:
       builder: npm-ci
     provides:
@@ -28,6 +31,7 @@ modules:
       - name: kundenmonitor-btp-auth
       - name: kundenmonitor-btp-db
       - name: kundenmonitor-btp-destination
+      - name: kundenmonitor-btp-logging # O-03, inactive unless mta-cloud-logging.mtaext is used
 
   - name: kundenmonitor-btp-db-deployer
     type: hdb
@@ -169,3 +173,11 @@ resources:
     parameters:
       service: html5-apps-repo
       service-plan: app-runtime
+  # O-03: SAP Cloud Logging, opt-in (entitlement needed) – activate with -e mta-cloud-logging.mtaext;
+  # CAP formats its logs for Cloud Logging automatically once bound (cds.env.log.aspects: cls)
+  - name: kundenmonitor-btp-logging
+    type: org.cloudfoundry.managed-service
+    active: false
+    parameters:
+      service: cloud-logging
+      service-plan: standard

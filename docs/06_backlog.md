@@ -142,4 +142,4 @@ Fünf Sichten als Registerkarten mit Zählern (`views`, `showCounts`, je Registe
 
 - O-01 `xs-security.json` (Rollen, Attribut SalesOrg), Rollen-Collections. — erledigt 27.10.2026 (02 §5, `test/xs-security.test.js`); offen bis zum ersten Deployment: ob BTP für Templates mit Attribut Default-Rollen für die Role Collections anlegt, sonst legt der Admin sie im Cockpit an.
 - O-02 `mta.yaml`, HTML5 Repo, Managed Approuter, Work-Zone-Kachel, SAP HANA Cloud (HDI-Container für Drafts und Replik, E-12/E-14). — erledigt 27.10.2026 bis zum MTA-Archiv (02 §7): `cds build --production`, `npm run build` (app) und `mbt build` laufen lokal durch; ein Deployment (`cf deploy`) braucht Subaccount, HANA-Cloud-Instanz und Work Zone und ist noch nicht erfolgt.
-- O-03 Logging/Monitoring, Transportweg (CTMS o. ä.).
+- O-03 Logging/Monitoring, Transportweg (CTMS o. ä.). — erledigt 27.10.2026 (02 §8): HTTP-Health-Check auf `/health`, SAP-Cloud-Logging-Bindung optional per `mta-cloud-logging.mtaext`, Transport als ein Archiv durch DEV → QAS → PRD (CTMS empfohlen); Einrichtung von CTMS/Cloud Logging im Subaccount steht mit dem ersten Deployment aus.

@@ -78,7 +78,8 @@ kundenmonitor-btp/
 │       └── webapp/               # Component, manifest, ext/ (Fragments, Controller-Extension), i18n, test/
 ├── test/                   # Service-Tests
 ├── xs-security.json        # Rollen, Attribut SalesOrg (O-01, §5)
-└── mta.yaml                # Deployment-Deskriptor (O-02, §7)
+├── mta.yaml                # Deployment-Deskriptor (O-02, §7)
+└── mta-cloud-logging.mtaext # optionale Cloud-Logging-Bindung (O-03, §8)
 ```
 
 ## 5. Berechtigungen (Ziel)
@@ -124,3 +125,11 @@ cf deploy mta_archives/kundenmonitor-btp_0.1.0.mtar
 ```
 
 Voraussetzungen im Subaccount: Cloud-Foundry-Space, SAP HANA Cloud-Instanz (für `hdi-shared`), Einträge für `html5-apps-repo`, `destination`, `xsuaa`, SAP Build Work Zone (standard). Nach dem ersten Deployment prüfen: Role Collections vorhanden (siehe O-01), `SalesOrg`-Werte je Rolle gepflegt.
+
+## 8. Betrieb: Logging, Monitoring, Transport (O-03)
+
+- **Health Check:** `mta.yaml` → `kundenmonitor-btp-srv` nutzt `health-check-type: http` auf `/health` (CAP, ohne Anmeldung; `test/monitor-service.test.js` „O-03“). Antwortet der Endpunkt nicht, startet Cloud Foundry die Instanz neu.
+- **Logging:** CAP schreibt strukturierte Logs nach stdout; mit Bindung an SAP Cloud Logging formatiert es sie automatisch passend (`cds.env.log.aspects`: `cf`, `als`, `cls`), inkl. Korrelations-ID je Request. Die Bindung ist optional, weil sie ein Entitlement braucht: Ressource `kundenmonitor-btp-logging` steht in `mta.yaml` auf `active: false` und wird mit `cf deploy … -e mta-cloud-logging.mtaext` aktiviert. Ohne Bindung bleiben die Logs über `cf logs kundenmonitor-btp-srv` erreichbar. Autorisierungs-Header und Cookies maskiert CAP (`log.mask_headers`).
+- **Monitoring:** Instanz-Status, Neustarts und Speicher im BTP-Cockpit bzw. `cf app kundenmonitor-btp-srv`; Dashboards und Alarme in SAP Cloud Logging (bei Bindung). Fachliche Kennzahlen (offene/fehlerhafte Vorgänge) liefert die App selbst über die Sichten mit Zählern (F-26).
+- **Transport (DEV → QAS → PRD):** Ein Build, ein Archiv: `mbt build` erzeugt `kundenmonitor-btp_<version>.mtar`, das unverändert durch die Landschaft wandert. Empfohlen: SAP Cloud Transport Management mit den Knoten DEV, QAS, PRD (je Knoten Destination auf den Deploy-Service des Ziel-Spaces); das Archiv wird in DEV hochgeladen (manuell, per SAP Continuous Integration and Delivery oder `cTMS`-Upload) und nach Test in QAS importiert bzw. weitergeleitet. Ohne CTMS: `cf deploy` des gleichen Archivs in den jeweiligen Space. Space-spezifische Werte (z. B. Cloud-Logging-Bindung) kommen über MTA-Extension-Deskriptoren, nicht über geänderte Archive. Vor jeder Weitergabe: Version in `mta.yaml`/`package.json` erhöhen.
+- **Datenstand Phase 1:** Der Deployer lädt die Demo-CSVs; vor einer produktiven Nutzung (Phase 2, S/4-Anbindung B-04/B-06) die Testdaten aus `db/data` entfernen bzw. auf Customizing beschränken.

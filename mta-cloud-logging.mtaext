@@ -1,0 +1,11 @@
+# O-03 (optional): bind the CAP service to SAP Cloud Logging (resource kundenmonitor-btp-logging in mta.yaml,
+# inactive by default because the subaccount needs the entitlement). CAP formats its logs for Cloud Logging
+# automatically once the binding exists (cds.env.log.aspects: cls).
+#   cf deploy mta_archives/kundenmonitor-btp_0.1.0.mtar -e mta-cloud-logging.mtaext
+_schema-version: "3.3"
+ID: kundenmonitor-btp-cloud-logging
+extends: kundenmonitor-btp
+
+resources:
+  - name: kundenmonitor-btp-logging
+    active: true

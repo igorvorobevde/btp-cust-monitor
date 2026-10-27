@@ -73,6 +73,14 @@ beforeEach(async () => {
 	await server.data.reset();
 });
 
+describe("O-03 health check", () => {
+	test("/health answers 200 without authentication (Cloud Foundry http health check)", async () => {
+		const res = await GET("/health");
+		expect(res.status).toBe(200);
+		expect((await failure(GET(`${BASE}/Requests`))).status).toBe(401); // the service itself still requires a login
+	});
+});
+
 describe("F-01 / F-02 metadata and data", () => {
 	test("$metadata contains the step actions with OperationAvailable and ETag", async () => {
 		const { data } = await GET(`${BASE}/$metadata`, ALICE);
