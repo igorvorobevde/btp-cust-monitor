@@ -598,6 +598,25 @@ describe("F-23 process-type rule for child changes (03 §3)", () => {
 	});
 });
 
+describe("F-23 customizing is read once, not per request", () => {
+	test("list reads do not re-read ProcessSteps or Steps", async () => {
+		const reads = { ProcessSteps: 0, Steps: 0 };
+		const name = (q) => q && q.SELECT && q.SELECT.from && q.SELECT.from.ref && String(q.SELECT.from.ref[0]).replace(/^(localized\.)?hydac\.custmon\./, "");
+		const spy = jest.spyOn(cds.db, "dispatch");
+		const count = () => spy.mock.calls.forEach(([req]) => { const n = name(req.query); if (n in reads) reads[n]++; });
+		await GET(`${BASE}/Requests?$select=ID,canClarify`, ALICE); // warms the cache if no earlier test did
+		count();
+		Object.keys(reads).forEach((k) => { reads[k] = 0; });
+		spy.mockClear();
+		await GET(`${BASE}/Requests?$select=ID,canClarify,nextStepText`, ALICE);
+		await GET(`${BASE}/Requests?$select=ID,nextStepText`, { ...ALICE, headers: { "Accept-Language": "de" } });
+		await GET(`${BASE}/Requests?$select=ID,nextStepText`, { ...ALICE, headers: { "Accept-Language": "de" } });
+		count(); spy.mockRestore();
+		expect(reads.ProcessSteps).toBe(0);
+		expect(reads.Steps).toBeLessThanOrEqual(1); // höchstens das erste Lesen für "de"
+	});
+});
+
 describe("Demo data (#14–#26)", () => {
 	test("every process type and status group is present", async () => {
 		const { data } = await GET(`${BASE}/Requests?$select=processType,status_code`, ALICE);

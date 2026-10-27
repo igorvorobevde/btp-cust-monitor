@@ -167,6 +167,24 @@ module.exports = class CustomerMonitorService extends cds.ApplicationService {
 		// Ohne Accept-Language ist req.locale undefined – dann ersetzt cds.i18n keine Platzhalter
 		const t = (req, key, args) => cds.i18n.messages.at(key, req.locale || "", args) || key;
 
+		// Customizing (ProcessSteps, ApprovalRules, Steps je Sprache) ändert sich zur Laufzeit nicht: einmal lesen statt je Request
+		// (F-23 Nachtrag, vor Phase 2 – dort kommt es aus S/4). Fehlgeschlagene Lesezugriffe werden nicht gemerkt.
+		const cache = new Map();
+		const cached = (key, read) => {
+			if (!cache.has(key)) {
+				cache.set(key, Promise.resolve(read()).catch((e) => { // cds.ql-Queries sind nur thenables
+					cache.delete(key);
+					throw e;
+				}));
+			}
+			return cache.get(key);
+		};
+		const customizing = {
+			processSteps: () => cached("ProcessSteps", () => SELECT.from(db.ProcessSteps)),
+			approvalRules: () => cached("ApprovalRules", () => SELECT.from(db.ApprovalRules)),
+			steps: (req) => cached("Steps:" + (req.locale || ""), () => SELECT.localized.from(db.Steps))
+		};
+
 		const roles = (req) => ({
 			isEditor: req.user.is("MonitorEditor"),
 			isReleaser: req.user.is("MonitorReleaser")
@@ -337,8 +355,8 @@ module.exports = class CustomerMonitorService extends cds.ApplicationService {
 			const draft = !!req.target.isDraft;
 			const incomplete = rows.filter((r) => FLAG_INPUT.some((f) => r[f] === undefined));
 			const [processSteps, steps, drafted, found] = await Promise.all([
-				SELECT.from(db.ProcessSteps),
-				SELECT.localized.from(db.Steps),
+				customizing.processSteps(),
+				customizing.steps(req),
 				draft ? new Set() : hasDraft(rows.map((r) => r.ID)),
 				incomplete.length ? SELECT.from(db.Requests).columns(...FLAG_INPUT).where({ ID: { in: incomplete.map((r) => r.ID) } }) : []
 			]);
@@ -434,9 +452,9 @@ module.exports = class CustomerMonitorService extends cds.ApplicationService {
 			}
 			const { businessPartner, text, force } = params;
 			const [processSteps, steps, approvalRules, partners] = await Promise.all([
-				SELECT.from(db.ProcessSteps),
-				SELECT.localized.from(db.Steps),
-				SELECT.from(db.ApprovalRules),
+				customizing.processSteps(),
+				customizing.steps(req),
+				customizing.approvalRules(),
 				SELECT.from(db.MockBusinessPartners)
 			]);
 			const now = new Date().toISOString();

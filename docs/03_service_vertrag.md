@@ -369,6 +369,8 @@ Siehe [01_fachkonzept.md §6](01_fachkonzept.md#6-schritte). Zusätzlich im Mock
 
 Implementiert in `srv/monitor-service.js` + `srv/lib/status-machine.js`.
 
+Das Customizing (`ProcessSteps`, `ApprovalRules`, `Steps` je Sprache) liest der Service einmal und hält es im Speicher; Änderungen an den CSVs wirken erst nach einem Neustart (Phase 2: Cache des S/4-Customizings mit Invalidierung, B-03).
+
 **Testdaten** (`db/data/*.csv`): mindestens ein Vorgang je Kombination
 
 | # | processType | status | Besonderheit |
