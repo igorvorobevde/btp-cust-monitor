@@ -1,0 +1,91 @@
+{
+  "xsappname": "kundenmonitor-btp",
+  "tenant-mode": "dedicated",
+  "description": "Kundenmonitor BTP (ZEC_CUSTOMER_MONITOR) – roles and sales-org attribute (docs/02 §5, O-01)",
+  "scopes": [
+    {
+      "name": "$XSAPPNAME.MonitorViewer",
+      "description": "Read customer requests of the own sales organizations"
+    },
+    {
+      "name": "$XSAPPNAME.MonitorEditor",
+      "description": "Edit customer requests and execute steps"
+    },
+    {
+      "name": "$XSAPPNAME.MonitorReleaser",
+      "description": "See unreleased customer requests and release them"
+    }
+  ],
+  "attributes": [
+    {
+      "name": "SalesOrg",
+      "description": "Sales organizations (VKORG) whose requests the user may see",
+      "valueType": "s",
+      "valueRequired": false
+    }
+  ],
+  "role-templates": [
+    {
+      "name": "MonitorViewer",
+      "description": "Kundenmonitor: read requests (Anzeige)",
+      "scope-references": [
+        "$XSAPPNAME.MonitorViewer"
+      ],
+      "attribute-references": [
+        "SalesOrg"
+      ]
+    },
+    {
+      "name": "MonitorEditor",
+      "description": "Kundenmonitor: edit requests and execute steps (Änderung)",
+      "scope-references": [
+        "$XSAPPNAME.MonitorEditor"
+      ],
+      "attribute-references": [
+        "SalesOrg"
+      ]
+    },
+    {
+      "name": "MonitorReleaser",
+      "description": "Kundenmonitor: see and release unreleased requests (Freigabe)",
+      "scope-references": [
+        "$XSAPPNAME.MonitorReleaser"
+      ],
+      "attribute-references": [
+        "SalesOrg"
+      ]
+    }
+  ],
+  "role-collections": [
+    {
+      "name": "Kundenmonitor_Viewer",
+      "description": "Kundenmonitor – Anzeige",
+      "role-template-references": [
+        "$XSAPPNAME.MonitorViewer"
+      ]
+    },
+    {
+      "name": "Kundenmonitor_Editor",
+      "description": "Kundenmonitor – Bearbeiten und Schritte",
+      "role-template-references": [
+        "$XSAPPNAME.MonitorViewer",
+        "$XSAPPNAME.MonitorEditor"
+      ]
+    },
+    {
+      "name": "Kundenmonitor_Releaser",
+      "description": "Kundenmonitor – Bearbeiten, Schritte und Freigabe",
+      "role-template-references": [
+        "$XSAPPNAME.MonitorViewer",
+        "$XSAPPNAME.MonitorEditor",
+        "$XSAPPNAME.MonitorReleaser"
+      ]
+    }
+  ],
+  "oauth2-configuration": {
+    "redirect-uris": [
+      "https://*.hana.ondemand.com/**",
+      "https://*.applicationstudio.cloud.sap/**"
+    ]
+  }
+}

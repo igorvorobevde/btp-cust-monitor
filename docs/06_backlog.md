@@ -140,6 +140,6 @@ Fünf Sichten als Registerkarten mit Zählern (`views`, `showCounts`, je Registe
 
 ## Phase 3 – Betrieb (Vorschau)
 
-- O-01 `xs-security.json` (Rollen, Attribut SalesOrg), Rollen-Collections.
+- O-01 `xs-security.json` (Rollen, Attribut SalesOrg), Rollen-Collections. — erledigt 27.10.2026 (02 §5, `test/xs-security.test.js`); offen bis zum ersten Deployment: ob BTP für Templates mit Attribut Default-Rollen für die Role Collections anlegt, sonst legt der Admin sie im Cockpit an.
 - O-02 `mta.yaml`, HTML5 Repo, Managed Approuter, Work-Zone-Kachel, SAP HANA Cloud (HDI-Container für Drafts und Replik, E-12/E-14).
 - O-03 Logging/Monitoring, Transportweg (CTMS o. ä.).

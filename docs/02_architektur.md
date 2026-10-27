@@ -88,6 +88,7 @@ kundenmonitor-btp/
 | `MonitorReleaser` | zusätzlich nicht freigegebene Vorgänge sehen, Freigeben | `ZEC_MONITO` ACTVT 43 |
 
 - Attribut `SalesOrg` (Liste von VKORG) am Benutzer; CAP filtert per `@restrict … where: 'salesOrganization = $user.SalesOrg'` (Verhalten bei mehrwertigen Attributen beim Setup gegen die aktuelle CAP-Doku prüfen). Ersetzt `V_KNA1_VKO` + `V_VBAK_VKO` durch **eine** Regel (siehe [07](07_anforderungen_aus_altsystem.md), R-08).
+- Umsetzung (O-01): `xs-security.json` mit Scopes/Role Templates `MonitorViewer`, `MonitorEditor`, `MonitorReleaser` (jede mit Attribut `SalesOrg`) und Role Collections `Kundenmonitor_Viewer`, `Kundenmonitor_Editor`, `Kundenmonitor_Releaser` (jeweils inkl. Viewer, da der Service `MonitorViewer` verlangt). `SalesOrg` ist optional: ohne Wert sieht der Benutzer nichts (fail closed); Werte pflegt der Admin je Rolle im Cockpit (statisch oder IdP-Mapping). `MonitorReleaser` prüft nur der Handler, daher fehlt er in `cds compile --to xsuaa` – `test/xs-security.test.js` sichert die Datei gegen Modell und Mock-User ab.
 - Phase 2: Principal Propagation, damit S/4-Berechtigungen und Änderungsbelege auf den echten Benutzer laufen.
 - Phase 1: Mock-User in `.cdsrc.json` (`alice` = alle Rollen, VKORG 0001/2000/7050; `bob` = Viewer, VKORG 0001).
 
