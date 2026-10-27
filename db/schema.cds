@@ -276,4 +276,5 @@ entity MockBusinessPartners {
       hasCustomerRole : Boolean;
       crmNumber       : String(10);
       magentoCompany  : String(10);
+      name            : String(80); // Anzeige in der Wertehilfe (B-05)
 }

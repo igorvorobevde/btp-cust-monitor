@@ -44,6 +44,15 @@ sap.ui.define([
 					errorMessage: "No open dialog shows '" + sText + "'"
 				});
 			},
+			iSeeAValueHelpOnTheDialogField: function (sProperty) {
+				return this.waitFor({
+					controlType: "sap.ui.mdc.Field",
+					searchOpenDialogs: true, // FE action parameter dialog
+					matchers: (oField) => oField.getId().includes(sProperty) && !!oField.getValueHelp(),
+					success: () => Opa5.assert.ok(true, "Dialog field '" + sProperty + "' offers a value help"),
+					errorMessage: "Dialog field '" + sProperty + "' without value help"
+				});
+			},
 			iSeeTheClarificationStrip: function (sComment) {
 				return this.waitFor({
 					controlType: "sap.m.MessageStrip",

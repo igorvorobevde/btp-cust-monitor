@@ -250,6 +250,7 @@ service CustomerMonitorService @(path: '/odata/v4/monitor') {
   @readonly entity StatusGroups  as projection on db.StatusGroups;   // F-11
   @readonly entity ReleaseStates as projection on db.ReleaseStates;  // F-11
   @readonly entity ReleaseReasons as projection on db.ReleaseReasons; // F-25
+  @readonly entity BusinessPartners as projection on db.MockBusinessPartners { key businessPartner, name, customer, hasCustomerRole, magentoCompany }; // B-05, Wertehilfe Geschäftspartner
 
   // Wertehilfen (Distinct-Werte, nur Codes) – F-11
   @readonly @cds.redirection.target: false
@@ -496,6 +497,7 @@ Alle Elemente sind read-only; Texte folgen `Accept-Language` wie bei den übrige
 | Status-/Statusgruppen-/Prozessart-/Freigabetext | `Common.Text` + `TextArrangement #TextOnly` auf `status_code`, `statusGroup`, `processType`, `releaseState`, `releaseReason` | `Statuses.text`, `StatusGroups.text` (über `status/groupRef`, unmanaged Assoziation `Statuses.groupRef`), `ProcessTypes.text` (über `processTypeRef`), `ReleaseStates.text` (über `releaseStateRef`), `ReleaseReasons.text` (über `releaseReasonRef`) |
 | Wertehilfen mit festen Werten | `Common.ValueListWithFixedValues` + `Common.ValueList` auf `status_code`, `processType`, `statusGroup`, `releaseReason` | `Statuses`, `ProcessTypes`, `StatusGroups`, `ReleaseReasons` |
 | Wertehilfen VKORG / Quelle | `Common.ValueList` auf `salesOrganization`, `source` | `SalesOrganizations`, `Sources` (§3) |
+| Wertehilfe Geschäftspartner (B-05) | `Common.ValueList` auf dem Parameter `businessPartner` von `assignExistingCustomer` und `changeCustomerAssignment` (InOut `businessPartner`, Anzeige Name, Debitor, Debitorrolle, Magento-Company); `BusinessPartners` mit `@cds.search` auf Nummer, Name, Debitor | `BusinessPartners` (Phase 1: Mock-BPs; Phase 2: S/4-Geschäftspartner über Replik oder Remote-Service, gleiche Elemente). Alle Benutzer dürfen lesen (Stammdaten, keine VKORG-Einschränkung); Prüfung der Eingabe bleibt im Schritt (`BP_NOT_FOUND`, `BP_NOT_CUSTOMER`) |
 | Volltextsuche | `@cds.search: { name, name2, magentoCompany }` | `$search` der Liste |
 | Hilfsfelder | `@UI.Hidden` auf `statusCriticality`, `rowCriticality`, `releaseCriticality`, `editHidden`, `LogEntries.criticality` | nur für Kritikalität/Sichtbarkeit, nicht als Feld sichtbar |
 

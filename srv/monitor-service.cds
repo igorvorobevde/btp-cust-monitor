@@ -134,6 +134,13 @@ service CustomerMonitorService @(path: '/odata/v4/monitor') {
   @readonly
   entity ReleaseReasons as projection on db.ReleaseReasons;
 
+  // Wertehilfe Geschäftspartner für CHNG_OLD/CNG_DEBI (B-05); Phase 1 aus den Mock-BPs, Phase 2 aus S/4 (Replik oder Remote)
+  @readonly
+  @cds.search: { businessPartner, name, customer }
+  entity BusinessPartners as projection on db.MockBusinessPartners {
+    key businessPartner, name, customer, hasCustomerRole, magentoCompany
+  };
+
   // Wertehilfen mit Distinct-Werten (nur Codes, keine Vorgangsdaten) – F-11
   @readonly
   @cds.redirection.target: false

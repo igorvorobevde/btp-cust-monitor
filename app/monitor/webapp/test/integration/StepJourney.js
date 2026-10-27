@@ -13,6 +13,7 @@ sap.ui.define(["sap/ui/test/opaQunit"], function (opaTest) {
 				Given.iStartMyApp(active(26));
 				Then.onTheDetail.iSeeThisPage();
 				When.onTheDetail.onHeader().iExecuteAction("Execute Step").and.iExecuteMenuAction("Change Customer Assignment");
+				Then.onTheDetail.iSeeAValueHelpOnTheDialogField("businessPartner"); // B-05: BusinessPartners
 				When.onTheDetail.onActionDialog().iChangeDialogField({ property: "businessPartner" }, "1000002").and.iConfirm();
 				When.onTheDetail.onConfirmationDialog().iConfirm(); // strict handling: "already assigned to Magento company … ?"
 				Then.onTheDetail.onHeader().iCheckDataPoint("Status", "Customer Assignment Changed");

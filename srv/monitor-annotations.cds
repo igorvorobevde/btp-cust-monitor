@@ -143,6 +143,38 @@ annotate S.ReleaseReasons with {
   code @Common.Text: text  @Common.TextArrangement: #TextOnly;
 };
 
+// Geschäftspartner-Wertehilfe (B-05): Nummer mit Name, Debitor, Debitorrolle und Magento-Company zur Auswahl
+annotate S.BusinessPartners with {
+  businessPartner @title: '{i18n>field.businessPartner}'  @Common.Text: name  @Common.TextArrangement: #TextFirst;
+  name            @title: '{i18n>field.bpName}';
+  customer        @title: '{i18n>field.customer}';
+  hasCustomerRole @title: '{i18n>field.hasCustomerRole}';
+  magentoCompany  @title: '{i18n>field.magentoCompany}';
+};
+
+annotate S.Requests actions {
+  assignExistingCustomer(businessPartner @Common.ValueList: {
+    CollectionPath: 'BusinessPartners',
+    Parameters    : [
+      { $Type: 'Common.ValueListParameterInOut', LocalDataProperty: businessPartner, ValueListProperty: 'businessPartner' },
+      { $Type: 'Common.ValueListParameterDisplayOnly', ValueListProperty: 'name' },
+      { $Type: 'Common.ValueListParameterDisplayOnly', ValueListProperty: 'customer' },
+      { $Type: 'Common.ValueListParameterDisplayOnly', ValueListProperty: 'hasCustomerRole' },
+      { $Type: 'Common.ValueListParameterDisplayOnly', ValueListProperty: 'magentoCompany' }
+    ]
+  });
+  changeCustomerAssignment(businessPartner @Common.ValueList: {
+    CollectionPath: 'BusinessPartners',
+    Parameters    : [
+      { $Type: 'Common.ValueListParameterInOut', LocalDataProperty: businessPartner, ValueListProperty: 'businessPartner' },
+      { $Type: 'Common.ValueListParameterDisplayOnly', ValueListProperty: 'name' },
+      { $Type: 'Common.ValueListParameterDisplayOnly', ValueListProperty: 'customer' },
+      { $Type: 'Common.ValueListParameterDisplayOnly', ValueListProperty: 'hasCustomerRole' },
+      { $Type: 'Common.ValueListParameterDisplayOnly', ValueListProperty: 'magentoCompany' }
+    ]
+  });
+};
+
 // Labels (Common.Label) – Schlüssel wie im bisherigen App-Bundle
 annotate S.Requests with {
   processType          @title: '{i18n>field.processType}';

@@ -236,6 +236,29 @@ describe("F-11 value helps", () => {
 	});
 });
 
+describe("B-05 business partner value help", () => {
+	test("BusinessPartners is a read-only code list with names, searchable, readable by viewers", async () => {
+		const { data } = await GET(`${BASE}/BusinessPartners?$select=businessPartner,name,customer,hasCustomerRole,magentoCompany&$orderby=businessPartner`, BOB);
+		expect(data.value.length).toBe(23);
+		expect(data.value[0]).toMatchObject({ businessPartner: "1000001", name: "Müller Hydraulik GmbH", customer: "4000001", hasCustomerRole: true });
+		expect(data.value[0]).not.toHaveProperty("crmNumber");
+		const found = (await GET(`${BASE}/BusinessPartners?$search=Hansa`, ALICE)).data.value;
+		expect(found.map((b) => b.businessPartner)).toEqual(["1000030"]);
+		expect((await failure(PATCH(`${BASE}/BusinessPartners('1000030')`, { name: "X" }, ALICE))).status).toBe(405);
+	});
+	test("$metadata: both businessPartner action parameters carry a value list on BusinessPartners", async () => {
+		const meta = (await GET(`${BASE}/$metadata`, ALICE)).data;
+		for (const action of ["assignExistingCustomer", "changeCustomerAssignment"]) {
+			const start = meta.indexOf(`Target="CustomerMonitorService.${action}(CustomerMonitorService.Requests)/businessPartner"`);
+			expect(start).toBeGreaterThan(-1);
+			const block = meta.slice(start, meta.indexOf("</Annotations>", start));
+			expect(block).toMatch(/Common.ValueList/);
+			expect(block).toMatch(/<PropertyValue Property="CollectionPath" String="BusinessPartners"\/>/);
+			expect(block).toMatch(/ValueListParameterInOut[\s\S]*?LocalDataProperty" PropertyPath="businessPartner"[\s\S]*?ValueListProperty" String="businessPartner"/);
+		}
+	});
+});
+
 describe("Authorization", () => {
 	test("viewer sees only own VKORG and released requests, cannot edit or execute", async () => {
 		const { data } = await GET(`${BASE}/Requests?$select=salesOrganization,released,isEditable`, BOB);
