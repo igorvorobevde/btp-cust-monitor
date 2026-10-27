@@ -120,6 +120,16 @@ describe("F-11 code lists", () => {
 		expect((await GET(`${BASE}/ReleaseStates('MANUAL')`, de)).data.text).toBe("Freigegeben (manuell)");
 		expect((await GET(`${BASE}/ReleaseStates('NOT_RELEASED')`, ALICE)).data.text).toBe("Not released");
 	});
+
+	test("statusGroup carries its localized text via status/groupRef (Common.Text, TextOnly)", async () => {
+		const de = { ...ALICE, headers: { "Accept-Language": "de" } };
+		const { data } = await GET(url(3, "?$select=statusGroup&$expand=status($select=code;$expand=groupRef($select=text))"), de);
+		expect(data.statusGroup).toBe("ERROR");
+		expect(data.status.groupRef.text).toBe("Fehler");
+		const meta = (await GET(`${BASE}/$metadata`, ALICE)).data;
+		const target = meta.slice(meta.indexOf('Target="CustomerMonitorService.Requests/statusGroup"'));
+		expect(target.slice(0, target.indexOf("</Annotations>"))).toMatch(/Common.Text" Path="status\/groupRef\/text"/);
+	});
 });
 
 describe("F-11 calculated fields", () => {

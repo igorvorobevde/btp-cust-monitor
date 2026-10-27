@@ -188,7 +188,8 @@ entity LogEntries {
 
 // Customizing (read-only, Texte sprachabhängig)
 entity Statuses     { key code : StatusCode;  text : localized String(60); icon : String(30); group : String(10); /* OPEN|ERROR|REJECTED|DONE */
-                      criticality : Integer; /* UI.CriticalityType: 5 Information (OPEN), 1 Negative (ERROR), 0 Neutral (REJECTED), 3 Positive (DONE) – F-11 */ }
+                      criticality : Integer; /* UI.CriticalityType: 5 Information (OPEN), 1 Negative (ERROR), 0 Neutral (REJECTED), 3 Positive (DONE) – F-11 */
+                      groupRef : Association to StatusGroups on groupRef.code = group; /* Text der Statusgruppe (Common.Text) */ }
 entity StatusGroups  { key code : String(10); text : localized String(60); }   // OPEN|ERROR|REJECTED|DONE – Codeliste für den Filter „Statusgruppe“ (F-11)
 entity ReleaseStates { key code : String(12); text : localized String(60); }   // NOT_RELEASED|NOT_REL|AUTOMATIC|MANUAL – Codeliste für die Kopfanzeige „Freigabe“ (F-11)
 entity ReleaseReasons { key code : String(20); text : localized String(60); }  // Freigabegrund, 9 Codes (§8) – F-25
@@ -487,7 +488,7 @@ Alle Elemente sind read-only; Texte folgen `Accept-Language` wie bei den übrige
 |---|---|---|
 | Feldbezeichner (`Common.Label`) aller Elemente und Aktionsparameter | `@title: '{i18n>field.*}'` / `'{i18n>param.*}'` | `_i18n/i18n.properties` (EN), `_i18n/i18n_de.properties`; `$metadata` folgt `Accept-Language` |
 | Aktionsbezeichner | `{i18n>action.*}` (Layout-Annotation in der App referenziert sie) | dieselben Bundles |
-| Status-/Prozessart-/Freigabetext | `Common.Text` + `TextArrangement #TextOnly` auf `status_code`, `processType`, `releaseState`, `releaseReason` | `Statuses.text`, `ProcessTypes.text` (über `processTypeRef`), `ReleaseStates.text` (über `releaseStateRef`), `ReleaseReasons.text` (über `releaseReasonRef`) |
+| Status-/Statusgruppen-/Prozessart-/Freigabetext | `Common.Text` + `TextArrangement #TextOnly` auf `status_code`, `statusGroup`, `processType`, `releaseState`, `releaseReason` | `Statuses.text`, `StatusGroups.text` (über `status/groupRef`, unmanaged Assoziation `Statuses.groupRef`), `ProcessTypes.text` (über `processTypeRef`), `ReleaseStates.text` (über `releaseStateRef`), `ReleaseReasons.text` (über `releaseReasonRef`) |
 | Wertehilfen mit festen Werten | `Common.ValueListWithFixedValues` + `Common.ValueList` auf `status_code`, `processType`, `statusGroup`, `releaseReason` | `Statuses`, `ProcessTypes`, `StatusGroups`, `ReleaseReasons` |
 | Wertehilfen VKORG / Quelle | `Common.ValueList` auf `salesOrganization`, `source` | `SalesOrganizations`, `Sources` (§3) |
 | Volltextsuche | `@cds.search: { name, name2, magentoCompany }` | `$search` der Liste |

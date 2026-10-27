@@ -53,6 +53,8 @@ annotate S.Requests with {
     }
   );
   statusGroup       @(
+    Common.Text                    : status.groupRef.text,
+    Common.TextArrangement         : #TextOnly,
     Common.ValueListWithFixedValues: true,
     Common.ValueList               : {
       CollectionPath: 'StatusGroups',

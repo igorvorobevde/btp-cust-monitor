@@ -215,6 +215,8 @@ entity Statuses {
       icon        : String(30);
       group       : String(10); // OPEN | ERROR | REJECTED | DONE
       criticality : Integer; // UI.CriticalityType: 0 neutral, 1 negative, 2 critical, 3 positive, 5 information
+      // Text der Statusgruppe (Common.Text von Requests.statusGroup, F-23 Nachtrag); unmanaged → keine neue Spalte
+      groupRef    : Association to StatusGroups on groupRef.code = group;
 }
 
 /** Statusgruppen als Codeliste (Filter „Statusgruppe“, Texte sprachabhängig) */
