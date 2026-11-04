@@ -2,7 +2,7 @@
 
 Status: **Draft for the review session with HYDAC IT, 4 November 2026**. Prepared by purplecat (Igor Vorobev) in reply to Peter Wurst's request.
 Audience: Peter Wurst, Uli, Franca, Mathias, Gareth.
-Proposed slot: Wed 4 Nov, 16:00–17:00 CET (10:00 ET) or Fri 6 Nov, 17:00–18:00 CET (11:00 ET). Duration: 60 min.
+Proposed slot: **Fri 6 Nov, 17:00–18:00 CET (11:00 ET)**. The Wed 4 Nov slot can no longer be prepared in time. Duration: 60 min. Pre-read: this document, sent at least 24 h ahead; the session walks through §1, §3, §4, §6 and §8, the rest is reference.
 
 This document is the basis for the review session. Each numbered section can be presented as one or two slides. Detailed specifications live in the project repository (`docs/01`–`docs/10`) and are referenced where relevant.
 
@@ -30,13 +30,13 @@ This document is the basis for the review session. Each numbered section can be 
 - **What:** a replacement for the SAP GUI report `ZEC_CUSTOMER_MONITOR`. Back-office staff use it to review and process the customer, contact person and ship-to requests that the Magento B2B shops send to SAP.
 - **Where:** one monitor for the back offices in **Europe, the USA and Australia**. The requests come from different SAP backends: S/4HANA on-premise (Q4H/GWQ and production) and HYDAC Australia's S/4HANA Public Cloud (§6).
 - **How:** a SAP Fiori Elements app (OData V4) on top of a SAP CAP (Node.js) service on SAP BTP, Cloud Foundry. Users open it from SAP Build Work Zone. The SAP backends stay the **systems of record**: request data, customizing, step logic and the notifications to Magento remain in the backend and are not reimplemented on BTP.
-- **Data restriction:** every user sees only the requests of their own sales organizations, and those sales organizations are qualified by backend (region). The backend checks the user again on every change (§6.4).
-- **User management:** done in HYDAC's corporate identity provider through groups, with no per-user maintenance in BTP (§6.5).
+- **Data restriction:** every user sees only the requests of the sales organizations assigned to them, per backend (region). Every read and write reaches the backend as the real user (principal propagation), so the backend checks the same user again (§6.4).
+- **User management:** identity and roles come from HYDAC's corporate identity provider (groups → role collections); the sales-org scope is assigned by regional key users in an admin screen of the monitor. No per-user maintenance in the BTP cockpit (§6.5).
 - **Status today:**
   - ✅ Phase 1 is finished: the complete UI runs against a CAP mock service that reproduces the legacy status machine from a copy of the S/4 customizing. It covers 26 test requests, all process types and all steps, with automated tests (service tests and browser UI journeys).
   - ✅ The deployment package is ready: roles, MTA descriptor, HANA Cloud (HDI), HTML5 repository, Work Zone tile, health check and logging. The MTA archive builds locally. **Nothing has been deployed yet**, because a BTP subaccount is not available yet.
   - 🟡 For the S/4 connection (phase 2) there is a draft interface specification (`docs/10`). The CAP side already has the adapter seam that the multi-backend design builds on. The multi-backend routing (§6) is a design proposal.
-- **Ask:** the BTP, Git and transport setup from our email, so that we can deploy, connect to Q4H/GWQ and start phase 2. §4 maps each item to a requirement.
+- **Ask:** the BTP, Git and transport setup from our email, so that we can deploy, connect to Q4H/GWQ and start phase 2. §4 maps each item to a requirement. Nothing in §6 blocks the DEV setup; it shapes the decisions D4 and D8–D10.
 
 ---
 
@@ -70,7 +70,7 @@ Business value of the new monitor compared with the SAP GUI report:
 | `Kundenmonitor_Editor` | Back office (Innendienst) per sales organization, in EU, USA, AU | + edit request data, run steps | Change |
 | `Kundenmonitor_Releaser` | Users who approve requests that need a release (Freigabe) | + see unreleased requests and release them | Auth. object `ZEC_MONITO` ACTVT 43 |
 
-The roles define **what** a user may do. **Which** requests they see is defined by their sales organizations (attribute `SalesOrg`, qualified by backend, §6.4). A user without a value sees nothing (fail closed). The same three role collections serve all regions; there are no region-specific roles.
+The roles define **what** a user may do. **Which** requests they see is defined by the sales organizations assigned to them per backend (§6.4, §6.5). A user without an assignment sees nothing (fail closed). The same three role collections serve all regions; there are no region-specific roles.
 
 ❓ Number of users per role, region and sales organization, and request volume per day per region. We need these for sizing and for the user administration effort (§7).
 
@@ -147,6 +147,18 @@ The analysis of the SAP GUI monitor found 16 defects (`docs/07`). The most relev
 ---
 
 ## 3. Solution architecture
+
+### 3.1 Why BTP, and not a Fiori app inside S/4
+
+| Alternative | Why not |
+|---|---|
+| Fiori Elements app inside S/4 on-premise (RAP, embedded launchpad) | Serves only the system it runs in. The AU requests live in S/4HANA Public Cloud, which an on-premise UI cannot reach with the user's identity and which cannot host the classic ABAP monitor logic. EU and US would get the new monitor, AU would not. |
+| One app per backend (RAP on-premise + ABAP Cloud RAP in AU) | Two UIs and two codebases for the same process, no common work queue, no cross-region support. |
+| **BTP side-by-side (chosen)** | One UI and one service for all regions; each backend keeps its own data, customizing and step logic (clean core on both sides). The price is HANA Cloud and a replica, explained below. |
+
+If HYDAC decided that only one on-premise S/4 is in scope, an in-S/4 RAP app would be the cheaper choice. The multi-region requirement is what makes BTP the right place.
+
+### 3.2 Overview
 
 ```mermaid
 flowchart LR
@@ -330,7 +342,7 @@ Access policy: "path and all sub-paths" for exactly these prefixes, nothing else
 | UI → CAP | OAuth token forwarded by the managed approuter |
 | CAP → S/4 on-premise | **Recommended: principal propagation.** The Cloud Connector issues a short-lived X.509 certificate for the logged-in user, and S/4 maps it to the S/4 user (rule in `CERTRULE`). Alternative: technical user (basic auth) |
 | CAP → S/4HANA Public Cloud | Communication arrangement in the AU tenant; user propagation via OAuth 2.0 SAML bearer assertion (destination type `OAuth2SAMLBearerAssertion`) |
-| CAP → backend, background delta sync | Technical / communication user with **read-only** access (no user is logged on during a sync) |
+| CAP → backend, delta sync of the replica | Runs inside the user's request (pull on list read, `docs/09` §7) with the same principal propagation. **No technical user that can read every request.** Optional nightly full resync with a read-only communication user, only if HYDAC wants one. |
 
 Why principal propagation for user actions:
 
@@ -352,9 +364,9 @@ Pragmatic start: a **technical user on DEV** for the first connectivity tests, t
 
 | Aspect | On-premise S/4 (Q4H) | S/4HANA Public Cloud (Australia) |
 |---|---|---|
-| Connection | Cloud Connector, principal propagation | Internet, no Cloud Connector; communication arrangement (OAuth 2.0 / SAML bearer for user propagation, communication user for the sync) |
+| Connection | Cloud Connector, principal propagation | Internet, no Cloud Connector; communication arrangement (OAuth 2.0 SAML bearer for user propagation; a communication user only for an optional resync) |
 | Custom tables / step classes | Exist (`ZEC_CUSTOMER*`, `ZCL_EC_CUSTOMER`) | Classic ABAP is not possible; only ABAP Cloud (developer extensibility, RAP) or side-by-side on BTP |
-| APIs for master data | BAPIs / CMD API inside the step classes | Released APIs only (e.g. Business Partner, customer, contact person; communication scenario `SAP_COM_0008`) |
+| APIs for master data | BAPIs / CMD API inside the step classes | Released APIs only (Business Partner, customer, contact person via their communication scenarios) |
 | RFC | Possible inside the HYDAC network | Not available for custom logic |
 
 How Australia fits into the monitor: see §6.2.
@@ -402,7 +414,7 @@ flowchart LR
 |---|---|
 | **Backend ID per request** | Every request carries the backend it comes from (`backendSystem`, e.g. `EU`, `US`, `AU`). It is read-only and appears in the UI as a filter and column "Region". 💡 This is a small extension of the service contract. |
 | **Backend registry** | Configuration (not code): backend ID → adapter type + destination name. Adding a region means adding an entry and a destination, without changing the app. It builds on the adapter seam that already exists in the CAP service (`srv/backend/`, B-04). |
-| **Reading** | The list and the counters read from the replica, so there is one list across all backends, filtered by the user's sales orgs (§6.4). Each backend has its own delta sync. |
+| **Reading** | The list and the counters read from the replica, so there is one list across all backends, filtered by the user's sales orgs (§6.4). Each backend has its own delta sync, pulled in the user's session with the user's identity (§5.3). |
 | **Writing** | Every step and every save goes to the backend of the request, as the real user. |
 | **Rules per backend** | Allowed steps, approval rules and texts are loaded and cached per backend. Each region keeps its own customizing. |
 | **Value help** | The business partner value help searches only in the backend of the current request. |
@@ -412,11 +424,14 @@ flowchart LR
 
 | | **Option A (recommended): request handling in the AU Public Cloud** | **Option B: request handling on BTP for AU** |
 |---|---|---|
-| Idea | Build the same backend contract (I-01…I-05) as a RAP service in ABAP Cloud in the AU tenant (developer extensibility). The steps there call the released Public Cloud APIs. | For AU, the BTP replica becomes the system of record. Magento sends registrations to BTP (directly or via an iFlow), and the steps call the released Public Cloud APIs from BTP. |
+| Idea | Rebuild the monitor backend in ABAP Cloud in the AU tenant (developer extensibility): intake from Magento AU, request store, approval check, step logic on the released Public Cloud APIs, notifications to Magento, and on top the backend contract (I-01…I-05) as a RAP service. | For AU, the BTP replica becomes the system of record. Magento sends registrations to BTP (directly or via an iFlow), the steps call the released Public Cloud APIs from BTP, and notifications go back via iFlows. |
 | Monitor side | Same adapter as EU, only another destination | Second adapter type with its own step logic in CAP |
 | Consistency | Same architecture for all regions: the backend is the system of record | AU differs from EU/US |
-| Prerequisites | Developer extensibility (3-system landscape) in the AU tenant; ABAP Cloud development | Magento AU → BTP interface; notifications via iFlows |
+| Prerequisites | Developer extensibility (3-system landscape) in the AU tenant; ABAP Cloud development capacity | Magento AU → BTP interface; notifications via iFlows |
+| Size | Large: the on-premise monitor backend, built once more in ABAP Cloud | Large: intake and step logic in CAP, integration flows in Integration Suite |
 | Effect on E-07 | Strong argument for RAP in EU too (one design) | none |
+
+Neither option is "five interfaces": both rebuild a backend that exists today only on-premise. Both also assume that AU wants the review-before-create process at all; if Magento AU creates customers directly today, that is a business decision for AU before any technical one. Effort estimate only after the workshop.
 
 ❓ We propose a short workshop with Gareth: scope, AU sales orgs, current Magento AU flow, and the availability of developer extensibility.
 
@@ -430,7 +445,7 @@ flowchart LR
 | Cost and operation | 1× HANA Cloud, 1× deployment | 3× HANA Cloud, 3× deployments (one cTMS route per region) |
 | Code | Multi-backend routing (§6.2) | Works without routing (one backend per deployment), routing still possible |
 
-The code supports both options with the same archive. **Recommendation:** central, unless HYDAC has data residency requirements (e.g. Australian privacy rules for cross-border storage of contact data). ❓ HYDAC data protection decides.
+The code supports both options with the same archive. **Recommendation:** central, **on the condition** that HYDAC data protection confirms AU contact data may be stored in an EU BTP region (Australian Privacy Principle 8 restricts cross-border disclosure of personal information). If not: regional for AU (one more subaccount and HANA Cloud instance, same archive), central for EU and US. ❓ HYDAC data protection decides, before the productive subaccount is created (§4.1).
 
 ### 6.4 Data restriction per user
 
@@ -438,58 +453,92 @@ A user sees and changes only what all of these layers allow:
 
 | # | Layer | Where | Controls |
 |---|---|---|---|
-| 1 | Login | Corporate IdP → Identity Services → XSUAA | Only HYDAC users; the Work Zone tile is visible only with a monitor role |
+| 1 | Login | Corporate IdP → Identity Services → XSUAA | Only HYDAC users; the Work Zone tile is visible only with the Work Zone content role for the monitor (its own role collection) |
 | 2 | Function | Role collection (Viewer / Editor / Releaser) | Read, edit and run steps, release |
-| 3 | **Rows** | Attribute `SalesOrg` on the role, values **qualified by backend**: `EU-0001`, `EU-7050`, `US-xxxx`, `AU-xxxx` | Which requests are visible: list, counters, detail, sub-data (sales data, contact person, ship-to), log, value helps. Enforced in the CAP service on every read (✅ today with unqualified sales orgs). The region follows from the sales orgs: a user with only `AU-…` values sees only Australian requests. |
+| 3 | **Rows** | Sales-org assignment **per backend** (§6.5): app table `UserAssignments` (backend, sales org), or IAS attribute `SalesOrg` with backend-qualified values such as `EU-0001`, `AU-xxxx` | Which requests are visible: list, counters, detail, sub-data (sales data, contact person, ship-to), log, value helps. Enforced in the CAP service on every read (✅ today with the attribute, one backend). The region follows from the assignment: a user with only AU sales orgs sees only Australian requests. |
 | 4 | Release | Releaser role | Unreleased requests are visible only to releasers (✅) |
-| 5 | **Backend check** | Principal propagation: S/4 on-premise via Cloud Connector, Public Cloud via SAML bearer | Every step and every save runs in the backend as the real user, so the backend checks the sales org again (defence in depth). The background sync uses a read-only technical user. For reading, layer 3 is therefore the gate; for writing, both layers 3 and 5 apply. |
+| 5 | **Backend check** | Principal propagation: S/4 on-premise via Cloud Connector, Public Cloud via SAML bearer | Every delta read, step and save runs in the backend as the real user, so the backend checks the sales org as well (defence in depth). There is no technical user with read access to all requests (§5.3). |
 
-Why qualify the sales orgs: the same sales org code (e.g. `1000`) can exist in different backends with a different meaning. ❓ If HYDAC confirms that sales org codes are unique across all systems, plain codes are enough.
+Why per backend: the same sales org code (e.g. `1000`) can exist in different backends with a different meaning. The app table carries the backend as its own column; the IAS attribute (Option 1) is a flat list and needs the `EU-` prefix plus a stored key column in the service. ❓ If HYDAC confirms that sales org codes are unique across all systems, plain codes are enough in both options.
 
 Example:
 
-| User | Roles | `SalesOrg` | Sees |
+| User | Roles | Backend: sales orgs | Sees |
 |---|---|---|---|
-| Back office Germany | Editor | `EU-0001`, `EU-2000` | Open EU requests of 0001/2000, can run steps |
-| Back office USA | Editor, Releaser | `US-xxxx` | US requests incl. unreleased ones, can release |
-| Back office Australia | Editor | `AU-xxxx` | AU requests only |
-| Global support | Viewer | all values | Everything, read only |
+| Back office Germany | Editor | EU: 0001, 2000 | Open EU requests of 0001/2000, can run steps |
+| Back office USA | Editor, Releaser | US: xxxx | US requests incl. unreleased ones, can release |
+| Back office Australia | Editor | AU: xxxx | AU requests only |
+| Global support | Viewer | all backends, all sales orgs | Everything, read only |
 
 ### 6.5 User management 💡
 
-**Goal: no user-by-user maintenance in BTP.** Access is managed where HYDAC already manages people: in the corporate identity provider.
+**Goal: no user-by-user maintenance in the BTP cockpit.** Identity and roles come from HYDAC's corporate identity provider through SAP Cloud Identity Services (IAS). For the **data scope (sales orgs per user)** there are two workable options; both were checked against SAP's documentation (Nov 2026) and both keep the UI and the service contract unchanged except for an admin screen.
 
 ```mermaid
 flowchart LR
-  ADM["Regional admin<br/>EU · US · AU"] -->|"group membership"| IDP["Corporate IdP<br/>(❓ Entra ID)"]
-  IDP --> IAS["SAP Cloud Identity Services<br/>(Identity Authentication)"]
+  IDP["Corporate IdP<br/>(❓ Entra ID)"] --> IAS["SAP Cloud Identity Services<br/>(Identity Authentication)"]
   IAS -->|"groups → role collections"| XS["BTP subaccount<br/>Kundenmonitor_Viewer / _Editor / _Releaser"]
-  IAS -->|"sales orgs → attribute SalesOrg"| XS
+  IAS -->|"Option 1: attribute SalesOrg"| XS
+  ADM["Regional key user<br/>(MonitorAdmin)"] -->|"admin screen in the monitor"| CAP["CAP service"]
+  CAP -->|"Option 1: SCIM API<br/>(set attribute / group)"| IAS
+  CAP -->|"Option 2: table<br/>UserAssignments"| HANA[("HANA")]
   IAS -.->|"same identity"| PC["AU Public Cloud<br/>business users"]
   IDP -.->|"user mapping (email / user ID)"| S4["S/4 on-premise users<br/>(existing SU01 / role process)"]
 ```
 
-| Step | How |
-|---|---|
-| **Identity** | HYDAC's corporate IdP is connected to BTP through SAP Cloud Identity Services (Identity Authentication). There is one login for all regions, with single sign-on to Work Zone. |
-| **Roles** | Three IdP groups (e.g. `CUSTMON_VIEWER`, `CUSTMON_EDITOR`, `CUSTMON_RELEASER`) are mapped once to the three role collections in the BTP trust configuration. |
-| **Sales orgs** | The IdP passes the user's sales orgs as a claim (from groups such as `CUSTMON_SO_EU-0001`, or from a user attribute). The role templates take `SalesOrg` from this claim (attribute source "Identity Provider"). Exact mapping to be verified during setup. |
-| **Joiner / mover / leaver** | Handled in the IdP by HYDAC's normal process. A leaver loses access everywhere at once. Group administration can be delegated per region (AU admins manage AU groups). |
-| **Backend users** | Principal propagation needs a matching backend user with matching authorizations. **S/4 on-premise:** the existing user and role process (SU01 / PFCG, GRC if used), mapped by email or user ID. **AU Public Cloud:** business users with a business role restricted to the AU sales orgs; Public Cloud also uses Identity Authentication, so it can be the same identity (❓ same IAS tenant as BTP?). Optional: SAP Cloud Identity Provisioning creates these users from the IdP groups. |
-| **Consistency** | One authorization matrix (role × region × sales org), owned by HYDAC, is the basis for both the IdP groups and the backend roles. If they get out of sync, the user gets a "no authorization" message on the step. Data is never exposed, because the CAP filter applies first. A periodic review (e.g. quarterly) is recommended. |
-| **Audit** | Role and trust changes appear in the BTP audit log, changes in the IdP's own log, and master data changes in the backends' change documents under the real user. |
+**Building blocks (documented by SAP; not yet tried in a HYDAC tenant)**
 
-Fallback, if IdP groups are not possible at the start: static role collections per region (e.g. `Kundenmonitor_Editor_AU`) with the sales orgs maintained in the BTP cockpit, assigned to users by the BTP admin. This is simple for a few users but grows with every sales org.
+| Block | What SAP provides | Status |
+|---|---|---|
+| Identity | Corporate IdP → IAS (as proxy) → BTP trust. IAS users are created at first login or by Identity Provisioning. One login for all regions, SSO to Work Zone. | Standard |
+| Roles | IAS groups (e.g. `CUSTMON_VIEWER`, `CUSTMON_EDITOR`, `CUSTMON_RELEASER`) mapped once to the three role collections in the subaccount trust configuration (`Groups` assertion attribute). | Standard |
+| Data scope via an IAS attribute | IAS user attribute (custom attribute 1–10, or an attribute of a custom schema; up to 20 schemas × 20 attributes, attributes can be `multiValued`) → application "Attributes" configuration (e.g. `${customAttribute1}` sent as `SalesOrg`) → BTP role attribute with source **Identity Provider** → JWT `xs.user.attributes.SalesOrg` → CAP `$user.SalesOrg`. CAP treats the attribute as a list: a row is visible if any value matches, an empty list means nothing is visible. **This is exactly how the service filters today** (mock users carry the attribute). | Documented; points (1) and (2) below to confirm |
+| Identity Directory SCIM API | `POST /scim/Users`, `PATCH /scim/Groups/{id}` (membership), attribute values via the extension `urn:sap:cloud:scim:schemas:extension:custom:2.0:User` (or the custom schema). Authentication: API client (secret or certificate) of an administrator of type *system* with the authorizations `Manage Users` / `Manage Groups`. | Documented |
+
+**Option 1 – IAS is the authorization store, administered from the monitor**
+
+A regional key user with the role `MonitorAdmin` opens an admin screen in the monitor and assigns a user their role group and sales orgs. The CAP service writes this to IAS through the SCIM API (group membership, `SalesOrg` attribute). The user gets the new scope at the next login (token).
+
+| Pros | Cons |
+|---|---|
+| One source of truth for identity, roles and scope | The CAP service holds a **tenant-wide `Manage Users` credential**. The IAS tenant is probably shared with other HYDAC applications and the AU Public Cloud, so HYDAC's identity owners must accept this |
+| Existing CAP filter unchanged | Effective only at the next token, not immediately |
+| Visible in the IAS admin console and audit log | Custom attributes 1–10 are single-valued: several sales orgs need a multi-valued custom-schema attribute or a delimited string that CAP splits |
+| Users can also be pre-registered in IAS from the screen (user record; the login still comes from the corporate IdP) | Attribute source "Identity Provider" is documented for SAML trust; to confirm for an OIDC trust |
+
+**Option 2 – data scope in the application, roles in IAS**
+
+Roles come from IAS groups as above, with no API. The sales-org assignment lives in an application table (`UserAssignments`: user, backend, sales org), maintained by regional key users in the same admin screen (a small Fiori Elements list, role `MonitorAdmin` per backend). The CAP filter reads the table instead of `$user.SalesOrg`.
+
+| Pros | Cons |
+|---|---|
+| No IAS credential in the application | Scope lives in the app, identity and roles in IAS (two places; one matrix, see "Consistency" below) |
+| Immediate effect, per-backend values and regional delegation are trivial | The user must exist (first login, or the admin enters the email in advance) |
+| Change log of assignments in the app, exportable for audits | Not visible in the IAS console |
+| Nothing to verify in the IdP setup | |
+
+**Recommendation:** Option 2 for the data scope, IAS groups for the roles, no user creation from the application (users come from the corporate IdP). The deciding factor is the credential: a tenant-wide `Manage Users` secret inside a business application is a finding in any security review, and it buys nothing that the table does not give faster and per backend. Option 1 only if HYDAC wants every authorization visible in IAS and its identity owners accept the credential. Static role collections with sales orgs maintained in the BTP cockpit remain the simplest interim solution for the first test users on DEV. ❓ Decision D10.
+
+**Common to both options**
+
+| Topic | How |
+|---|---|
+| Joiner / mover / leaver | Identity and role groups in the IdP, HYDAC's normal process. A leaver loses access everywhere at once; group administration can be delegated per region. |
+| Backend users | Principal propagation needs a matching backend user with matching authorizations. **S/4 on-premise:** existing SU01 / PFCG process, mapped by email or user ID. **AU Public Cloud:** business users with a business role restricted to the AU sales orgs; Public Cloud uses IAS as well, so it can be the same identity (❓ same tenant as BTP?). Optional: Identity Provisioning creates them from IdP groups. |
+| Consistency | One authorization matrix (role × region × sales org), owned by HYDAC, for IdP groups, the app or IAS scope, and the backend roles. Out of sync → "no authorization" on the step, never exposed data, because the CAP filter applies first. Quarterly review. |
+| Audit | BTP audit log (roles, trust), IdP/IAS logs (identity), app log (assignments, Option 2), backend change documents (master data, real user). |
+
+**To confirm during the identity setup** (not verifiable from the documentation alone): (1) SAML or OIDC trust between the subaccount and IAS, and attribute pass-through for role attributes under that trust; (2) a multi-valued custom-schema attribute arrives as multiple assertion values; (3) which IAS tenant HYDAC uses and whether the AU Public Cloud shares it.
 
 ### 6.6 Impact on the current solution
 
 | Area | Change | Size |
 |---|---|---|
-| Service contract | New read-only field `backendSystem` + code list (region texts), filter/column; qualified sales org values; error code `BACKEND_UNAVAILABLE` | Small (💡 needs agreement) |
+| Service contract | New read-only field `backendSystem` + code list (region texts), filter/column; error code `BACKEND_UNAVAILABLE`; entity `UserAssignments` for the admin screen (Option 2) or a stored sales-org key column (Option 1) | Small (💡 needs agreement) |
 | CAP facade | Backend registry and routing per request, customizing cache and delta sync per backend | Medium, on top of the existing seam (B-04) |
 | Backends | Backend contract (I-01…I-05) per backend type: EU on-premise (B-02/B-03), AU per option A or B | EU as planned; AU new |
-| UI | One additional filter and column | Small |
-| Roles (`xs-security.json`) | Unchanged roles; attribute source "Identity Provider" | Configuration |
+| UI | One additional filter and column; admin screen (Fiori Elements list on `UserAssignments`, role `MonitorAdmin`) | Small |
+| Roles (`xs-security.json`) | Unchanged roles; new role `MonitorAdmin` for the admin screen; attribute source "Identity Provider" (Option 1) or table `UserAssignments` (Option 2) | Small |
 
 ---
 
@@ -499,12 +548,12 @@ The table lists the recurring tasks. **"Owner" is for HYDAC to decide.** The pro
 
 | Area | Task | Frequency | Proposed owner | Owner (HYDAC decision) |
 |---|---|---|---|---|
-| **Users & roles** | Group membership (roles, sales orgs) in the corporate IdP per region | On joiner/mover/leaver | Regional HYDAC admins / key users | |
+| **Users & roles** | Role group membership in the corporate IdP; sales-org assignment in the monitor's admin screen (IAS attribute or app table, D10) | On joiner/mover/leaver | Regional HYDAC key users (`MonitorAdmin`) | |
 | | IdP ↔ Identity Services ↔ BTP trust, group → role collection mapping, attribute mapping | One-time + on change | HYDAC IT (identity) | |
 | | Authorization matrix role × region × sales org, periodic review | Quarterly | HYDAC IT + business owners | |
 | **Work Zone** | Site, tile, roles; refresh the content provider after a deployment | Per release | HYDAC BTP admin | |
 | **Cloud Connector** | Operation, upgrades, resources (paths), certificates (system + CA for principal propagation) | Quarterly / on expiry | HYDAC Basis | |
-| **Destinations / backends** | One destination per backend and stage; communication users for the sync; registry entry for a new backend | On change / password rotation | HYDAC BTP admin | |
+| **Destinations / backends** | One destination per backend and stage; registry entry for a new backend; optional communication user for a nightly resync | On change / certificate or password rotation | HYDAC BTP admin | |
 | **AU Public Cloud** | Communication arrangement, communication user, business users and roles | On change | HYDAC Australia IT | |
 | **HANA Cloud** | Instance size, start/stop of non-productive instances, upgrades (SAP-managed, scheduled by customer), backups (SAP-managed) | Monthly check | HYDAC BTP admin | |
 | **Application** | Monitor health, logs, alerts, sync status per backend; restart on incidents | Continuous (health check restarts automatically) | purplecat (AMS) or HYDAC IT | |
@@ -529,14 +578,14 @@ The table lists the recurring tasks. **"Owner" is for HYDAC to decide.** The pro
 |---|---|---|
 | D1 | Subaccount for development: FSM-DEV-CPI or a dedicated one; target subaccounts for QAS/PRD | DEV in FSM-DEV-CPI is fine; separate QAS/PRD subaccounts for the app |
 | D2 | Scope of our BTP roles | Space Developer + one-time subscriptions by HYDAC (no Org Manager needed) |
-| D3 | Authentication CAP → backends | Principal propagation; technical user only for the first DEV tests and for the read-only sync |
+| D3 | Authentication CAP → backends | Principal propagation for reads and writes; technical user only for the first DEV connectivity tests (and an optional nightly resync) |
 | D4 | S/4 service technology (E-07) and who builds it (B-02/B-03) | RAP, also because it can be reused for Australia |
 | D5 | Git platform and organization | GitHub (github.com), HYDAC-owned organization |
 | D6 | Reuse of cTMS tenant `ctms-hydac` | Yes, with nodes DEV → QAS → PRD |
 | D7 | HANA Cloud: new instance or shared existing instance | Shared instance if one exists |
 | D8 | Central or regional deployment (data residency) | Central, unless data residency requires regional |
 | D9 | Australia: option A (RAP in Public Cloud) or B (handling on BTP) | Option A, after a workshop with Gareth |
-| D10 | User management via IdP groups + Identity Services | Yes; static role collections only as an interim fallback |
+| D10 | User management: roles via IdP groups; sales-org scope in IAS via the SCIM API (Option 1) or in an app table (Option 2), both administered from the monitor | Option 2 for the scope, IAS groups for roles; static role collections only for the first test users |
 | D11 | Owners for the administration tasks (§7) | HYDAC to fill in the table |
 
 ## 9. Open questions for HYDAC
@@ -558,7 +607,7 @@ The table lists the recurring tasks. **"Owner" is for HYDAC to decide.** The pro
 2. purplecat deploys phase 1 (mock data) to the DEV space. This is the first end-to-end check of Work Zone, XSUAA and HANA Cloud, and the first chance for key users to click through.
 3. Decide E-07 and start the S/4 service (B-02/B-03) on Q4H/GWQ in parallel with the Cloud Connector setup.
 4. CAP adapter + replica (B-04/B-06) with the backend registry (§6.2), connection tests on DEV, then principal propagation.
-5. Identity setup: IdP ↔ Identity Services ↔ BTP, groups for roles and sales orgs (§6.5).
+5. Identity setup: IdP ↔ Identity Services ↔ BTP, groups for roles; sales-org scope per D10 (§6.5).
 6. Australia workshop (D9), then the AU backend contract.
 
 ---
