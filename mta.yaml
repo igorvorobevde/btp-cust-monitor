@@ -41,17 +41,15 @@ modules:
     requires:
       - name: kundenmonitor-btp-db
 
+  # Uploads the built UI to the HTML5 repository. The srv-api destination comes from the destination resource below;
+  # the deployer itself needs neither xsuaa nor srv-api.
   - name: kundenmonitor-btp-app-deployer
     type: com.sap.application.content
     path: gen
     requires:
-      - name: kundenmonitor-btp-auth
-      - name: srv-api
       - name: kundenmonitor-btp-html5-repo-host
         parameters:
           content-target: true
-          config:
-            HTML5Runtime_enabled: true
     build-parameters:
       build-result: app/
       requires:
@@ -59,25 +57,6 @@ modules:
           artifacts:
             - monitor.zip
           target-path: app/
-    parameters:
-      config:
-        HTML5Runtime_enabled: true
-        init_data:
-          instance:
-            existing_destinations_policy: update
-            destinations:
-              - Name: srv-api
-                URL: ~{srv-api/srv-url}
-                Authentication: NoAuthentication
-                Type: HTTP
-                ProxyType: Internet
-                HTML5.ForwardAuthToken: true
-                HTML5.DynamicDestination: true
-              - Name: ui5
-                URL: https://ui5.sap.com
-                Authentication: NoAuthentication
-                Type: HTTP
-                ProxyType: Internet
 
   - name: kundenmonitorbtpmonitor
     type: html5
@@ -163,16 +142,12 @@ resources:
           url: ~{srv-url}
           forwardAuthToken: true
 
+  # app-host only: the runtime comes with the managed approuter of SAP Build Work Zone (no app-runtime instance needed)
   - name: kundenmonitor-btp-html5-repo-host
     type: org.cloudfoundry.managed-service
     parameters:
       service: html5-apps-repo
       service-plan: app-host
-  - name: kundenmonitor-btp-html5-runtime
-    type: org.cloudfoundry.managed-service
-    parameters:
-      service: html5-apps-repo
-      service-plan: app-runtime
   # O-03: SAP Cloud Logging, opt-in (entitlement needed) – activate with -e mta-cloud-logging.mtaext;
   # CAP formats its logs for Cloud Logging automatically once bound (cds.env.log.aspects: cls)
   - name: kundenmonitor-btp-logging
