@@ -186,12 +186,15 @@ module.exports = class CustomerMonitorService extends cds.ApplicationService {
 			return where;
 		};
 
+		// Liest den Vorgang mit Zeilensperre (FOR UPDATE, R-01): zwei gleichzeitige Schritte oder Schritt + Bearbeitungsbeginn
+		// laufen auf HANA nacheinander; der zweite sieht das neue modifiedAt und scheitert an der ETag-Prüfung, bevor der Schritt
+		// (ab Phase 2: Aufrufe der Geschäftspartner-API) ausgeführt wird. SQLite kennt kein FOR UPDATE und serialisiert über die Verbindung.
 		const loadRequest = async (req, ID) => {
 			const query = SELECT.one.from(db.Requests, (r) => {
 				r`.*`;
 				r.admin((a) => a`.*`);
 				r.shipTo((s) => s`.*`);
-			}).where({ ID });
+			}).where({ ID }).forUpdate();
 			for (const w of visibilityWhere(req) || []) {
 				query.where(w);
 			}
@@ -360,12 +363,13 @@ module.exports = class CustomerMonitorService extends cds.ApplicationService {
 		// oder programmatisch. Änderungsprotokoll je geändertem Feld, Prozessart-Regel für admin/shipTo.
 		this.before("UPDATE", Requests, async (req) => {
 			const ID = req.data.ID ?? lastKey(req);
+			// Zeilensperre wie in loadRequest (R-01): Aktivierung und Schritt auf demselben Vorgang laufen nacheinander
 			const old = await SELECT.one.from(db.Requests, (r) => {
 				r`.*`;
 				r.salesData((s) => s`.*`);
 				r.admin((a) => a`.*`);
 				r.shipTo((s) => s`.*`);
-			}).where({ ID });
+			}).where({ ID }).forUpdate();
 			if (!old) {
 				req.reject(404);
 			}

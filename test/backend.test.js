@@ -41,6 +41,17 @@ describe("B-04 backend interface", () => {
 		expect(calls).toContainEqual({ fn: "executeStep", id: ID, step: "CLARIFY", params: { businessPartner: undefined, text: "Seam", force: true } });
 	});
 
+	test("two parallel step calls with the same ETag: one succeeds, one gets 412, executeStep runs once (R-01)", async () => {
+		const id = "a1b2c3d4-0000-4000-8000-000000000001";
+		const target = `${BASE}/Requests(ID=${id},IsActiveEntity=true)`;
+		const stale = (await GET(`${target}?$select=modifiedAt`, ALICE)).data["@odata.etag"];
+		const call = () => POST(`${target}/CustomerMonitorService.clarify`, { comment: "parallel" }, { ...ALICE, headers: { "If-Match": stale } })
+			.then((res) => res.status, (e) => e.response.status);
+		const statuses = (await Promise.all([call(), call()])).sort();
+		expect(statuses).toEqual([200, 412]);
+		expect(calls.filter((c) => c.fn === "executeStep" && c.id === id)).toHaveLength(1);
+	});
+
 	test("draft activation hands the field changes to saveChanges before the local write", async () => {
 		await POST(url(true, "/CustomerMonitorService.draftEdit"), { PreserveChanges: true }, { ...ALICE, headers: { "If-Match": await etag(true) } });
 		await PATCH(url(false), { name2: "Über die Schnittstelle" }, { ...ALICE, headers: { "If-Match": await etag(false) } });
