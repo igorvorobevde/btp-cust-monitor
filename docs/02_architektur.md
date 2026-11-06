@@ -71,7 +71,7 @@ kundenmonitor-btp/
 ├── .cdsrc.json
 ├── db/
 │   ├── schema.cds
-│   ├── data/               # CSV: Testvorgänge (Phase 1) + Customizing-Kopie (Initialbestand ab Phase 2, E-18)
+│   ├── data/               # CSV: nur Customizing-Kopie (Initialbestand, wird auch produktiv geladen, E-18)
 │   ├── src/.hdiconfig      # HDI-Konfiguration (O-02)
 │   └── undeploy.json
 ├── srv/
@@ -88,6 +88,7 @@ kundenmonitor-btp/
 │       ├── annotations.cds       # Layout: SelectionFields, LineItem, HeaderInfo, Facets, Aktionsgruppe
 │       └── webapp/               # Component, manifest, ext/ (Fragments, Controller-Extension), i18n, test/
 ├── test/                   # Service-Tests
+│   └── data/               # CSV: Testvorgänge, Protokoll, Mock-Geschäftspartner – nur Development-Profil, nie deployt (CAP-Konvention)
 ├── xs-security.json        # Rollen, Attribut SalesOrg (O-01, §5)
 ├── mta.yaml                # Deployment-Deskriptor (O-02, §7)
 └── mta-cloud-logging.mtaext # optionale Cloud-Logging-Bindung (O-03, §8)
@@ -124,7 +125,7 @@ Erzeugt mit `cds add hana,xsuaa,html5-repo,workzone,mta` (cds-dk 9) und an das P
 | Baustein | Datei / Modul | Hinweis |
 |---|---|---|
 | CAP-Service (Node.js) | `mta.yaml` → `kundenmonitor-btp-srv` (`gen/srv`) | Profil `production`: `db: hana`, `auth: xsuaa` (`package.json` → `cds.requires`); lokal bleiben SQLite in-memory und Mock-Auth (`.cdsrc.json`). Phase 2: `cds.requires.outbox` / Queue für die Notifications (E-17), Remote-Service `API_BUSINESS_PARTNER` mit `credentials.destination` je Backend |
-| SAP HANA Cloud (HDI) | `kundenmonitor-btp-db-deployer` (`gen/db`), `db/src/.hdiconfig`, `db/undeploy.json` | Drafts, Vorgänge, Customizing und Outbox liegen im HDI-Container (E-12, E-15). In Phase 1 deployt der Deployer auch die Demo-CSVs (`db/data`) – das System ist dann ein Mock mit Testdaten, kein Produktivsystem |
+| SAP HANA Cloud (HDI) | `kundenmonitor-btp-db-deployer` (`gen/db`), `db/src/.hdiconfig`, `db/undeploy.json` | Drafts, Vorgänge, Customizing und Outbox liegen im HDI-Container (E-12, E-15). Der Deployer lädt nur die Customizing-CSVs aus `db/data`; die Testvorgänge liegen in `test/data` und werden ausschließlich im Development-Profil geladen |
 | XSUAA | Ressource `kundenmonitor-btp-auth` → `xs-security.json` (O-01) | `xsappname` je Org/Space und Redirect-URIs aus `mta.yaml` (QAS/PRD: `mta-redirect-uris.mtaext`, §5); Phase 2 zusätzlich ein Service Key (Client Credentials) für den Magento-Eingang (E-16) |
 | HTML5-Repository + Managed Approuter | `kundenmonitorbtpmonitor` (`app/monitor`, `npm run build` → `ui5-deploy.yaml`), `kundenmonitor-btp-app-deployer`, `kundenmonitor-btp-destinations`, `app/monitor/xs-app.json` | `sap.cloud.service` = `kundenmonitorbtp.service`; Route `^/odata/` → Destination `srv-api` (Token-Weitergabe). Der Build schreibt die OData-URI im `manifest.json` relativ (`ui5-tasks/relative-odata-uri.js`), die Quelle bleibt absolut für `cds watch` |
 | Work-Zone-Kachel | `manifest.json` → `sap.app.crossNavigation` (Intent `Kundenmonitor-display`, Titel/Untertitel aus i18n) | Im Work-Zone-Content-Manager: Content-Provider „HTML5 Apps“ aktualisieren, App einer Gruppe/Rolle zuordnen; Role Collections aus O-01 an Benutzer bzw. Gruppen |
@@ -145,4 +146,4 @@ Voraussetzungen im Subaccount: Cloud-Foundry-Space, SAP HANA Cloud-Instanz (für
 - **Monitoring:** Instanz-Status, Neustarts und Speicher im BTP-Cockpit bzw. `cf app kundenmonitor-btp-srv`; Dashboards und Alarme in SAP Cloud Logging (bei Bindung). Fachliche Kennzahlen (offene/fehlerhafte Vorgänge) liefert die App selbst über die Sichten mit Zählern (F-26). Phase 2: Outbox-Status (`cds.outbox.Messages`: Status, Versuche, letzter Fehler) als Kennzahl für hängende Notifications.
 - **Datensicherung (ab Phase 2 geschäftskritisch, E-15):** SAP HANA Cloud sichert automatisch täglich (Datensicherung) und fortlaufend (Log-Backups, spätestens alle 15 min); Aufbewahrung standardmäßig 14 Tage, konfigurierbar 1–215 Tage je Instanz; Point-in-Time Recovery über HANA Cloud Central. Für PRD: Aufbewahrungsdauer nach HYDAC-Vorgabe setzen, Wiederherstellung einmal üben.
 - **Transport (DEV → QAS → PRD):** Ein Build, ein Archiv: `mbt build` erzeugt `kundenmonitor-btp_<version>.mtar`, das unverändert durch die Landschaft wandert. Empfohlen: SAP Cloud Transport Management mit den Knoten DEV, QAS, PRD (je Knoten Destination auf den Deploy-Service des Ziel-Spaces); das Archiv wird in DEV hochgeladen (manuell, per SAP Continuous Integration and Delivery oder `cTMS`-Upload) und nach Test in QAS importiert bzw. weitergeleitet. Ohne CTMS: `cf deploy` des gleichen Archivs in den jeweiligen Space. Space-spezifische Werte (z. B. Cloud-Logging-Bindung, Destinations je Backend) kommen über MTA-Extension-Deskriptoren, nicht über geänderte Archive. Vor jeder Weitergabe: Version in `mta.yaml`/`package.json` erhöhen.
-- **Datenstand Phase 1:** Der Deployer lädt die Demo-CSVs; vor einer produktiven Nutzung (Phase 2/3) die Testvorgänge aus `db/data` entfernen. Die Customizing-CSVs bleiben als Initialbestand der HANA-Tabellen (E-18) und werden danach nur noch über die Pflege-App geändert.
+- **Datenstand:** Testvorgänge, Protokoll und Mock-Geschäftspartner liegen in `test/data` und werden nur im Development-Profil geladen (CAP: `db/data` immer, `test/data` nur Entwicklung). Der Deployer lädt aus `db/data` ausschließlich die Customizing-CSVs als Initialbestand der HANA-Tabellen (E-18); danach werden sie nur noch über die Pflege-App geändert.

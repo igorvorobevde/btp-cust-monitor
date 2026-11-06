@@ -375,7 +375,7 @@ Implementiert in `srv/monitor-service.js` + `srv/lib/status-machine.js`; der Ser
 
 Das Customizing (`ProcessSteps`, `ApprovalRules`, `Steps` je Sprache) liest der Service einmal und hält es im Speicher; Änderungen an den CSVs wirken erst nach einem Neustart (Phase 2: Tabellen in HANA je `backendSystem`, Pflege-App, Cache mit Invalidierung beim Sichern, B-06).
 
-**Testdaten** (`db/data/*.csv`): mindestens ein Vorgang je Kombination
+**Testdaten** (`test/data/*.csv`, nur Development-Profil; Customizing in `db/data`): mindestens ein Vorgang je Kombination
 
 | # | processType | status | Besonderheit |
 |---|---|---|---|
@@ -432,7 +432,7 @@ Customizing-CSV = Kopie der Systemtabellen (Stand 19.10.2026, siehe 01).
 
 Customizing-Währung = EUR; `releaseLimit` wird in der Währung des Vorgangs (`currency`) angezeigt. Phase 2 muss die Regelwährung mitführen.
 
-**Mock-Stammdaten** (`db/data/hydac.custmon-MockBusinessPartners.csv`, nicht exponiert): BP-Nummer, Debitor, `hasCustomerRole`, `crmNumber`, `magentoCompany` – für BP-Prüfungen.
+**Mock-Stammdaten** (`test/data/hydac.custmon-MockBusinessPartners.csv`, nicht exponiert): BP-Nummer, Debitor, `hasCustomerRole`, `crmNumber`, `magentoCompany` – für BP-Prüfungen.
 Wichtige BPs für Schritte mit BP-Eingabe: `1000030` (Debitor 4000030, frei → keine Rückfrage), `1000002` (Debitor 4000002, Magento-Company 999 → `CONFIRM_REQUIRED`), `1000003` / `1000031` (keine Debitorrolle → `BP_NOT_CUSTOMER`), jede andere Nummer → `BP_NOT_FOUND`.
 
 **Simulation:**
