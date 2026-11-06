@@ -10,6 +10,8 @@ Dieses Dokument beschreibt **was** der Monitor fachlich tut. Die BTP-Lösung üb
 
 Magento sendet Registrierungen von Firmen, neue Shop-Benutzer und neue Lieferadressen an S/4HANA (`ZEC_CUSTOMER_CREATE_SRV`). S/4 legt daraus **keine Stammdaten direkt** an, sondern einen **Vorgang** (Tabelle `ZEC_CUSTOMER`). Der Innendienst prüft und vervollständigt den Vorgang im Monitor und löst über **Schritte** die Anlage bzw. Zuordnung von Geschäftspartner, Debitor, Ansprechpartner oder Warenempfänger aus. Ergebnisse werden per OData-Notification an Magento gemeldet.
 
+*Zielarchitektur (E-15, [02](02_architektur.md)):* dieselbe Fachlogik, aber der Vorgang entsteht und lebt auf BTP (HANA Cloud). Magento sendet an den CAP-Service, die Schritte rufen für die Stammdaten die Standard-API `API_BUSINESS_PARTNER` des jeweiligen S/4-Systems, und die Notifications sendet der CAP-Service nach dem Commit. Die Abschnitte 6.4 und 9 beschreiben das Altsystem; die Abbildung auf die Standard-API steht in [10](10_s4_schnittstelle.md) §3–§4.
+
 ## 2. Begriffe
 
 | Begriff | Bedeutung |
@@ -178,7 +180,7 @@ Typische Einträge: Eingang (006; 008 bei CR_DEB; 048 bei CH_AP), Freigabeergebn
 | REJECT | `ZEC_CUSTOMER_CREATE_SRV` / `RejectCusomterSet` (Schreibweise ist Vertragsbestandteil) | Magento-Company, Magento-Customer, Grund |
 | Debitorpflege mit Partnerrolle ZO (BAdI) | wie Kunde | Debitornummer |
 
-Notifications bleiben in Phase 1–2 Aufgabe von S/4. Die BTP-Lösung löst sie **nicht** selbst aus.
+Phase 1 sendet keine Notifications. Ab Phase 2 sendet sie der CAP-Service selbst (E-17: Outbox, Versand nach Commit, Ergebnis im Protokoll) an dieselben Magento-Ziele mit denselben Inhalten; S/4 ist nicht mehr beteiligt. Die Notification bei Debitorpflege mit Partnerrolle ZO (BAdI) ist nicht Teil des Monitors ([10](10_s4_schnittstelle.md) §4).
 
 ## 10. Berechtigungen (Alt)
 

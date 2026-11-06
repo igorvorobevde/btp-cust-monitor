@@ -1,6 +1,6 @@
 # 03 – Service-Vertrag (CAP, OData V4)
 
-Dieser Vertrag gilt für Phase 1 (Mock) **und** Phase 2 (Delegation an S/4) unverändert. Änderungen nur nach Abstimmung (siehe CLAUDE.md).
+Dieser Vertrag gilt für Phase 1 (Mock) **und** Phase 2 (Persistenz in HANA Cloud, S/4 nur über `API_BUSINESS_PARTNER`, E-15) unverändert. Änderungen nur nach Abstimmung (siehe CLAUDE.md). Der Eingang aus Magento ist ein eigener Service (`IntakeService`, [10](10_s4_schnittstelle.md) §2) und nicht Teil dieses Vertrags.
 
 - Service: `CustomerMonitorService`, Pfad `/odata/v4/monitor`
 - Sprache der Texte: über `Accept-Language` (CAP `localized`), Fallback EN
@@ -321,7 +321,7 @@ Je Schritt eine gebundene Aktion am **aktiven** Vorgang (`Requests(ID=…,IsActi
 | CHNG_OLD | `assignExistingCustomer(businessPartner)` | `canAssignExistingCustomer` | `businessPartner` Pflicht, 1–10 Ziffern | Parameterdialog; Rückfrage §5.3 |
 | CNG_DEBI | `changeCustomerAssignment(businessPartner)` | `canChangeCustomerAssignment` | `businessPartner` Pflicht, 1–10 Ziffern | Parameterdialog; Rückfrage §5.3 |
 
-Aktionen auf einem Entwurf (`IsActiveEntity=false`) → 400 `STEP_NOT_ALLOWED`; auf einem aktiven Vorgang mit vorhandenem Entwurf → 409 `DRAFT_ALREADY_EXISTS`. Phase 2: jede Aktion ruft `execute_function(step, …)` in S/4 (02 §6).
+Aktionen auf einem Entwurf (`IsActiveEntity=false`) → 400 `STEP_NOT_ALLOWED`; auf einem aktiven Vorgang mit vorhandenem Entwurf → 409 `DRAFT_ALREADY_EXISTS`. Phase 2: die Schrittlogik läuft in CAP; nur `createCustomer`, `createShipTo` und `modifyContact` rufen zusätzlich die Geschäftspartner-API des Backends ([10](10_s4_schnittstelle.md) §3), nicht erreichbar → 503 `BACKEND_UNAVAILABLE`.
 
 ### 5.1 Ergebnisse
 
@@ -371,9 +371,9 @@ Siehe [01_fachkonzept.md §6](01_fachkonzept.md#6-schritte). Zusätzlich im Mock
 
 ## 7. Mock-Verhalten (Phase 1)
 
-Implementiert in `srv/monitor-service.js` + `srv/lib/status-machine.js`; der Service erreicht das führende System nur über die Backend-Schnittstelle `srv/backend/` (B-04: `loadCustomizing`, `executeStep`, `saveChanges`; Phase 1 `mock.js`, Auswahl über `cds.requires.backend.kind`).
+Implementiert in `srv/monitor-service.js` + `srv/lib/status-machine.js`; der Service erreicht die Schrittlogik nur über die Backend-Schnittstelle `srv/backend/` (B-04: `loadCustomizing`, `executeStep`, `saveChanges`; Phase 1 `mock.js`, Auswahl über `cds.requires.backend.kind`). Mit E-15 wird diese Mock-Logik die Produktivlogik (B-02); nur die Stammdatenanlage kommt als Adapter auf `API_BUSINESS_PARTNER` hinzu (B-03).
 
-Das Customizing (`ProcessSteps`, `ApprovalRules`, `Steps` je Sprache) liest der Service einmal und hält es im Speicher; Änderungen an den CSVs wirken erst nach einem Neustart (Phase 2: Cache des S/4-Customizings mit Invalidierung, B-03).
+Das Customizing (`ProcessSteps`, `ApprovalRules`, `Steps` je Sprache) liest der Service einmal und hält es im Speicher; Änderungen an den CSVs wirken erst nach einem Neustart (Phase 2: Tabellen in HANA je `backendSystem`, Pflege-App, Cache mit Invalidierung beim Sichern, B-06).
 
 **Testdaten** (`db/data/*.csv`): mindestens ein Vorgang je Kombination
 
@@ -444,7 +444,7 @@ Wichtige BPs für Schritte mit BP-Eingabe: `1000030` (Debitor 4000030, frei → 
 - Meldungstexte (Fehler, `sap-messages`, Protokoll) aus `_i18n/messages*.properties` (EN/DE), Sprache aus `Accept-Language`.
 - `STEP_ABORTED` schreibt den Protokolleintrag (Typ `A`) in einer eigenen Transaktion nach dem Rollback.
 - Profil `opa` (`npm run start:test`): Auth `dummy` (privilegierter Benutzer, alle Rollen, alle VKORG) für Headless-Browsertests.
-- Entwürfe liegen in Phase 1 in der In-Memory-Datenbank und gehen bei jedem Neustart von `cds watch` verloren; ab Phase 2 ist eine persistente Datenbank (HANA Cloud) erforderlich (02 §2, E-14).
+- Entwürfe liegen in Phase 1 in der In-Memory-Datenbank und gehen bei jedem Neustart von `cds watch` verloren; ab Phase 2 ist HANA Cloud die persistente, führende Datenbank für Entwürfe und Vorgänge (02 §2, E-15).
 - Mock-User für Sperrtests: `carol` (MonitorViewer + MonitorEditor, VKORG 0001/2000/7050).
 
 ## 8. Codelisten, Texte, Kritikalität (F-11, siehe [09](09_migration_fiori_elements.md) §4.5)
@@ -497,7 +497,7 @@ Alle Elemente sind read-only; Texte folgen `Accept-Language` wie bei den übrige
 | Status-/Statusgruppen-/Prozessart-/Freigabetext | `Common.Text` + `TextArrangement #TextOnly` auf `status_code`, `statusGroup`, `processType`, `releaseState`, `releaseReason` | `Statuses.text`, `StatusGroups.text` (über `status/groupRef`, unmanaged Assoziation `Statuses.groupRef`), `ProcessTypes.text` (über `processTypeRef`), `ReleaseStates.text` (über `releaseStateRef`), `ReleaseReasons.text` (über `releaseReasonRef`) |
 | Wertehilfen mit festen Werten | `Common.ValueListWithFixedValues` + `Common.ValueList` auf `status_code`, `processType`, `statusGroup`, `releaseReason` | `Statuses`, `ProcessTypes`, `StatusGroups`, `ReleaseReasons` |
 | Wertehilfen VKORG / Quelle | `Common.ValueList` auf `salesOrganization`, `source` | `SalesOrganizations`, `Sources` (§3) |
-| Wertehilfe Geschäftspartner (B-05) | `Common.ValueList` auf dem Parameter `businessPartner` von `assignExistingCustomer` und `changeCustomerAssignment` (InOut `businessPartner`, Anzeige Name, Debitor, Debitorrolle, Magento-Company); `BusinessPartners` mit `@cds.search` auf Nummer, Name, Debitor | `BusinessPartners` (Phase 1: Mock-BPs; Phase 2: S/4-Geschäftspartner über Replik oder Remote-Service, gleiche Elemente). Alle Benutzer dürfen lesen (Stammdaten, keine VKORG-Einschränkung); Prüfung der Eingabe bleibt im Schritt (`BP_NOT_FOUND`, `BP_NOT_CUSTOMER`) |
+| Wertehilfe Geschäftspartner (B-05) | `Common.ValueList` auf dem Parameter `businessPartner` von `assignExistingCustomer` und `changeCustomerAssignment` (InOut `businessPartner`, Anzeige Name, Debitor, Debitorrolle, Magento-Company); `BusinessPartners` mit `@cds.search` auf Nummer, Name, Debitor | `BusinessPartners` (Phase 1: Mock-BPs; Phase 2: Abfrage über `API_BUSINESS_PARTNER` des Backends des Vorgangs plus lokale Magento-Zuordnung, gleiche Elemente, [10](10_s4_schnittstelle.md) §3.1). Alle Benutzer dürfen lesen (Stammdaten, keine VKORG-Einschränkung); Prüfung der Eingabe bleibt im Schritt (`BP_NOT_FOUND`, `BP_NOT_CUSTOMER`) |
 | Volltextsuche | `@cds.search: { name, name2, magentoCompany }` | `$search` der Liste |
 | Hilfsfelder | `@UI.Hidden` auf `statusCriticality`, `rowCriticality`, `releaseCriticality`, `editHidden`, `LogEntries.criticality` | nur für Kritikalität/Sichtbarkeit, nicht als Feld sichtbar |
 

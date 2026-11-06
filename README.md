@@ -5,11 +5,11 @@ Neuentwicklung des SAP-GUI-Kundenmonitors `ZEC_CUSTOMER_MONITOR` (HYDAC eCommerc
 | Schicht | Technologie |
 |---|---|
 | Frontend | SAP Fiori Elements für OData V4 (`sap.fe.templates`, List Report + Object Page, FlexibleColumnLayout), JavaScript-Extensions |
-| Service | SAP CAP (Node.js), OData V4 mit Draft – Fassade zu S/4HANA; UI-Semantik als CDS-Annotationen (Vertrag) |
-| Backend | S/4HANA: bestehende Logik `ZCL_EC_CUSTOMER` + Schrittklassen, neuer Remote-Service (Phase 2) |
-| Laufzeit | SAP BTP Cloud Foundry, XSUAA, Destination + Cloud Connector, HTML5 Repo / Work Zone, SAP HANA Cloud für Drafts und Replik (Phase 2/3) |
+| Service | SAP CAP (Node.js), OData V4 mit Draft – ab Phase 2 das führende System für die Vorgänge (E-15): Eingang aus Magento, Statusmaschine, Schritte, Notifications; UI-Semantik als CDS-Annotationen (Vertrag) |
+| Backend | S/4HANA (on-premise und Public Cloud) nur über die Standard-API `API_BUSINESS_PARTNER` für Geschäftspartner, Debitor, Ansprechpartner, Warenempfänger – keine Z-Schnittstellen |
+| Laufzeit | SAP BTP Cloud Foundry, XSUAA, Destination + Cloud Connector, HTML5 Repo / Work Zone, SAP HANA Cloud als persistente Datenbank (Vorgänge, Drafts, Customizing, Outbox; Phase 2/3) |
 
-**Aktuelle Phase: 1 – Frontend gegen CAP-Mock-Service** (Phase 1b, Migration auf Fiori Elements, abgeschlossen – siehe [docs/09](docs/09_migration_fiori_elements.md)). S/4 ist noch nicht angebunden; der CAP-Service liefert Testdaten und simuliert die Statuslogik anhand des Customizings.
+**Aktuelle Phase: 1 – Frontend gegen CAP-Mock-Service** (Phase 1b, Migration auf Fiori Elements, abgeschlossen – siehe [docs/09](docs/09_migration_fiori_elements.md)). S/4 ist noch nicht angebunden; der CAP-Service liefert Testdaten und simuliert die Statuslogik anhand des Customizings – diese Logik wird in Phase 2 die Produktivlogik.
 
 ## Dokumentation
 
@@ -24,8 +24,9 @@ Neuentwicklung des SAP-GUI-Kundenmonitors `ZEC_CUSTOMER_MONITOR` (HYDAC eCommerc
 | [docs/06_backlog.md](docs/06_backlog.md) | Arbeitspakete mit Akzeptanzkriterien | Planung, nächster Schritt |
 | [docs/07_anforderungen_aus_altsystem.md](docs/07_anforderungen_aus_altsystem.md) | Befunde im Altsystem → Anforderungen an die Neuentwicklung | Design-Entscheidungen |
 | [docs/08_demo_szenarien.md](docs/08_demo_szenarien.md) | Demo-Drehbuch: welcher Testvorgang zeigt welche Funktion | Demo vorbereiten |
-| [docs/09_migration_fiori_elements.md](docs/09_migration_fiori_elements.md) | Architektur und Entscheidungen der Migration auf Fiori Elements (EN) | Warum Draft, Aktionen je Schritt, Replik in Phase 2 |
-| [docs/10_s4_schnittstelle.md](docs/10_s4_schnittstelle.md) | Entwurf der S/4-Schnittstelle (Lesen, Delta, Funktionen, Versionszähler, Fehler), Entscheidungsvorlage E-07, Popups → Parameter | Phase 2 mit dem S/4-Team abstimmen |
+| [docs/09_migration_fiori_elements.md](docs/09_migration_fiori_elements.md) | Architektur und Entscheidungen der Migration auf Fiori Elements (EN) | Warum Draft, Aktionen je Schritt, HANA als führendes System in Phase 2 (D-15) |
+| [docs/10_s4_schnittstelle.md](docs/10_s4_schnittstelle.md) | Backend-Schnittstellen (Entwurf, E-15): Magento-Eingang, Schritte → `API_BUSINESS_PARTNER`, Notifications, Destinations, was in S/4 entfällt | Phase 2 mit HYDAC / TechDivision abstimmen |
+| [docs/11_design_review_hydac.md](docs/11_design_review_hydac.md) | Design-Review für HYDAC IT (EN): Fachdesign, Architektur, BTP-Setup, Integration, Multi-Region, Administration, Entscheidungen | Abstimmung mit HYDAC |
 
 Referenz Altsystem: Confluence EXTHYDAC › Australien › *Kundenmonitor (ZEC_CUSTOMER_MONITOR) – Technische und fachliche Dokumentation*
 (https://techdivision.atlassian.net/wiki/spaces/EXTHYDAC/pages/2419851266)

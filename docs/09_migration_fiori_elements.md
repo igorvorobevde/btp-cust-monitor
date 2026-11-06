@@ -14,7 +14,7 @@ disagree, this document wins until those documents have been rewritten (F-15, F-
 |---|---|
 | Less custom code to maintain | ~2,100 lines of JS/XML (plus 620 lines of tests) become ~300 lines of FE extensions plus ~250 lines of annotations. Formatter, FilterBuilder, StepService, ErrorHandler, dialogs and controllers disappear. |
 | Standard Fiori UX / launchpad fit | Filter bar, table, object page, messages, data-loss dialogs, FCL, personalisation come from `sap.fe.templates`; the app behaves like other Fiori apps in Work Zone. |
-| Alignment with S/4 phase 2 | All UI semantics live in CDS annotations in the CAP service. When the real S/4 service is connected, the UI does not change (rule 8, "mock = contract"). |
+| Alignment with phase 2 | All UI semantics live in CDS annotations in the CAP service. When the persistence moves to HANA Cloud and the S/4 business-partner API is connected (D-15), the UI does not change (rule 8, "mock = contract"). |
 
 Reference style: the Purplecat project `jowat-webshop-registration-main` (one bound action per status transition,
 status as a code list, annotations in `app/annotations.cds`, no hand-written UI). The folder is kept in the repo root as an
@@ -29,7 +29,8 @@ untracked reference only (`.gitignore`).
 | D-3 | **Backend stays JavaScript** (no TypeScript / cds-typer in this migration). | Only annotations, actions, fields and handler changes in `srv/`. |
 | D-4 | This document is written in **English**; docs 01–08 stay German. | — |
 | D-5 | **`Requests` becomes draft-enabled** (E-12). FE V4 Object Page editing exists only for draft (or sticky-session) entity sets — verified in the `sap.fe` 1.148.12 sources (`HeaderAndFooterAction`, `TransactionHelper`) and SAP documentation. A non-draft edit flow would have to be hand-written (~600 lines) and would forfeit most FE benefits. | Composite key `ID` + `IsActiveEntity`, draft actions, draft lock while editing; E-05 reworded; a persistent database is required from phase 2. |
-| D-6 | **Phase 2 = replication** (E-14): CAP keeps a HANA replica of `Requests` (+ `salesData`, `admin`, `shipTo`, `log`) with write-through after every S/4 call and a delta pull on list reads. S/4 remains system of record for steps and master-data creation (E-06 unchanged). This is needed **with or without draft**: CAP's generic ETag validation for bound actions and the draft lock query run directly against the local table. | SAP HANA Cloud becomes a required BTP service (phase 2/3); new backlog item B-06. |
+| D-6 | **Phase 2 = replication** (E-14) — *superseded by D-15 on 2026-11-06, kept for history*: CAP keeps a HANA replica of `Requests` (+ `salesData`, `admin`, `shipTo`, `log`) with write-through after every S/4 call and a delta pull on list reads. S/4 remains system of record for steps and master-data creation (E-06 unchanged). This is needed **with or without draft**: CAP's generic ETag validation for bound actions and the draft lock query run directly against the local table. | SAP HANA Cloud becomes a required BTP service (phase 2/3); new backlog item B-06. |
+| D-15 | **BTP is the system of record** (E-15, 2026-11-06): the requests, their working data, the log, the customizing (steps, approval rules, texts) and the Magento mapping live in **SAP HANA Cloud**. Magento sends registrations to the CAP service; the step logic (today's status machine) runs in CAP; the master-data steps call the **standard** Business Partner API (`API_BUSINESS_PARTNER`) of the request's S/4 system; notifications to Magento are sent by CAP after the commit through the persistent outbox. **No custom (Z) service in S/4**, neither on-premise nor in the Public Cloud. Replaces D-6/E-14 (replica), E-06 (logic in S/4) and E-07 (RAP vs SEGW). | §7 rewritten. `srv/backend/` keeps its seam: the mock adapter's step logic becomes the production implementation, a thin S/4 adapter covers only the business-partner calls. [02](02_architektur.md) E-15, [10](10_s4_schnittstelle.md) rewritten, backlog B-01 … B-08 rewritten. |
 | D-7 | **Worklist views in one list**: five SelectionVariants (Meine Arbeit, Fehler, Klärung, Freigabe, Alle) via manifest `views.paths`, no default filter. | Replaces the `SPV#Default` default filter; [spec](superpowers/specs/2026-10-25-worklist-design.md) §7, F-26. |
 | D-8 | **`waitingSince` = waiting time in the current state**, set on every state change (status, Klärung, Freigabe), not creation time. | Backend field plus virtual `waitingText`; [03](03_service_vertrag.md). |
 | D-9 | **Next step is a backend recommendation** (`nextStep`/`nextStepText` from the status machine); the UI shows it, never derives it. | Rule 7; priority list in [03](03_service_vertrag.md), F-24. |
@@ -57,7 +58,7 @@ Work Zone / Approuter
         ├─ srv/monitor-service.js         after-READ flags, generic action dispatcher, strict handling,
         │                                  EDIT guard, activation change log
         └─ srv/lib/status-machine.js      UNCHANGED
-   Phase 1: SQLite in-memory (drafts volatile)   |   Phase 2: HANA replica ⇄ S/4 (get_functions / execute_function / change_data)
+   Phase 1: SQLite in-memory (drafts volatile)   |   Phase 2: HANA Cloud = system of record; S/4 only via API_BUSINESS_PARTNER (D-15)
 ```
 
 Annotation ownership (E-13): everything in `srv/monitor-annotations.cds` is part of the service contract (labels, texts,
@@ -297,29 +298,34 @@ throwaway branch in parallel with F-11/F-12 and gates F-16.
 | F-20 | OPA journeys with `sap.fe.test` | frontend |
 | F-21 | Cutover: delete freestyle app, rename, docs 04/05/06/08, README, CLAUDE.md final | both |
 | F-22 | Polish (column widths, pop-in, tooltips, empty states, keyboard, deep-link docs, draft-lock note) | frontend |
-| B-06 | Phase 2: replication & delta sync (E-14) | backend |
+| B-06 | Phase 2: persistence in HANA Cloud, customizing tables, outbox (E-15, D-15) | backend |
 
 Effort indication (one developer, excluding the S/4 side): backend F-11 … F-15 ≈ 5–7 days, frontend F-16 … F-20 ≈ 6–8 days,
 spike 1–2 days, cutover + polish 2–3 days.
 
-## 7. Phase 2: facade with replica (E-14)
+## 7. Phase 2: HANA Cloud as system of record, S/4 through standard APIs (E-15 / D-15)
 
-CAP's generic mechanisms assume local rows: the ETag validation for bound actions (`validate_etag`) and lean draft's
-EDIT lock (`SELECT … FOR UPDATE NOWAIT`) query `cds.db` directly. A pure pass-through facade without local data would
-therefore fail on every `draftEdit` and every step action — independent of the draft decision. Hence E-14:
+History: E-14 (2026-10-22) planned a HANA **replica** with S/4 as system of record and a custom S/4 service
+(`get_functions` / `execute_function` / `change_data`), because CAP's generic mechanisms assume local rows: the ETag
+validation for bound actions (`validate_etag`) and lean draft's EDIT lock (`SELECT … FOR UPDATE NOWAIT`) query `cds.db`
+directly. On 2026-11-06 HYDAC's direction replaced it (D-15): **no custom (Z) interfaces in S/4, the request buffer lives
+in HANA Cloud on BTP.** The argument behind E-14 now holds trivially — the rows *are* local — and the custom S/4 service,
+the delta sync and the version counter disappear.
 
-| Contract element | Facade behaviour |
+| Contract element | Phase 2 behaviour |
 |---|---|
-| 11 bound actions | `ACTION_STEPS[event]` → S/4 `execute_function(guid, step, { text, businessPartner, force })`, `force = !strict`; an S/4 question is returned as the same 412 strict response; the returned record is upserted locally (S/4 version counter → `modifiedAt`) |
-| `can*` flags | single read: `get_functions(guid)`; list: flags computed locally from the replicated `ZEC_CUST_PROCESS` customizing (same `sm.availableStepCodes`) or from an `AVAILABLE_STEPS` column of the S/4 list service |
-| Draft editing | local draft tables; `draftEdit` lock and ETag on the replica; activation `before UPDATE` → S/4 `change_data` (+ change log), then the local UPDATE |
-| `statusGroup`, `releaseState`, criticality, value helps | evaluated locally on the replica (no filter translation) |
-| Synchronisation | delta pull on list read (changed since last sync via S/4 delta query or version counter) and after each S/4 call; full resync job; S/4 version conflict → 412 |
+| 11 bound actions | `ACTION_STEPS[event]` → status machine + step handlers in CAP (the logic of `srv/backend/mock.js`, promoted to production code). `CREATE`, `CREATE_WE` and `AP_MODIFY` additionally call the S/4 adapter (business partner API of the request's backend) and persist returned numbers immediately (R-11). Questions stay 412 strict. Steps are serialized per request by the ETag plus a row lock in the same transaction (R-01). |
+| `can*` flags, `nextStep`, `isEditable` | computed locally from the customizing tables in HANA, per `backendSystem` — unchanged code |
+| Draft editing | local draft tables; `draftEdit` lock and ETag on the request; activation writes the change log locally (already implemented) |
+| `statusGroup`, `releaseState`, criticality, code lists | local, unchanged |
+| Business partner value help | remote query to the request's backend (`API_BUSINESS_PARTNER`, `$filter` on number / name) joined with the local Magento mapping; no replica of business partners |
+| **Intake** (new, outside the UI contract) | `IntakeService`: a second CAP service with a technical client (XSUAA client credentials; optionally behind an SAP API Management proxy). It accepts the three Magento inputs in today's payload structure, creates the request, runs the approval check and writes the "Eingang" log entries — the logic the mock already applies to the CSV test data. Idempotent on the Magento IDs. |
+| **Notifications** (new) | CAP persistent outbox (`cds.queued` / `cds.outboxed`; the outbox table shares the HANA transaction with the business data) → HTTP destination per Magento shop (`MAGENTO_EU`, `MAGENTO_US`, `MAGENTO_AU`). Sent only after the commit, retried automatically, result written to the request log (R-03 / R-04). A `resendNotification` action can follow. |
+| **Customizing** (new) | `ProcessSteps`, `ApprovalRules`, `Steps`, `Statuses` texts keyed by `backendSystem`, maintained in a small Fiori Elements admin list (role `MonitorAdmin`); initial content is the CSV copy of `ZEC_CUST_*` that already ships in `db/data`. Cached per backend with invalidation on save. |
 
-Seam already in place (B-04, phase 1): `srv/backend/index.js` defines the interface the facade uses — `loadCustomizing(req)`, `executeStep(request, step, params, ctx)` (→ `execute_function`), `saveChanges(request, changes, ctx)` (→ `change_data`, called in the activation handler before the local UPDATE). `srv/backend/mock.js` implements it with the status machine; an S/4 adapter is registered with `registerBackend("s4", …)` and selected via `cds.requires.backend.kind`. Flags, editability and the recommendation stay local on the replica (`sm.availableStepCodes`, `sm.isEditable`, `sm.recommendedStep`). `test/backend.test.js` proves that steps and activation pass through the interface.
+Seam already in place (B-04, phase 1): `srv/backend/index.js` defines `loadCustomizing(req)`, `executeStep(request, step, params, ctx)` and `saveChanges(request, changes, ctx)`. The mock adapter implements it with the status machine; under D-15 this implementation **is** the production step logic. The only remote dependency is the business-partner API, wrapped in a thin module (`srv/backend/s4-bp.js`): `cds import API_BUSINESS_PARTNER.edmx` (kind `odata-v2`), one destination per backend, SAP Cloud SDK underneath for destination lookup, Cloud Connector and principal propagation, and `cds mock` / CSVs in `srv/external/data` for local development. CAP lists OData V2 outbound as deprecated, so the wrapper stays thin enough to switch to the SAP Cloud SDK OData V2 client without touching the steps. `test/backend.test.js` continues to prove that steps and activation pass through the interface.
 
-Requirements for the S/4 service (addition to [02](02_architektur.md) §6): delta read (changed-since), version counter per
-request, `get_functions` / `execute_function` / `change_data` as remote functions without GUI popups.
+What S/4 must provide (details in [10](10_s4_schnittstelle.md)): the activated standard service `API_BUSINESS_PARTNER` (on-premise: `/IWFND/MAINT_SERVICE` plus the Cloud Connector path; Public Cloud: communication arrangement `SAP_COM_0008`), users or a communication user with business-partner creation authorizations, and custom fields where the legacy step classes wrote Z fields. Nothing else.
 
 ## 8. Risks and spike
 
@@ -373,4 +379,6 @@ _To be filled during F-11/F-12._
 | Draft | FE/CAP editing copy of a request (`IsActiveEntity = false`), owned and locked by one user until *Sichern* (activate) or *Abbrechen* (discard) |
 | Strict handling | OData preference `handling=strict`; the server answers a business question with 412 + `Preference-Applied: handling=strict`, the client confirms by repeating the call without the preference |
 | `can*` flag | virtual Boolean per step action, computed by the backend from customizing, status, release state and roles; bound to `Core.OperationAvailable` |
-| Replica | local HANA copy of the request data in phase 2, kept in sync with S/4 (system of record) by write-through and delta pulls |
+| Replica (obsolete) | the E-14 plan of a local HANA copy synced with S/4; superseded by D-15 — HANA Cloud *is* the system of record, there is nothing to replicate |
+| Outbox | CAP's persistent queue for deferred remote calls (notifications to Magento): written in the same transaction as the business data, delivered after the commit with retries |
+| Intake | the CAP service through which Magento delivers registrations, shop users and delivery addresses (replaces `ZEC_CUSTOMER_CREATE_SRV`) |
