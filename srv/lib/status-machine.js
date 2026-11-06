@@ -257,9 +257,9 @@ function executeStep(step, request, params, ctx) {
 				status_code: def.successStatus || "120"
 			});
 			result.adminChanges.contactPersonNumber = null;
-			// R-02: Freigabe nach Prozessartwechsel neu prüfen
+			// R-02: Freigabe nach Prozessartwechsel neu prüfen; automatische Freigabe wie beim Eingang mit SYSTEM/jetzt stempeln
 			const release = checkRelease({ ...request, processType: "CR_DEB" }, ctx.approvalRules);
-			Object.assign(rc, release, release.released ? {} : { releasedBy: null, releasedAt: null });
+			Object.assign(rc, release, release.released ? { releasedBy: "SYSTEM", releasedAt: ctx.now } : { releasedBy: null, releasedAt: null });
 			msg("S", "LOG_CNG_NEW");
 			msg(release.released ? "S" : "W", release.released ? "LOG_RELEASE_OK" : "LOG_RELEASE_REQUIRED");
 			break;

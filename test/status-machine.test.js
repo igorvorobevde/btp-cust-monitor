@@ -127,7 +127,14 @@ describe("executeStep", () => {
 
 	test("CNG_NEW re-checks release (R-02)", () => {
 		const result = sm.executeStep("CNG_NEW", request({ processType: "CH_DEB", salesOrganization: "0001", orderVolume: 9000 }), {}, ctx());
-		expect(result.requestChanges).toMatchObject({ processType: "CR_DEB", status_code: "120", released: false });
+		expect(result.requestChanges).toMatchObject({ processType: "CR_DEB", status_code: "120", released: false, releasedBy: null, releasedAt: null });
+	});
+
+	test("CNG_NEW with automatic release stamps SYSTEM/now, not the earlier decision", () => {
+		const earlier = request({ processType: "CH_DEB", salesOrganization: "0001", orderVolume: 100, released: true, releaseProcedure: "NOT_REL",
+			releasedBy: "SYSTEM", releasedAt: "2026-10-15T08:00:00.000Z" });
+		const result = sm.executeStep("CNG_NEW", earlier, {}, ctx());
+		expect(result.requestChanges).toMatchObject({ released: true, releaseProcedure: "AUTOMATIC", releasedBy: "SYSTEM", releasedAt: "2026-10-19T10:00:00.000Z" });
 	});
 
 	test("CNG_DEBI: BP checks and CONFIRM_REQUIRED (R-06)", () => {
