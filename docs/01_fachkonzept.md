@@ -134,7 +134,7 @@ Werden zusätzlich zu 6.2 angeboten (Reihenfolge der Prüfung):
 
 | Funktion | Angeboten wenn | Wirkung |
 |---|---|---|
-| `RESET` – Erneut bearbeiten | Status 8xx/9xx (dann **nur** RESET) | Mappings löschen; `CR_DEB` → `CH_DEB`/000; `CR_WE` → 010; sonst 000. Sonderfall: abgelehnter `CR_DEB` ohne Debitor → `CR_DEB`/120 |
+| `RESET` – Erneut bearbeiten | Status 8xx/9xx (dann **nur** RESET) | Mappings löschen; `CR_DEB` → `CH_DEB`/000; `CR_WE` → 010; sonst 000. Sonderfall: `CR_DEB` **ohne Debitor** → `CR_DEB`/120 (Altsystem nur bei abgelehnten; die Neuentwicklung auch bei manuell erledigten, R-17 in [07](07_anforderungen_aus_altsystem.md)) |
 | `RELEASE` – Freigeben | nicht freigegeben (dann **nur** RELEASE + REJECT) | Bestätigung; freigegeben mit `RELPROC = MANUAL` |
 | `CLARIFY` – In Klärung | Status 000 und noch nicht in Klärung | Pflichtkommentar; Kennzeichen setzen; Status bleibt |
 

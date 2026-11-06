@@ -59,7 +59,7 @@ Menü **Schritt ausführen** im Kopf; inaktive Einträge = vom Backend nicht erl
 | In Klärung | #1 Müller Hydraulik | Kommentar Pflicht (max. 100), Hinweis im Kopf |
 | Anfrage ablehnen | #19 Göteborg Maskin | Begründung Pflicht, Status „Abgelehnt“ (Vorgang verschwindet aus der Standardliste) |
 | Manuell erledigen | #15 Lindner Automation | Status „Manuell erledigt“ |
-| Erneut bearbeiten | #11 (CR_DEB ohne Debitor → 120), #21 (CR_WE → 010), #23 / #24 (→ Bestehender Debitor / 000) | Bestätigung, dann neuer Status |
+| Erneut bearbeiten | #11 / #22 (CR_DEB ohne Debitor, abgelehnt bzw. manuell erledigt → 120), #21 (CR_WE → 010), #23 / #24 (→ Bestehender Debitor / 000) | Bestätigung, dann neuer Status |
 
 Freigabegrund nach Schritten (Spalte bzw. Reiter Zuordnung → Freigabe): nach „Freigeben“ auf #2 „Manuell freigegeben“; „Umwandeln in Neukunde“ auf #26 → „Bestellvolumen innerhalb des Limits“ (freigegeben), auf #5 → „Kein Bestellvolumen“ (nicht freigegeben). Nach jedem Schritt wechselt der Vorgang beim Zurückgehen die Registerkarte, die Zähler ändern sich ohne **Start**.
 

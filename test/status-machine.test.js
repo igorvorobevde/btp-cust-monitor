@@ -125,6 +125,13 @@ describe("executeStep", () => {
 			.toEqual({ status_code: "010", waitingSince: "2026-10-19T10:00:00.000Z" });
 	});
 
+	test("RESET of a CR_DEB without Debitor → CR_DEB/120, whether rejected or manually completed (R-17)", () => {
+		for (const status_code of ["899", "998"]) {
+			expect(sm.executeStep("RESET", request({ status_code, customer: null }), {}, ctx()).requestChanges)
+				.toEqual({ processType: "CR_DEB", status_code: "120", waitingSince: "2026-10-19T10:00:00.000Z" });
+		}
+	});
+
 	test("CNG_NEW re-checks release (R-02)", () => {
 		const result = sm.executeStep("CNG_NEW", request({ processType: "CH_DEB", salesOrganization: "0001", orderVolume: 9000 }), {}, ctx());
 		expect(result.requestChanges).toMatchObject({ processType: "CR_DEB", status_code: "120", released: false, releasedBy: null, releasedAt: null });

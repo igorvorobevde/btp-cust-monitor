@@ -400,7 +400,7 @@ Das Customizing (`ProcessSteps`, `ApprovalRules`, `Steps` je Sprache) liest der 
 | 19 | CR_AP | 000 | VKORG 7050, **nicht** freigegeben |
 | 20 | CR_WE | 010 | VKORG 0001, freigegeben, Adresse in Auftrag verwendet |
 | 21 | CR_WE | 999 | Warenempfänger 4200021 angelegt (RESET → 010) |
-| 22 | CR_DEB | 998 | manuell erledigt |
+| 22 | CR_DEB | 998 | manuell erledigt, ohne Debitor (RESET → CR_DEB/120, R-17) |
 | 23 | CH_DEB | 899 | abgelehnt, mit Debitor (RESET → CH_DEB/000) |
 | 24 | CR_DEB | 999 | Debitor angelegt (RESET → CH_DEB/000) |
 | 25 | CH_AP | 997 | VKORG 2000 |

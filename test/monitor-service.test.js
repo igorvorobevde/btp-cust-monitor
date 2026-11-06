@@ -379,6 +379,12 @@ describe("F-13 step actions per process type", () => {
 		expect(await flags(10)).toEqual(only("canReset"));
 		expect((await invoke(10, "reset")).data.status_code).toBe("000");
 	});
+
+	test("CR_DEB: manually completed 998 without Debitor → reset → CR_DEB/120, not CH_DEB without customer (R-17)", async () => {
+		const { data } = await invoke(22, "reset");
+		expect(data).toMatchObject({ processType: "CR_DEB", status_code: "120", customer: null });
+		expect(await flags(22)).toEqual(only("canCreateCustomer", "canReject", "canCompleteManually", "canAssignExistingCustomer"));
+	});
 });
 
 describe("F-13 BP steps and confirmations", () => {

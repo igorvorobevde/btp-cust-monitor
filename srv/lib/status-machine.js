@@ -234,8 +234,8 @@ function executeStep(step, request, params, ctx) {
 			break;
 
 		case "RESET": {
-			// 01 §6.3: Sonderfall abgelehnter CR_DEB ohne Debitor → CR_DEB/120
-			if (request.processType === "CR_DEB" && /^8/.test(request.status_code) && !request.customer) {
+			// 01 §6.3 / R-17: CR_DEB ohne Debitor (abgelehnt oder manuell erledigt) → CR_DEB/120; mit Debitor → CH_DEB/000
+			if (request.processType === "CR_DEB" && !request.customer) {
 				Object.assign(rc, { processType: "CR_DEB", status_code: "120" });
 			} else if (request.processType === "CR_DEB") {
 				Object.assign(rc, { processType: "CH_DEB", status_code: "000" });
