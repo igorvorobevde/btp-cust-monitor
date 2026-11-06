@@ -155,7 +155,7 @@ Tool-Versionen sind in den `package.json` gepinnt (Stand 19.10.2026): `@sap/cds`
 
 - Root: `cds watch` startet Service (Port 4004); `cds-plugin-ui5` served die Apps über UI5-Tooling-Middlewares → FE-App unter `http://localhost:4004/monitor/index.html` (Mount-Pfad in `app/monitor/ui5.yaml`).
 - `ui5.yaml` hat bewusst keinen `framework`-Abschnitt: `index.html` und Testseiten laden SAPUI5 (inkl. `sap.fe.*`) vom CDN. `index.html` setzt `xx-component-preload="off"` und `flexibility-services` auf `SessionStorageConnector` (lokal keine Flex-404s; in Work Zone liefert das Launchpad den Flex-Service).
-- Mock-Benutzer: `alice` (Editor + Releaser, VKORG 0001/2000/7050), `bob` (Viewer, VKORG 0001), `carol` (Editor, Sperrtests) in `.cdsrc.json` (`[development]`).
+- Mock-Benutzer: `alice` (Editor + Releaser, VKORG 0001/2000/7050), `bob` (Viewer, VKORG 0001), `carol` (Editor, Sperrtests) in `package.json` (`cds.requires.[development].auth.users`).
 - Headless-Prüfung ohne Browserfenster: `scripts/fe-console.sh [pfad#hash] [budget-ms]` startet den Mock (Profil `opa`), lädt die Seite in Headless Chrome und gibt Konsolenfehler, DOM-Kurzfassung und Screenshot aus (`$TMPDIR/fe-console/shot.png`). `test/debug.html` ergänzt JS-Stacks zu Konsolenfehlern und meldet doppelte mdc-Property-Keys (`DUPKEYS`).
 - Bekannte, harmlose Konsolenzeile im Standalone-Lauf: „S/CUBE is not yet supported“ (`sap.fe.core` ContextSharingService versucht, sich am SAP-Insights-Kanal zu registrieren; nur mit Launchpad vorhanden).
 - Netzwerk-Inspektion: `$batch`-Requests im Browser-Devtools prüfen; ETag im `If-Match`-Header sichtbar; Aktionen senden `Prefer: handling=strict` ([03 §5.3](03_service_vertrag.md)).

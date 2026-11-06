@@ -67,8 +67,8 @@ kundenmonitor-btp/
 ├── CLAUDE.md
 ├── README.md
 ├── docs/
-├── package.json            # CAP-Root, npm workspaces ["app/*"]
-├── .cdsrc.json
+├── package.json            # CAP-Root, npm workspaces ["app/*"]; Abschnitt "cds": Profile [development] (Mock-User), [opa], [production], Draft-Optionen
+├── eslint.config.mjs       # cds lint (@sap/eslint-plugin-cds) für db/ und srv/
 ├── db/
 │   ├── schema.cds
 │   ├── data/               # CSV: nur Customizing-Kopie (Initialbestand, wird auch produktiv geladen, E-18)
@@ -106,7 +106,7 @@ kundenmonitor-btp/
 - Attribut `SalesOrg` (Liste von VKORG) am Benutzer; CAP filtert per `@restrict … where: 'salesOrganization = $user.SalesOrg'` (Verhalten bei mehrwertigen Attributen beim Setup gegen die aktuelle CAP-Doku prüfen). Ersetzt `V_KNA1_VKO` + `V_VBAK_VKO` durch **eine** Regel (siehe [07](07_anforderungen_aus_altsystem.md), R-08). Ab Phase 2b alternativ Tabelle `UserAssignments` (Benutzer, Backend, VKORG), siehe [11](11_design_review_hydac.md) §6.5.
 - Umsetzung (O-01): `xs-security.json` mit Scopes/Role Templates `MonitorViewer`, `MonitorEditor`, `MonitorReleaser` (jede mit Attribut `SalesOrg`) und Role Collections `Kundenmonitor_Viewer`, `Kundenmonitor_Editor`, `Kundenmonitor_Releaser` (jeweils inkl. Viewer, da der Service `MonitorViewer` verlangt). `SalesOrg` ist optional: ohne Wert sieht der Benutzer nichts (fail closed); Werte pflegt der Admin je Rolle im Cockpit (statisch oder IdP-Mapping). `MonitorReleaser` prüft nur der Handler, daher fehlt er in `cds compile --to xsuaa` – `test/xs-security.test.js` sichert die Datei gegen Modell und Mock-User ab. **Redirect-URIs** (Code-Review 06.11.2026): kein landschaftsweiter Wildcard (`https://*.hana.ondemand.com/**` ließe jede App der Landschaft als Login-Ziel zu); `xs-security.json` enthält nur den Business-Application-Studio-Eintrag, `mta.yaml` setzt `https://*.${default-domain}/**` (DEV), und für QAS/PRD wird der Work-Zone-Host per `mta-redirect-uris.mtaext` eingetragen.
 - Phase 2: Principal Propagation für die Geschäftspartner-API, damit S/4 die Anlageberechtigung des echten Benutzers prüft und Änderungsbelege auf ihn laufen. Da die Vorgänge in HANA liegen, ist der CAP-Filter die einzige Leseberechtigung – es gibt keinen zweiten Lesepfad.
-- Phase 1: Mock-User in `.cdsrc.json` (`alice` = alle Rollen, VKORG 0001/2000/7050; `bob` = Viewer, VKORG 0001).
+- Phase 1: Mock-User in `package.json` (`cds.requires.[development].auth.users`: `alice` = alle Rollen, VKORG 0001/2000/7050; `bob` = Viewer, VKORG 0001; `carol` = Editor). Die gesamte CAP-Konfiguration liegt seit 06.11.2026 in einem Ort (`package.json`, Profile `[development]`, `[opa]`, `[production]`); `.cdsrc-private.json` bleibt für lokale Geheimnisse (nicht versioniert).
 
 ## 6. Phase 2 – Anbindung an S/4 über Standard-APIs (E-15)
 

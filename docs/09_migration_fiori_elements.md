@@ -167,10 +167,10 @@ for `BP_NOT_FOUND`/`BP_NOT_CUSTOMER` (FE highlights the dialog field).
   - `before('UPDATE', Requests)` = activation: child `before UPDATE` handlers do **not** fire for the deep payload, so the root handler diffs `req.data` and `req.data.salesData/admin/shipTo` against the old rows and writes one log entry per changed field (`salesData.` / `admin.` / `shipTo.` prefix). Process-type rule (`admin` only when ≠ CR_WE, `shipTo` only when CR_WE) → `409 NOT_EDITABLE`. CAP bumps root and child `modifiedAt`. The manual If-Match/`*` rejection and the parent-ETag bump before commit are obsolete.
 - Edit button: `@UI.UpdateHidden: editHidden` (EDMX `Path`, verified).
 - Lock: another user's `draftEdit` → `409 DRAFT_ALREADY_EXISTS`; PATCH on a foreign draft → `403 DRAFT_LOCKED_BY_ANOTHER_USER`; step on an active with a draft → `409 DRAFT_ALREADY_EXISTS`.
-- Configuration (`.cdsrc.json` → `fiori`): `draft_lock_timeout: "15min"` (extended on every change), `draft_deletion_timeout: "7d"`, `draft_messages: false`. German texts for `DRAFT_LOCKED_BY_ANOTHER_USER`, `DRAFT_ALREADY_EXISTS`, `DRAFT_NOT_EXISTING`, `ENTITY_LOCKED` in `_i18n/messages_de.properties`.
+- Configuration (`package.json` → `cds.fiori`): `draft_lock_timeout: "15min"` (extended on every change), `draft_deletion_timeout: "7d"`, `draft_messages: false`. German texts for `DRAFT_LOCKED_BY_ANOTHER_USER`, `DRAFT_ALREADY_EXISTS`, `DRAFT_NOT_EXISTING`, `ENTITY_LOCKED` in `_i18n/messages_de.properties`.
 - E-05 reworded: *ETag at `draftEdit` (start of editing), on draft PATCHes and on step actions; pessimistic draft lock while editing (15 min, extended on every change); steps are blocked while a draft exists.*
 - Persistence: in phase 1 drafts live in the in-memory SQLite and are lost on every `cds watch` restart (acceptable for the mock). From phase 2 on a persistent database (SAP HANA Cloud, HDI container) is required.
-- Tests: mocked user `carol` (MonitorViewer + MonitorEditor, VKORG 0001/2000/7050) in `.cdsrc.json` for lock tests; `cds.test` `data.reset()` truncates the draft tables.
+- Tests: mocked user `carol` (MonitorViewer + MonitorEditor, VKORG 0001/2000/7050) in `package.json` (`cds.requires.[development].auth.users`) for lock tests; `cds.test` `data.reset()` truncates the draft tables.
 
 ### 4.5 Code lists, texts, criticality, filters
 

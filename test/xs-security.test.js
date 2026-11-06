@@ -1,7 +1,7 @@
 "use strict";
 
 // O-01: xs-security.json must cover every role and attribute the service uses (CDS @requires/@restrict,
-// handler checks such as MonitorReleaser) and the roles of the mock users in .cdsrc.json.
+// handler checks such as MonitorReleaser) and the roles of the mock users in package.json (cds.requires.[development]).
 const cds = require("@sap/cds");
 const path = require("path");
 
@@ -23,11 +23,12 @@ describe("O-01 xs-security.json", () => {
 		roles.delete("any");
 		expect(roles.size).toBeGreaterThan(0);
 		expect(scopeNames(xs.scopes)).toEqual(expect.arrayContaining([...roles]));
-		expect(xs.attributes.map((a) => a.name)).toContain("SalesOrg"); // $user.SalesOrg in @restrict and the visibility handler
+		expect(xs.attributes.map((a) => a.name)).toContain("SalesOrg"); // $user.SalesOrg in the @restrict where clauses
 	});
 
 	test("has a role template per role used in the code and by the mock users, each with the SalesOrg attribute", () => {
-		const mockRoles = new Set(Object.values(require(path.join(root, ".cdsrc.json")).requires["[development]"].auth.users).flatMap((u) => u.roles));
+		const mockUsers = require(path.join(root, "package.json")).cds.requires["[development]"].auth.users;
+		const mockRoles = new Set(Object.values(mockUsers).flatMap((u) => u.roles));
 		const templates = Object.fromEntries(xs["role-templates"].map((t) => [t.name, t]));
 		for (const role of [...mockRoles, "MonitorReleaser"]) {
 			expect(templates[role]).toBeDefined();

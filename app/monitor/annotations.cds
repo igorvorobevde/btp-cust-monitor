@@ -157,67 +157,67 @@ annotate service.Requests with @(
       Value                    : status_code,
       Criticality              : statusCriticality,
       CriticalityRepresentation: #WithIcon,
-      ![@UI.Importance]        : #High
+      @UI.Importance        : #High
     },
     // Spalte „Hinweise“: Custom Column (manifest), verankert nach status_code
     // Freigabegrund (F-25) direkt nach status_code → Reihenfolge Status | Hinweise | Freigabegrund
     {
       $Type            : 'UI.DataField',
       Value            : releaseReason,
-      ![@UI.Importance]: #Medium
+      @UI.Importance: #Medium
     },
     {
       $Type            : 'UI.DataField',
       Value            : processType,
-      ![@UI.Importance]: #Medium
+      @UI.Importance: #Medium
     },
     {
       $Type            : 'UI.DataFieldForAnnotation',
       Target           : '@UI.FieldGroup#Name',
       Label            : '{i18n>column.name}',
-      ![@UI.Importance]: #High
+      @UI.Importance: #High
     },
     {
       $Type            : 'UI.DataField',
       Value            : nextStepText,
-      ![@UI.Importance]: #High
+      @UI.Importance: #High
     },
     {
       $Type            : 'UI.DataField',
       Value            : waitingText,
-      ![@UI.Importance]: #High
+      @UI.Importance: #High
     },
     {
       $Type            : 'UI.DataField',
       Value            : customer,
-      ![@UI.Importance]: #Medium
+      @UI.Importance: #Medium
     },
     {
       $Type            : 'UI.DataField',
       Value            : salesOrganization,
-      ![@UI.Importance]: #Medium
+      @UI.Importance: #Medium
     },
     {
       $Type            : 'UI.DataField',
       Value            : magentoCompany,
-      ![@UI.Importance]: #Low
+      @UI.Importance: #Low
     },
     {
       $Type            : 'UI.DataField',
       Value            : orderVolume,
-      ![@UI.Importance]: #Low
+      @UI.Importance: #Low
     },
     {
       $Type            : 'UI.DataFieldForAnnotation',
       Target           : '@UI.FieldGroup#Created',
       Label            : '{i18n>column.created}',
-      ![@UI.Importance]: #Low
+      @UI.Importance: #Low
     },
     {
       $Type            : 'UI.DataFieldForAnnotation',
       Target           : '@UI.FieldGroup#Changed',
       Label            : '{i18n>column.changed}',
-      ![@UI.Importance]: #Low
+      @UI.Importance: #Low
     }
   ],
   // Zeilen-Highlight: Fehler rot (1, hat Vorrang), sonst Bestellung blau (5) – Werte aus dem Service (rowCriticality)
@@ -399,7 +399,7 @@ annotate service.Requests with @(
       ID           : 'AdminSection',
       Label        : '{i18n>section.admin}',
       Target       : 'admin/@UI.FieldGroup#Admin',
-      ![@UI.Hidden]: {$edmJson: {$Eq: [
+      @UI.Hidden: {$edmJson: {$Eq: [
         {$Path: 'processType'},
         'CR_WE'
       ]}}
@@ -415,7 +415,7 @@ annotate service.Requests with @(
       ID           : 'ShipToSection',
       Label        : '{i18n>section.shipTo}',
       Target       : 'shipTo/@UI.FieldGroup#ShipTo',
-      ![@UI.Hidden]: {$edmJson: {$Ne: [
+      @UI.Hidden: {$edmJson: {$Ne: [
         {$Path: 'processType'},
         'CR_WE'
       ]}}
@@ -557,42 +557,42 @@ annotate service.LogEntries with @(
       Value                    : messageType,
       Criticality              : criticality,
       CriticalityRepresentation: #WithIcon,
-      ![@UI.Importance]        : #High
+      @UI.Importance        : #High
     },
     {
       $Type            : 'UI.DataField',
       Value            : createdAt,
-      ![@UI.Importance]: #Medium
+      @UI.Importance: #Medium
     },
     {
       $Type            : 'UI.DataField',
       Value            : createdBy,
-      ![@UI.Importance]: #Medium
+      @UI.Importance: #Medium
     },
     {
       $Type            : 'UI.DataField',
       Value            : step,
-      ![@UI.Importance]: #Medium
+      @UI.Importance: #Medium
     },
     {
       $Type            : 'UI.DataField',
       Value            : messageText,
-      ![@UI.Importance]: #High
+      @UI.Importance: #High
     },
     {
       $Type            : 'UI.DataField',
       Value            : fieldName,
-      ![@UI.Importance]: #Low
+      @UI.Importance: #Low
     },
     {
       $Type            : 'UI.DataField',
       Value            : oldValue,
-      ![@UI.Importance]: #Low
+      @UI.Importance: #Low
     },
     {
       $Type            : 'UI.DataField',
       Value            : newValue,
-      ![@UI.Importance]: #Low
+      @UI.Importance: #Low
     }
   ],
   UI.PresentationVariant #Log : {
