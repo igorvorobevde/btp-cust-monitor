@@ -111,6 +111,13 @@ resources:
       config:
         xsappname: kundenmonitor-btp-${org}-${space}
         tenant-mode: dedicated
+        # Login redirect targets (review #4): no landscape-wide wildcard such as https://*.hana.ondemand.com/**.
+        # Default = the apps of this Cloud Foundry domain (fine for DEV). For QAS/PRD narrow it to the Work Zone host
+        # with an extension descriptor, see mta-redirect-uris.mtaext.
+        oauth2-configuration:
+          redirect-uris:
+            - https://*.${default-domain}/**
+            - https://*.applicationstudio.cloud.sap/**
   - name: kundenmonitor-btp-db
     type: com.sap.xs.hdi-container
     parameters:

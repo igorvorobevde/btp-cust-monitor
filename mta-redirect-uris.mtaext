@@ -1,0 +1,17 @@
+# O-01 / review #4: restrict the XSUAA login redirect targets to the real hosts of a subaccount (QAS, PRD).
+# Replace <subdomain> and <region> with the values of the target subaccount (Work Zone site host; the managed
+# approuter serves the app under the same host), then deploy with:
+#   cf deploy mta_archives/kundenmonitor-btp_0.1.0.mtar -e mta-redirect-uris.mtaext
+# Without this descriptor mta.yaml allows every app of the Cloud Foundry domain (https://*.${default-domain}/**),
+# which is acceptable for DEV only.
+_schema-version: "3.3"
+ID: kundenmonitor-btp-redirect-uris
+extends: kundenmonitor-btp
+
+resources:
+  - name: kundenmonitor-btp-auth
+    parameters:
+      config:
+        oauth2-configuration:
+          redirect-uris:
+            - https://<subdomain>.launchpad.cfapps.<region>.hana.ondemand.com/**
