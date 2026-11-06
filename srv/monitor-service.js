@@ -174,7 +174,7 @@ module.exports = class CustomerMonitorService extends cds.ApplicationService {
 		 */
 		const visibilityWhere = (req) => {
 			const user = req.user;
-			if (user._is_privileged) {
+			if (user instanceof cds.User.Privileged) {
 				return null;
 			}
 			const where = [];
