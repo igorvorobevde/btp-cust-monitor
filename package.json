@@ -39,6 +39,9 @@
     "testMatch": [
       "<rootDir>/test/**/*.test.js"
     ],
+    "modulePathIgnorePatterns": [
+      "<rootDir>/gen/"
+    ],
     "testTimeout": 20000
   },
   "cds": {
