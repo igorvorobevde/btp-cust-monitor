@@ -168,37 +168,20 @@ module.exports = class CustomerMonitorService extends cds.ApplicationService {
 		});
 
 		/**
-		 * Datensichtbarkeit (02 §5, R-08): VKORG aus Benutzerattribut SalesOrg;
-		 * nicht freigegebene Vorgänge nur mit Rolle MonitorReleaser.
-		 * Privilegierte Benutzer (Tests) sehen alles.
+		 * Vorgang für Schritt und Bearbeitungsbeginn lesen.
+		 * 1. Zeilensperre (FOR UPDATE, R-01) direkt auf der Tabelle: zwei gleichzeitige Schritte oder Schritt + Bearbeitungsbeginn
+		 *    laufen auf HANA nacheinander; der zweite sieht das neue modifiedAt und scheitert an der ETag-Prüfung, bevor der
+		 *    Schritt (ab Phase 2: Aufrufe der Geschäftspartner-API) ausgeführt wird. SQLite serialisiert über die Verbindung.
+		 * 2. Lesen über den Service, damit die deklarative Sichtbarkeit (@restrict … where, VKORG + Freigabe) gilt:
+		 *    unsichtbar = 404, wie bei jedem anderen Lesezugriff.
 		 */
-		const visibilityWhere = (req) => {
-			const user = req.user;
-			if (user instanceof cds.User.Privileged) {
-				return null;
-			}
-			const where = [];
-			const orgs = [].concat((user.attr && user.attr.SalesOrg) || []);
-			where.push({ salesOrganization: { in: orgs.length ? orgs : ["-"] } });
-			if (!user.is("MonitorReleaser")) {
-				where.push({ released: true });
-			}
-			return where;
-		};
-
-		// Liest den Vorgang mit Zeilensperre (FOR UPDATE, R-01): zwei gleichzeitige Schritte oder Schritt + Bearbeitungsbeginn
-		// laufen auf HANA nacheinander; der zweite sieht das neue modifiedAt und scheitert an der ETag-Prüfung, bevor der Schritt
-		// (ab Phase 2: Aufrufe der Geschäftspartner-API) ausgeführt wird. SQLite kennt kein FOR UPDATE und serialisiert über die Verbindung.
 		const loadRequest = async (req, ID) => {
-			const query = SELECT.one.from(db.Requests, (r) => {
+			await SELECT.one.from(db.Requests).columns("ID").where({ ID }).forUpdate();
+			const request = await this.run(SELECT.one.from(Requests, (r) => {
 				r`.*`;
 				r.admin((a) => a`.*`);
 				r.shipTo((s) => s`.*`);
-			}).where({ ID }).forUpdate();
-			for (const w of visibilityWhere(req) || []) {
-				query.where(w);
-			}
-			const request = await query;
+			}).where({ ID, IsActiveEntity: true }));
 			if (!request) {
 				req.reject(404);
 			}
@@ -260,18 +243,7 @@ module.exports = class CustomerMonitorService extends cds.ApplicationService {
 		});
 
 		// ---------- Lesen ----------
-		this.before("READ", Requests, (req) => {
-			for (const w of visibilityWhere(req) || []) {
-				req.query.where(w);
-			}
-		});
-		// Kinder und Protokoll nur zu sichtbaren Vorgängen (F-23, R-08): dieselbe Bedingung über den Pfad request.*;
-		// greift auch bei Navigation (Requests(#2)/log) und $expand=request
-		this.before("READ", [...editableChildren, LogEntries], (req) => {
-			for (const w of visibilityWhere(req) || []) {
-				req.query.where(Object.fromEntries(Object.entries(w).map(([k, v]) => ["request." + k, v])));
-			}
-		});
+		// Datensichtbarkeit (VKORG, Freigabe) ist deklarativ: @restrict … where in monitor-service.cds (02 §5, R-08, F-23).
 
 		// Virtuelle Felder (waitingText, can*-Flags, …) existieren nicht in der DB: $filter/$orderby darauf → 400 statt 500.
 		// Menge aus der DB-Entität: die Service-Entität enthält auch CAPs Draft-Elemente (HasDraftEntity, …), die FE filtert

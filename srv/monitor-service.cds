@@ -12,8 +12,12 @@ service CustomerMonitorService @(path: '/odata/v4/monitor') {
     SortRestrictions.NonSortableProperties: [waitingText, nextStep, nextStepText],
     FilterRestrictions.NonFilterableProperties: [waitingText, nextStep, nextStepText]
   })
+  // Datensichtbarkeit deklarativ (02 §5, R-08): VKORG aus dem Benutzerattribut SalesOrg (Liste; leer = nichts sichtbar),
+  // nicht freigegebene Vorgänge nur für MonitorReleaser. Die Privilegien werden mit ODER verknüpft; privilegierte Benutzer
+  // (Testprofil opa) sind ausgenommen. Schrittaktionen und draftEdit lesen den Vorgang über den Service und erben die Regel.
   @restrict: [
-    { grant: 'READ', to: 'MonitorViewer' },
+    { grant: 'READ', to: 'MonitorReleaser', where: 'salesOrganization = $user.SalesOrg' },
+    { grant: 'READ', to: 'MonitorViewer',   where: 'salesOrganization = $user.SalesOrg and released = true' },
     { grant: ['UPDATE', // deckt auch draftEdit (EDIT) ab
               'release', 'rejectRequest', 'clarify', 'reset', 'createCustomer', 'createShipTo',
               'modifyContact', 'convertToNewCustomer', 'completeManually',
@@ -87,8 +91,10 @@ service CustomerMonitorService @(path: '/odata/v4/monitor') {
     InsertRestrictions.Insertable: false,
     DeleteRestrictions.Deletable : false
   })
+  // Kinder und Protokoll folgen der Sichtbarkeit des Vorgangs (F-23): dieselbe Regel über den Pfad request.*
   @restrict: [
-    { grant: 'READ', to: 'MonitorViewer' },
+    { grant: 'READ', to: 'MonitorReleaser', where: 'request.salesOrganization = $user.SalesOrg' },
+    { grant: 'READ', to: 'MonitorViewer',   where: 'request.salesOrganization = $user.SalesOrg and request.released = true' },
     { grant: 'UPDATE', to: 'MonitorEditor' }
   ]
   entity SalesData      as projection on db.SalesData;
@@ -98,7 +104,8 @@ service CustomerMonitorService @(path: '/odata/v4/monitor') {
     DeleteRestrictions.Deletable : false
   })
   @restrict: [
-    { grant: 'READ', to: 'MonitorViewer' },
+    { grant: 'READ', to: 'MonitorReleaser', where: 'request.salesOrganization = $user.SalesOrg' },
+    { grant: 'READ', to: 'MonitorViewer',   where: 'request.salesOrganization = $user.SalesOrg and request.released = true' },
     { grant: 'UPDATE', to: 'MonitorEditor' }
   ]
   entity ContactPersons as projection on db.ContactPersons;
@@ -108,12 +115,16 @@ service CustomerMonitorService @(path: '/odata/v4/monitor') {
     DeleteRestrictions.Deletable : false
   })
   @restrict: [
-    { grant: 'READ', to: 'MonitorViewer' },
+    { grant: 'READ', to: 'MonitorReleaser', where: 'request.salesOrganization = $user.SalesOrg' },
+    { grant: 'READ', to: 'MonitorViewer',   where: 'request.salesOrganization = $user.SalesOrg and request.released = true' },
     { grant: 'UPDATE', to: 'MonitorEditor' }
   ]
   entity ShipToParties  as projection on db.ShipToParties;
 
-  @readonly
+  @restrict: [
+    { grant: 'READ', to: 'MonitorReleaser', where: 'request.salesOrganization = $user.SalesOrg' },
+    { grant: 'READ', to: 'MonitorViewer',   where: 'request.salesOrganization = $user.SalesOrg and request.released = true' }
+  ]
   entity LogEntries     as projection on db.LogEntries;
 
   @readonly
