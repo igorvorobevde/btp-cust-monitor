@@ -1,6 +1,6 @@
 # 11 – Customer Monitor on SAP BTP: Design Review
 
-Status: **Draft for the review session with HYDAC IT, 4 November 2026**. Prepared by purplecat (Igor Vorobev) in reply to Peter Wurst's request.
+Status: **Draft for the review session with HYDAC IT, 6 November 2026**. Prepared by purplecat (Igor Vorobev) in reply to Peter Wurst's request.
 Audience: Peter Wurst, Uli, Franca, Mathias, Gareth.
 Proposed slot: **Fri 6 Nov, 17:00–18:00 CET (11:00 ET)**. The Wed 4 Nov slot can no longer be prepared in time. Duration: 60 min. Pre-read: this document, sent at least 24 h ahead; the session walks through §1, §3, §4, §6 and §8, the rest is reference.
 
