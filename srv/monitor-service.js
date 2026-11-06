@@ -440,18 +440,8 @@ module.exports = class CustomerMonitorService extends cds.ApplicationService {
 				const message = t(req, e.messageKey, e.args);
 				if (e.logEntry) {
 					// R-04: Abbruch protokollieren – eigene Transaktion, da die Anfrage zurückgerollt wird
-					req.on("failed", () => cds.tx((tx) => tx.run(SELECT.one.from(db.LogEntries).columns("max(line) as maxLine").where({ request_ID: ID }))
-						.then((row) => tx.run(INSERT.into(db.LogEntries).entries({
-							request_ID: ID,
-							line: ((row && row.maxLine) || 0) + 1,
-							messageType: "A",
-							messageClass: "ZEC_CUSTOMER",
-							messageNumber: "058",
-							messageText: message,
-							step: e.step,
-							createdBy: req.user.id,
-							createdAt: now
-						})))).catch((err) => LOG.error("Abort log failed", err)));
+					req.on("failed", () => cds.tx(() => insertLog(req, ID, [{ messageType: "A", messageNumber: "058", messageText: message, step: e.step }]))
+						.catch((err) => LOG.error("Abort log failed", err)));
 				}
 				// Rückfrage per OData Strict Handling (03 §5.3): 412 + Preference-Applied, Frage in details[] (FE zeigt sie im Bestätigungsdialog)
 				if (e.code === ErrorCodes.CONFIRM_REQUIRED) {
