@@ -43,7 +43,7 @@ Anmeldung (Mock-Auth): `alice` / `alice` (Editor + Releaser, VKORG 0001/2000/705
 Deep-Links: `http://localhost:4004/monitor/index.html#/Requests(ID=<uuid>,IsActiveEntity=true)`; alte Links `#/requests/<uuid>` werden umgeschrieben.
 
 ```bash
-npm run lint         # ui5lint + eslint (app/monitor)
+npm run lint         # cds lint (db/, srv/, app/*/annotations.cds) + ui5lint + eslint (app/monitor)
 npm test             # jest (srv) + OPA5-Journeys mit sap.fe.test (headless, startet den Service selbst)
 scripts/fe-console.sh "test/debug.html#/Requests(ID=…,IsActiveEntity=true)"   # Konsolenfehler + Screenshot ohne Browserfenster
 ```

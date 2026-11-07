@@ -126,6 +126,7 @@ Jeder neue Schlüssel in **beiden** Sprachdateien des jeweiligen Bundles. Keine 
 | Prüfung | Werkzeug | Befehl |
 |---|---|---|
 | UI5-Lint (deprecated APIs, Manifest, Fragmente) | `@ui5/linter` | `npm run lint:ui5` → `ui5lint` |
+| CDS-Lint (Modell, Annotationen; auch `app/monitor/annotations.cds`) | `@sap/eslint-plugin-cds` (Root, `eslint.config.mjs`) | `npm run lint:cds` → `cds lint`; Teil von `npm run lint` |
 | JS-Lint (`ext/`, `test/`) | ESLint (flat config, `eslint:recommended`, Browser-Globals + `QUnit`) | `npm run lint:js` |
 | Integration (Journeys gegen den CAP-Mock) | OPA5 mit `sap.fe.test` (`JourneyRunner`, Page Objects `ListReport`/`ObjectPage`) | `npm run test:opa` |
 | Service-Tests (Vertrag, Draft, Aktionen, Strict Handling) | `@cap-js/cds-test` + Jest | `npm run test:srv` |

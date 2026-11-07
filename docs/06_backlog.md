@@ -147,3 +147,13 @@ Stand 06.11.2026: Phase 1 und Betrieb (O-01–O-03) sind fertig. Mit E-15 ([02](
 - O-01 `xs-security.json` (Rollen, Attribut SalesOrg), Rollen-Collections. — erledigt 27.10.2026 (02 §5, `test/xs-security.test.js`); offen bis zum ersten Deployment: ob BTP für Templates mit Attribut Default-Rollen für die Role Collections anlegt, sonst legt der Admin sie im Cockpit an.
 - O-02 `mta.yaml`, HTML5 Repo, Managed Approuter, Work-Zone-Kachel, SAP HANA Cloud (HDI-Container für Drafts und Vorgänge, E-12/E-15). — erledigt 27.10.2026 bis zum MTA-Archiv (02 §7): `cds build --production`, `npm run build` (app) und `mbt build` laufen lokal durch; ein Deployment (`cf deploy`) braucht Subaccount, HANA-Cloud-Instanz und Work Zone und ist noch nicht erfolgt.
 - O-03 Logging/Monitoring, Transportweg (CTMS o. ä.). — erledigt 27.10.2026 (02 §8): HTTP-Health-Check auf `/health`, SAP-Cloud-Logging-Bindung optional per `mta-cloud-logging.mtaext`, Transport als ein Archiv durch DEV → QAS → PRD (CTMS empfohlen); Einrichtung von CTMS/Cloud Logging im Subaccount steht mit dem ersten Deployment aus.
+
+## Offen aus dem CAP-Review (06.11.2026)
+
+Umgesetzt am 06.11.2026: Testdaten nach `test/data`, deklarative Sichtbarkeit per `@restrict … where`, `npm audit fix`, `cds lint`, CAP-Konfiguration in `package.json`, Review-Befunde #1–#10 (Zeilensperre, Freigabestempel, R-17, Redirect-URIs, MTA, Abhängigkeiten). Noch offen, mit Zeitpunkt:
+
+- T-01 **CAP 10** (aktuell 10.2.x, Projekt auf 9.9.3): braucht Node ≥ 22.12 lokal (`nvm install 22`) und im Buildpack (`engines.node`), danach `@sap/cds@10`, `@sap/cds-dk@10`, `@cap-js/sqlite@3`, `@cap-js/hana@3`. **Vor Phase 2**, damit der neue Code auf der gepflegten Linie entsteht. Hinweis: das globale `cds-dk` ist bereits 10.x – `npx cds add …` greift darauf zu; im Projekt `node_modules/.bin/cds` verwenden.
+- T-02 **Reuse-Typen** `Currency` (und `Country`, `Language`) aus `@sap/cds/common` statt `String`: Vertragsänderung (`currency_code` statt `currency`, Wertehilfen, CSVs, Annotationen, 03/04). Entscheidung mit der Phase-2-Vertragsänderung (`backendSystem`, B-06) bündeln.
+- T-03 **Meldungen über den CAP-Standardweg** (`req.reject(status, 'KEY', args)` übersetzt selbst aus `_i18n/messages*.properties`) statt `cds.i18n.messages.at` im Service – rein kosmetisch, gelegentlich.
+- T-04 **BTP-Anbindung:** `@cap-js/telemetry` (OpenTelemetry → SAP Cloud Logging, O-03), `@cap-js/audit-logging` + `@PersonalData` (E-19), `instances: 2` für PRD in `mta.yaml`, Redirect-URIs auf den Work-Zone-Host (`mta-redirect-uris.mtaext`) – jeweils mit dem ersten Deployment.
+- T-05 `LogEntries.createdAt/createdBy` über den Aspekt `managed` (Vertrag unverändert, da nur die beiden Felder genutzt werden) – mit T-02.

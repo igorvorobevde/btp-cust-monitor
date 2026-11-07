@@ -28,7 +28,7 @@ If code and docs disagree, **stop and ask** instead of silently picking one. If 
 
 1. **Fiori Elements for OData V4, JavaScript.** List Report + Object Page from `sap.fe.templates`; own code only in `app/monitor/webapp/ext/` (XML fragments, controller extensions via `sap/ui/core/mvc/ControllerExtension` and the FE `ExtensionAPI`) — the single exception is the legacy-bookmark hash rewrite in `Component.js`, which must run before FE routing. No freestyle views/controllers, no TypeScript, no React/other frameworks, no `sap.ui.comp`, no `sap.ui.table`. Prefer an annotation or manifest setting over code; if something needs code, say why.
 2. **OData V4 through Fiori Elements.** The model is configured in `manifest.json`; no manual `fetch`/`jQuery.ajax`, no own `bindContext`/`submitBatch` in extensions — use `editFlow`/`ExtensionAPI`. Actions are declared in CDS and rendered by FE.
-3. **Async everywhere:** `sap.ui.define`, async manifest/views, no deprecated globals. Code must pass `ui5lint` (@ui5/linter) and ESLint without errors.
+3. **Async everywhere:** `sap.ui.define`, async manifest/views, no deprecated globals. Code must pass `ui5lint` (@ui5/linter) and ESLint without errors; CDS files must pass `cds lint` (@sap/eslint-plugin-cds) without warnings.
 4. **All UI texts in i18n.** Field, action, section, column labels live in `_i18n/i18n.properties` (EN fallback) and `_i18n/i18n_de.properties` and reach the UI via `$metadata`; app-level texts (title, custom fragments, FE text overrides) in `app/monitor/webapp/i18n/i18n*.properties`. Status, step, process-type and release texts come from the service code lists, never from i18n.
 5. **Backend decides what is allowed.** The service computes the `can*` flags and `isEditable`/`editHidden`; FE binds them via `Core.OperationAvailable` and `UI.UpdateHidden`. The UI never derives permissions from status/process type. Sections may be hidden by `processType` via `UI.Hidden` expressions as specified in docs/04.
 6. **Concurrency and draft.** ETag on `draftEdit`, on draft PATCHes and on every step action; never disable ETag checks, never `If-Match: *` on actions. Editing uses CAP draft (lock while a draft exists; steps are blocked meanwhile). Backend questions use OData strict handling (412 + `Preference-Applied: handling=strict`), never a `force` parameter.
@@ -43,7 +43,7 @@ If code and docs disagree, **stop and ask** instead of silently picking one. If 
 ```bash
 npm install                 # root: CAP + workspaces
 cds watch                   # service + UI at http://localhost:4004/monitor/index.html
-npm run lint                # ui5lint + eslint (app/monitor)
+npm run lint                # cds lint (CDS model) + ui5lint + eslint (app/monitor)
 npm test                    # jest (srv) + OPA5 journeys with sap.fe.test (headless Chrome)
 scripts/fe-console.sh "test/debug.html#/Requests(ID=…,IsActiveEntity=true)"   # console errors + screenshot, no browser window
 ```
