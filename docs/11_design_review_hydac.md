@@ -1,12 +1,29 @@
 # 11 – Customer Monitor on SAP BTP: Design Review
 
-Status: **Draft for the review session with HYDAC IT, 6 November 2026** (revision 2: BTP is the system of record, no custom interfaces in S/4 — decision E-15). Prepared by purplecat (Igor Vorobev) in reply to Peter Wurst's request.
-Audience: Peter Wurst, Uli, Franca, Mathias, Gareth.
-Proposed slot: **Fri 6 Nov, 17:00–18:00 CET (11:00 ET)**. The Wed 4 Nov slot can no longer be prepared in time. Duration: 60 min. Pre-read: this document, sent at least 24 h ahead; the session walks through §1, §3, §4, §5 and §6, the rest is reference.
+Status: **Design document for the review session with HYDAC IT on Tuesday, 10 November 2026** (revision 3; since revision 2 BTP is the system of record and there are no custom interfaces in S/4 — decision E-15). Prepared by purplecat (Igor Vorobev) in reply to Peter Wurst's request of 30 October; this is the technical documentation announced in the meeting invite of 4 November.
+Session: **Tue 10 Nov 2026, 16:00–17:00 CET (10:00–11:00 ET; 02:00–03:00 AEDT, Wed 11 Nov)**, Microsoft Teams, 60 min. Invited: Peter Wurst, Gareth de Bruyn, Tatjana Podesky, Uli Schroeter (HYDAC); Igor Vorobev, Gregor Wolf (purplecat). Franca and Mathias were named by Peter for this discussion and are welcome to join.
+Pre-read: this document, sent by Monday 9 November. The session walks through §1, §3, §4, §5 and §6; the rest is reference.
 
 This document is the basis for the review session. Each numbered section can be presented as one or two slides. Detailed specifications live in the project repository (`docs/01`–`docs/10`) and are referenced where relevant.
 
 **Legend:** ✅ built and tested · 🟡 designed, not built · 💡 proposal, needs agreement · ❓ open question for HYDAC · *Assumption* = our current understanding, please correct.
+
+---
+
+## What was asked, and where it is answered
+
+| Request | Where |
+|---|---|
+| **Functional design** of the Customer Monitor: business purpose, users, use cases, the data it displays and acts on (Peter's email, 30 Oct) | §2 |
+| **Requested elements mapped to requirements:** for each entitlement, role, space, Git and transport item, which requirement it supports and why it is needed (email) | §4 |
+| **Ongoing administration** and maintenance responsibilities of the application and its BTP services, so HYDAC can decide who owns each one (email) | §7, decision D11 |
+| **Integration:** connection to Q4H / GWQ and later production; HYDAC Australia's S/4HANA Public Cloud; Magento; Cloud Connector resources; OData services / RFC modules / APIs; authentication; relationship to the Integration Suite iFlows (email) | §5 — resources §4.4 and §5.2, authentication §5.3, Public Cloud §5.5, iFlows §5.6 |
+| **Connection:** setup and configuration (invite, 4 Nov) | §4.4, §5.1, §5.3, administration in §7 |
+| **Required BTP services** for development (invite) | §4.1–§4.3 |
+| **Technical design: multi-backend architecture and integration** (invite) | §3, §6.1–§6.3 |
+| **Technical design: roles and authorizations** (invite) | §2.2, §6.4 |
+| **Technical design: user management** (invite) | §6.5 |
+| Decisions needed from HYDAC, open questions, next steps | §8, §9, §10 |
 
 ---
 
@@ -17,8 +34,8 @@ This document is the basis for the review session. Each numbered section can be 
 | 1 | Summary and current status | 5 min | §1 |
 | 2 | Functional design: purpose, users, use cases, data | 10 min | §2 |
 | 3 | Solution architecture: BTP as system of record, S/4 through standard APIs only | 5 min | §3 |
-| 4 | Requested BTP, Git and transport elements mapped to requirements | 10 min | §4 |
-| 5 | Integration: Magento intake, business-partner API (Q4H / GWQ, production, Public Cloud), notifications, Integration Suite | 10 min | §5 |
+| 4 | Required BTP services, space and roles, Git and transport, mapped to requirements | 10 min | §4 |
+| 5 | Integration and connection setup: Magento intake, business-partner API (Q4H / GWQ, production, Public Cloud), Cloud Connector, authentication, notifications, Integration Suite | 10 min | §5 |
 | 6 | **Multi-region: EU, USA, Australia – backends, data restriction, user management** | 10 min | §6 |
 | 7 | Ongoing administration and ownership | 5 min | §7 |
 | 8 | Decisions and next steps | 5 min | §8–§10 |
@@ -450,7 +467,7 @@ A user sees and changes only what all of these layers allow:
 |---|---|---|---|
 | 1 | Login | Corporate IdP → Identity Services → XSUAA | Only HYDAC users; the Work Zone tile is visible only with the Work Zone content role for the monitor (its own role collection) |
 | 2 | Function | Role collection (Viewer / Editor / Releaser / Admin) | Read, edit and run steps, release, maintain customizing |
-| 3 | **Rows** | Sales-org assignment **per backend** (§6.5): app table `UserAssignments` (backend, sales org), or IAS attribute `SalesOrg` with backend-qualified values such as `EU-0001`, `AU-xxxx` | Which requests are visible: list, counters, detail, sub-data (sales data, contact person, ship-to), log, value helps. Enforced in the CAP service on every read (✅ today with the attribute, one backend). The region follows from the assignment: a user with only AU sales orgs sees only Australian requests. **This is the single read authorization**: reads never touch S/4, so this layer is tested as such. |
+| 3 | **Rows** | Sales-org assignment **per backend** (§6.5): app table `UserAssignments` (backend, sales org), or IAS attribute `SalesOrg` with backend-qualified values such as `EU-0001`, `AU-xxxx` | Which requests are visible: list, counters, detail, sub-data (sales data, contact person, ship-to), log, value helps. Enforced in the CAP service on every read (✅ today: declared on the service entities as CDS `@restrict` rules with the attribute `SalesOrg`, one backend). The region follows from the assignment: a user with only AU sales orgs sees only Australian requests. **This is the single read authorization**: reads never touch S/4, so this layer is tested as such. |
 | 4 | Release | Releaser role | Unreleased requests are visible only to releasers (✅) |
 | 5 | **S/4 check** | Principal propagation on the master-data steps: S/4 on-premise via Cloud Connector, Public Cloud via SAML bearer | Creating a business partner, customer, contact or ship-to runs in S/4 as the real user, so S/4 checks the creation authorization (sales org, company code) and writes the change documents on that user. There is no technical user that can create master data anywhere (§5.3). |
 
