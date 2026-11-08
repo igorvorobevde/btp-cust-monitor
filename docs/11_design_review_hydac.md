@@ -4,7 +4,7 @@ Status: **Design document for the review session with HYDAC IT on Tuesday, 10 No
 Session: **Tue 10 Nov 2026, 16:00–17:00 CET (10:00–11:00 ET; 02:00–03:00 AEDT, Wed 11 Nov)**, Microsoft Teams, 60 min. Invited: Peter Wurst, Gareth de Bruyn, Tatjana Podesky, Uli Schroeter (HYDAC); Igor Vorobev, Gregor Wolf (purplecat). Franca and Mathias were named by Peter for this discussion and are welcome to join.
 Pre-read: this document, sent by Monday 9 November. The session walks through §1, §3, §4, §5 and §6; the rest is reference.
 
-This document is the basis for the review session. Each numbered section can be presented as one or two slides. Detailed specifications live in the project repository (`docs/01`–`docs/10`) and are referenced where relevant.
+This document is the basis for the review session. Each numbered section can be presented as one or two slides. The complete solution design (context, building blocks, runtime sequences, integration, security, multi-region, operations, architecture decisions AD-01…AD-14, risks) is `docs/12_solution_design.md`; detailed specifications live in `docs/01`–`docs/10` and are referenced where relevant.
 
 **Legend:** ✅ built and tested · 🟡 designed, not built · 💡 proposal, needs agreement · ❓ open question for HYDAC · *Assumption* = our current understanding, please correct.
 

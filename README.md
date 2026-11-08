@@ -26,7 +26,8 @@ Neuentwicklung des SAP-GUI-Kundenmonitors `ZEC_CUSTOMER_MONITOR` (HYDAC eCommerc
 | [docs/08_demo_szenarien.md](docs/08_demo_szenarien.md) | Demo-Drehbuch: welcher Testvorgang zeigt welche Funktion | Demo vorbereiten |
 | [docs/09_migration_fiori_elements.md](docs/09_migration_fiori_elements.md) | Architektur und Entscheidungen der Migration auf Fiori Elements (EN) | Warum Draft, Aktionen je Schritt, HANA als führendes System in Phase 2 (D-15) |
 | [docs/10_s4_schnittstelle.md](docs/10_s4_schnittstelle.md) | Backend-Schnittstellen (Entwurf, E-15): Magento-Eingang, Schritte → `API_BUSINESS_PARTNER`, Notifications, Destinations, was in S/4 entfällt | Phase 2 mit HYDAC / TechDivision abstimmen |
-| [docs/11_design_review_hydac.md](docs/11_design_review_hydac.md) | Design-Review für HYDAC IT (EN): Fachdesign, Architektur, BTP-Setup, Integration, Multi-Region, Administration, Entscheidungen | Abstimmung mit HYDAC |
+| [docs/11_design_review_hydac.md](docs/11_design_review_hydac.md) | Design-Review für HYDAC IT (EN): Agenda, Fachdesign, BTP-Setup, Entscheidungen D1–D13, offene Fragen | Abstimmung mit HYDAC |
+| [docs/12_solution_design.md](docs/12_solution_design.md) | Solution Design Document (EN) für HYDAC: Kontext, Bausteine, Laufzeit (Sequenzen, Statusmaschine), Integration, Sicherheit, Multi-Region, Betrieb, Architekturentscheidungen AD-01…AD-14, Risiken – mit Diagrammen | Architektur gegenüber HYDAC erklären |
 
 Referenz Altsystem: Confluence EXTHYDAC › Australien › *Kundenmonitor (ZEC_CUSTOMER_MONITOR) – Technische und fachliche Dokumentation*
 (https://techdivision.atlassian.net/wiki/spaces/EXTHYDAC/pages/2419851266)

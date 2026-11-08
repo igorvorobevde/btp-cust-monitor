@@ -21,6 +21,7 @@ We are rebuilding the SAP GUI report `ZEC_CUSTOMER_MONITOR` (HYDAC B2B shop: Mag
 | Why Fiori Elements, draft, actions per step, phase-2 persistence in HANA (decisions D-1…D-15, E-12…E-15) | `docs/09_migration_fiori_elements.md` |
 | Backend interfaces for phase 2 (E-15): Magento intake, steps → `API_BUSINESS_PARTNER`, notifications via outbox, destinations, what is retired in S/4 (B-01…B-08) | `docs/10_s4_schnittstelle.md` |
 | Architecture, phases, decisions E-01…E-19, roles, deployment, operation | `docs/02_architektur.md` |
+| Customer-facing solution design for HYDAC (EN, diagrams, AD-01…AD-14, risks) – derived from 02/10/11; update it when a decision changes | `docs/12_solution_design.md` |
 
 If code and docs disagree, **stop and ask** instead of silently picking one. If a backlog item needs a decision that the docs don't cover, propose it and wait for confirmation.
 
