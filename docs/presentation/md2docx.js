@@ -23,8 +23,8 @@ const docx = require("docx");
 
 const {
   AlignmentType, BorderStyle, Document, ExternalHyperlink, Footer, Header, HeadingLevel, ImageRun,
-  LevelFormat, Packer, PageNumber, Paragraph, ShadingType, Table, TableCell, TableOfContents, TableRow,
-  TabStopType, TextRun, VerticalAlign, WidthType,
+  LevelFormat, Packer, PageNumber, PageOrientation, Paragraph, ShadingType, Table, TableCell, TableOfContents,
+  TableRow, TabStopType, TextRun, VerticalAlign, WidthType,
 } = docx;
 
 // ---------------------------------------------------------------- theme (same palette as build-deck.js)
@@ -38,6 +38,12 @@ const MARGIN = 1134;
 const TEXT_W = PAGE.width - 2 * MARGIN;
 const TEXT_W_PX = Math.floor((TEXT_W / 1440) * 96); // 96 dpi pixels used by ImageRun
 const MAX_IMG_H_PX = 880;                             // a picture taller than this would not fit a page with its caption
+// A diagram that would be unreadable at portrait text width gets a landscape page of its own (own section).
+const LAND_TEXT_W = PAGE.height - 2 * MARGIN;
+const LAND_TEXT_W_PX = Math.floor((LAND_TEXT_W / 1440) * 96);
+const LAND_MAX_IMG_H_PX = 560;                        // landscape text height minus header, footer and spacing
+const LANDSCAPE_BELOW = 0.6;                          // portrait scale under which a landscape page is considered
+const LANDSCAPE_GAIN = 1.15;                          // … and taken when it is at least this much larger
 
 const CHROME = process.env.CHROME || "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
 
@@ -164,28 +170,42 @@ async function renderMermaid(blocks, outDir) {
       await el.screenshot({ path: file, type: "png" });
       return { file, cssWidth: box.width + 16, cssHeight: box.height + 16 };
     };
-    // scale at which the picture fits the text width and a comfortable page height
+    // scale at which the picture fits the text width and a comfortable page height (portrait / landscape page)
     const fit = (r) => Math.min(1, TEXT_W_PX / r.cssWidth, MAX_IMG_H_PX / r.cssHeight);
+    const fitLandscape = (r) => Math.min(1, LAND_TEXT_W_PX / r.cssWidth, LAND_MAX_IMG_H_PX / r.cssHeight);
 
     for (const [i, src] of blocks.entries()) {
       const name = (suffix) => path.join(outDir, `mermaid-${i + 1}${suffix}.png`);
+      const candidates = [];
       let chosen = await renderOne(src, name(""), 72);
-      let note = "as written";
+      chosen.note = "as written";
+      candidates.push(chosen);
       // A wide left-to-right flowchart becomes unreadable at text width: re-lay it out top-to-bottom.
       // Rank spacing is now vertical: keep it generous (fewer label collisions) while the picture still
       // fits the page at a readable scale, otherwise tighten it.
       if (fit(chosen) < 0.75 && /^\s*(flowchart|graph)\s+LR\b/m.test(src)) {
         const tb = src.replace(/^(\s*(?:flowchart|graph))\s+LR\b/m, "$1 TB");
         const roomy = await renderOne(tb, name("-tb"), 72);
-        if (fit(roomy) >= 0.7) { chosen = roomy; note = "top-to-bottom"; }
+        roomy.note = "top-to-bottom";
+        candidates.push(roomy);
+        if (fit(roomy) >= 0.7) chosen = roomy;
         else {
           const tight = await renderOne(tb, name("-tb-tight"), 44);
+          tight.note = "top-to-bottom, tight rank spacing";
+          candidates.push(tight);
           const best = fit(tight) > fit(roomy) ? tight : roomy;
-          if (fit(best) > fit(chosen)) { chosen = best; note = `top-to-bottom, ${best === tight ? "tight" : "roomy"} rank spacing`; }
+          if (fit(best) > fit(chosen)) chosen = best;
         }
       }
-      result.set(i, chosen);
-      console.log(`mermaid ${i + 1}: ${chosen.cssWidth}×${chosen.cssHeight} css px, scale ${fit(chosen).toFixed(2)} (${note}) → ${chosen.file}`);
+      // Still small on a portrait page? Take the variant that reads best on a landscape page of its own.
+      let landscape = false;
+      if (fit(chosen) < LANDSCAPE_BELOW) {
+        const wide = candidates.reduce((a, b) => (fitLandscape(b) > fitLandscape(a) ? b : a));
+        if (fitLandscape(wide) >= fit(chosen) * LANDSCAPE_GAIN) { chosen = wide; landscape = true; }
+      }
+      const scale = landscape ? fitLandscape(chosen) : fit(chosen);
+      result.set(i, { ...chosen, landscape });
+      console.log(`mermaid ${i + 1}: ${chosen.cssWidth}×${chosen.cssHeight} css px, scale ${scale.toFixed(2)} (${chosen.note}${landscape ? ", landscape page" : ""}) → ${chosen.file}`);
     }
   } finally {
     await browser.close();
@@ -232,9 +252,13 @@ class Converter {
         case "text": out.push(new Paragraph({ children: inline(t.tokens || [t]), ...(ctx.paragraph || {}) })); break;
         case "table": out.push(this.table(t), new Paragraph({ spacing: { before: 0, after: 60 }, children: [new TextRun({ text: "", size: 8 })] })); break;
         case "list": out.push(...this.list(t, 0)); break;
-        case "code": out.push(...this.code(t)); break;
+        case "code":
+          // a diagram marked for a landscape page is a {landscape: Paragraph} sentinel that main() turns into
+          // its own section; inside lists and quotes (no section break possible) it stays inline
+          out.push(...this.code(t).map((b) => (ctx.nested && b.landscape ? b.landscape : b)));
+          break;
         case "blockquote":
-          out.push(...this.blocks(t.tokens, { paragraph: { indent: { left: 567 }, border: { left: { style: BorderStyle.SINGLE, size: 12, color: ICE, space: 8 } } } }));
+          out.push(...this.blocks(t.tokens, { nested: true, paragraph: { indent: { left: 567 }, border: { left: { style: BorderStyle.SINGLE, size: 12, color: ICE, space: 8 } } } }));
           break;
         case "html": break;
         default: out.push(new Paragraph({ text: unescapeHtml(t.raw || "") }));
@@ -267,7 +291,7 @@ class Converter {
         if (sub.type === "list") nested.push(sub);
         else own.push(sub);
       }
-      const paragraphs = this.blocks(own, { paragraph: { numbering: { reference, level }, spacing: { after: 60 } } });
+      const paragraphs = this.blocks(own, { nested: true, paragraph: { numbering: { reference, level }, spacing: { after: 60 } } });
       if (!paragraphs.length) paragraphs.push(new Paragraph({ numbering: { reference, level }, text: "" }));
       out.push(...paragraphs);
       for (const n of nested) out.push(...this.list(n, level + 1));
@@ -280,12 +304,16 @@ class Converter {
       const img = this.images.get(this.mermaidSeen++);
       if (!img) return [new Paragraph({ children: [new TextRun({ text: "[diagram not rendered]", italics: true, color: SLATE })] })];
       const data = fs.readFileSync(img.file);
-      const width = Math.min(TEXT_W_PX, img.cssWidth);
-      const height = Math.round(img.cssHeight * (width / img.cssWidth));
-      return [new Paragraph({
+      const maxW = img.landscape ? LAND_TEXT_W_PX : TEXT_W_PX;
+      const maxH = img.landscape ? LAND_MAX_IMG_H_PX : MAX_IMG_H_PX;
+      const scale = Math.min(1, maxW / img.cssWidth, maxH / img.cssHeight);
+      const width = Math.round(img.cssWidth * scale);
+      const height = Math.round(img.cssHeight * scale);
+      const paragraph = new Paragraph({
         alignment: AlignmentType.CENTER, spacing: { before: 120, after: 200 }, keepNext: false,
         children: [new ImageRun({ type: "png", data, transformation: { width, height }, altText: { title: "Diagram", description: "Diagram", name: path.basename(img.file) } })],
-      })];
+      });
+      return [img.landscape ? { landscape: paragraph } : paragraph];
     }
     return t.text.split("\n").map((line, i, arr) => new Paragraph({
       spacing: { before: i === 0 ? 120 : 0, after: i === arr.length - 1 ? 160 : 0, line: 240 },
@@ -381,7 +409,51 @@ async function main() {
     ...conv.blocks(rest),
   ];
 
+  // Sections: portrait by default; a diagram marked for a landscape page becomes a section of its own
+  // (page numbering continues; header and footer are repeated with the right text width).
+  const sectionList = [];
+  let current = [];
+  for (const item of body) {
+    if (item && item.landscape) {
+      if (current.length) sectionList.push({ landscape: false, children: current });
+      sectionList.push({ landscape: true, children: [item.landscape] });
+      current = [];
+    } else current.push(item);
+  }
+  if (current.length || !sectionList.length) sectionList.push({ landscape: false, children: current });
+
   const hdrRun = (text, extra = {}) => new TextRun({ text, size: 16, color: SLATE, ...extra });
+  const section = ({ landscape, children }) => {
+    const textWidth = landscape ? LAND_TEXT_W : TEXT_W;
+    return {
+      properties: {
+        page: {
+          size: landscape ? { ...PAGE, orientation: PageOrientation.LANDSCAPE } : PAGE, // docx swaps width/height for landscape
+          margin: { top: MARGIN, bottom: MARGIN, left: MARGIN, right: MARGIN, header: 600, footer: 600 },
+        },
+      },
+      headers: {
+        default: new Header({
+          children: [new Paragraph({
+            tabStops: [{ type: TabStopType.RIGHT, position: textWidth }],
+            border: { bottom: { style: BorderStyle.SINGLE, size: 4, color: ICE, space: 4 } },
+            spacing: { after: 0 },
+            children: [hdrRun(docTitle), hdrRun("\tpurplecat AG · draft for review")],
+          })],
+        }),
+      },
+      footers: {
+        default: new Footer({
+          children: [new Paragraph({
+            tabStops: [{ type: TabStopType.RIGHT, position: textWidth }],
+            spacing: { before: 0, after: 0 },
+            children: [hdrRun("HYDAC – Customer Monitor on SAP BTP"), hdrRun("\tPage "), new TextRun({ children: [PageNumber.CURRENT], size: 16, color: SLATE }), hdrRun(" of "), new TextRun({ children: [PageNumber.TOTAL_PAGES], size: 16, color: SLATE })],
+          })],
+        }),
+      },
+      children,
+    };
+  };
   const doc = new Document({
     creator: "purplecat AG",
     title: docTitle,
@@ -399,36 +471,13 @@ async function main() {
         hyperlink: { run: { color: TEAL, underline: {} } },
       },
     },
-    sections: [{
-      properties: {
-        page: { size: PAGE, margin: { top: MARGIN, bottom: MARGIN, left: MARGIN, right: MARGIN, header: 600, footer: 600 } },
-      },
-      headers: {
-        default: new Header({
-          children: [new Paragraph({
-            tabStops: [{ type: TabStopType.RIGHT, position: TEXT_W }],
-            border: { bottom: { style: BorderStyle.SINGLE, size: 4, color: ICE, space: 4 } },
-            spacing: { after: 0 },
-            children: [hdrRun(docTitle), hdrRun("\tpurplecat AG · draft for review")],
-          })],
-        }),
-      },
-      footers: {
-        default: new Footer({
-          children: [new Paragraph({
-            tabStops: [{ type: TabStopType.RIGHT, position: TEXT_W }],
-            spacing: { before: 0, after: 0 },
-            children: [hdrRun("HYDAC – Customer Monitor on SAP BTP"), hdrRun("\tPage "), new TextRun({ children: [PageNumber.CURRENT], size: 16, color: SLATE }), hdrRun(" of "), new TextRun({ children: [PageNumber.TOTAL_PAGES], size: 16, color: SLATE })],
-          })],
-        }),
-      },
-      children: body,
-    }],
+    sections: sectionList.map(section),
   });
 
   const buf = await Packer.toBuffer(doc);
   fs.writeFileSync(outFile, buf);
-  console.log(`wrote ${outFile} (${(buf.length / 1024).toFixed(0)} KB), ${images.size} diagram(s) from ${imgDir}`);
+  const landscapePages = sectionList.filter((s) => s.landscape).length;
+  console.log(`wrote ${outFile} (${(buf.length / 1024).toFixed(0)} KB), ${images.size} diagram(s) from ${imgDir}${landscapePages ? `, ${landscapePages} on landscape pages` : ""}`);
 }
 
 main().catch((e) => { console.error(e); process.exit(1); });

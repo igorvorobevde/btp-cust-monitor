@@ -269,10 +269,8 @@ flowchart TB
     SRV["CAP service · Node.js<br/>CustomerMonitorService (OData V4)<br/>IntakeService (REST)"]
     HDI[("SAP HANA Cloud<br/>HDI container")]
     XS["XSUAA<br/>roles · attribute SalesOrg<br/>service keys for shops"]
-    DST["Destination service<br/>S4_EU · S4_US · S4_AU<br/>MAGENTO_EU · _US · _AU"]
-    CON["Connectivity service"]
-    LOG["SAP Cloud Logging<br/>(optional)"]
-    AUD["SAP Audit Log service<br/>(phase 2, 💡)"]
+    DST["Destination + Connectivity<br/>S4_EU · S4_US · S4_AU<br/>MAGENTO_EU · _US · _AU"]
+    OBS["SAP Cloud Logging (optional)<br/>SAP Audit Log (phase 2, 💡)"]
   end
   subgraph ONPREM["HYDAC data centre"]
     CC["SAP Cloud Connector<br/>resource: /sap/opu/odata/sap/API_BUSINESS_PARTNER/"]
@@ -288,9 +286,8 @@ flowchart TB
   SRV --> HDI
   SRV --> XS
   SRV --> DST
-  SRV --> LOG
-  SRV --> AUD
-  DST --> CON --> CC --> GWQ
+  SRV --> OBS
+  DST -->|"tunnel"| CC --> GWQ
   DST -->|"OAuth 2.0 SAML bearer"| PC
   MAG -->|"OAuth 2.0 client credentials"| SRV
   SRV -.->|"HTTP via destination"| MAG
@@ -365,55 +362,62 @@ Own code is limited to two XML fragments and one controller extension (`app/moni
 
 ### 5.4 Data architecture
 
+**The request aggregate** (phase 1 ✅, outbox 🟡):
+
 ```mermaid
 erDiagram
   REQUESTS ||--o| SALES_DATA : "has"
   REQUESTS ||--o| CONTACT_PERSONS : "admin contact"
   REQUESTS ||--o| SHIP_TO_PARTIES : "ship-to"
   REQUESTS ||--o{ LOG_ENTRIES : "log"
-  REQUESTS }o--|| STATUSES : "status"
-  REQUESTS }o--|| PROCESS_TYPES : "process type"
-  REQUESTS }o--|| BACKENDS : "backendSystem"
   REQUESTS ||--o{ OUTBOX_MESSAGES : "notifications"
-  BACKENDS ||--o{ PROCESS_STEPS : "allowed steps"
-  BACKENDS ||--o{ APPROVAL_RULES : "release rules"
-  BACKENDS ||--o{ STEPS : "step definitions"
-  BACKENDS ||--o{ MAGENTO_ASSIGNMENTS : "mapping"
-  BACKENDS ||--o{ USER_ASSIGNMENTS : "sales-org scope"
   REQUESTS {
     UUID ID PK
     String processType
     String status_code FK
     String backendSystem FK
     String salesOrganization
-    String source
     Boolean released
-    String releaseProcedure
     String releaseReason
     Decimal orderVolume
     String currency
-    String customer
-    String businessPartner
-    String shipToCustomer
-    String contactPersonNumber
-    String magentoCompany
-    String magentoCustomer
-    String magentoAddress
-    String name_address_communication "main data, editable"
+    String sapNumbers "customer, business partner, ship-to, contact"
+    String magentoIds "company, customer, address"
+    String mainData "name, address, communication, tax"
     Timestamp modifiedAt "ETag"
   }
   LOG_ENTRIES {
     UUID request_ID PK
     Integer line PK
-    String messageType
-    String messageNumber
-    String messageText
-    String step
-    String fieldName
-    String oldValue
-    String newValue
+    String message "type, number, text, step"
+    String fieldChange "field, old, new"
     String createdBy
     Timestamp createdAt
+  }
+  OUTBOX_MESSAGES {
+    UUID ID PK
+    String target
+    String payload
+    Integer attempts
+    String lastError
+  }
+```
+
+**Configuration per backend** (phase 2 🟡; `status_code` and `processType` reference the code lists `Statuses` and `ProcessTypes`, not shown):
+
+```mermaid
+erDiagram
+  BACKENDS ||--o{ REQUESTS : "backendSystem"
+  BACKENDS ||--o{ PROCESS_STEPS : "allowed steps"
+  BACKENDS ||--o{ APPROVAL_RULES : "release rules"
+  BACKENDS ||--o{ STEPS : "step definitions"
+  BACKENDS ||--o{ MAGENTO_ASSIGNMENTS : "mapping"
+  BACKENDS ||--o{ USER_ASSIGNMENTS : "sales-org scope"
+  BACKENDS {
+    String code PK "EU, US, AU"
+    String s4Destination
+    String magentoDestination
+    String adapter
   }
   APPROVAL_RULES {
     String backendSystem PK
@@ -435,13 +439,6 @@ erDiagram
     String user PK
     String backendSystem PK
     String salesOrganization PK
-  }
-  OUTBOX_MESSAGES {
-    UUID ID PK
-    String target
-    String payload
-    Integer attempts
-    String lastError
   }
 ```
 
@@ -475,17 +472,17 @@ sequenceDiagram
   participant H as HANA Cloud
   M->>X: client credentials (service key of the shop)
   X-->>M: access token (scope IntakeClient, backend EU)
-  M->>I: POST /intake/v1/registerCompany {payload as today}
-  I->>I: validate, derive backendSystem from the client
-  I->>H: SELECT request by Magento IDs (idempotency)
+  M->>I: POST /intake/v1/registerCompany (payload as today)
+  I->>I: validate, backendSystem from the client
+  I->>H: SELECT by Magento IDs (idempotency)
   alt open request exists
     I-->>M: 409 duplicate (existing request ID)
   else new
-    I->>I: process type (CR_DEB / CH_DEB / CR_AP / CH_AP / CR_WE), defaults
-    I->>I: approval check (ApprovalRules of backend, R-02/R-07)
-    I->>H: INSERT request, children, original payload, log "Eingang" + release result
+    I->>I: process type, defaults
+    I->>I: approval check (ApprovalRules, R-02/R-07)
+    I->>H: INSERT request, children, payload, log entries
     H-->>I: commit
-    I-->>M: 201 {requestId, status, released}
+    I-->>M: 201 requestId, status, released
   end
   Note over I,H: CH_AP is executed immediately (status 997). All other types wait for the back office
 ```
@@ -502,30 +499,26 @@ Editing uses CAP draft: `draftEdit` (with ETag) creates a draft and locks the re
 sequenceDiagram
   autonumber
   actor U as Back-office user
-  participant UI as Fiori Elements app
+  participant UI as Fiori app
   participant S as CAP service
   participant H as HANA Cloud
-  participant D as Destination + Connectivity
-  participant CC as Cloud Connector
+  participant C as Destination · Connectivity · Cloud Connector
   participant S4 as S/4HANA (GWQ → Q4H)
-  participant O as Outbox
   U->>UI: Run step "Create customer"
-  UI->>S: POST Requests(ID)/createCustomer, If-Match: ETag
-  S->>H: SELECT request FOR UPDATE (serialize per request)
-  S->>S: check ETag, role, sales org, allowed step, no draft
-  S->>D: destination S4_EU (PrincipalPropagation), user token
-  D->>CC: tunnel with short-lived X.509 for the user
-  CC->>S4: POST A_BusinessPartner (deep: address, roles, tax, to_Customer, company code, sales area)
+  UI->>S: POST createCustomer (If-Match ETag)
+  S->>H: SELECT request FOR UPDATE
+  S->>S: ETag, role, sales org, allowed step, no draft
+  S->>C: destination S4_EU, user token
+  C->>S4: POST A_BusinessPartner (deep insert), user X.509
   S4-->>S: 201 BusinessPartner, Customer
-  S->>H: UPDATE request: businessPartner, customer (persist immediately, R-11)
-  S->>S4: POST A_BusinessPartnerContact (+ address, function) via D/CC
+  S->>H: UPDATE numbers (persist at once, R-11)
+  S->>S4: POST A_BusinessPartnerContact
   S4-->>S: 201 ContactPerson
-  S->>H: UPDATE status 999, numbers, log entries, MagentoAssignments
-  S->>O: enqueue ID notification (same transaction)
+  S->>H: UPDATE status 999, log, mapping, outbox message
   H-->>S: commit
-  S-->>UI: 200 request (flags, status) + sap-messages
-  O->>O: after commit: send to MAGENTO_EU, retry on failure, log result
-  Note over S,S4: S/4 checks the authorization of the propagated user and writes change documents on that user
+  S-->>UI: 200 request + sap-messages
+  S-->>S: after commit the outbox sends the ID notification
+  Note over S,S4: S/4 checks the real user's authorization and writes change documents on that user
 ```
 
 Failure paths: an API error sets status 150 and logs all messages, the created numbers stay on the request; a repeat continues with the missing part. An unreachable backend returns 503 `BACKEND_UNAVAILABLE` and leaves the request unchanged. A stale ETag returns 412. A missing S/4 authorization of the propagated user returns 403 with the API message.
@@ -535,23 +528,20 @@ Failure paths: an API error sets status 150 and logs all messages, the created n
 ```mermaid
 sequenceDiagram
   autonumber
-  participant S as CAP step (transaction)
-  participant H as HANA Cloud (outbox table)
+  participant S as CAP step
+  participant H as HANA Cloud
   participant Q as Outbox worker
-  participant D as Destination MAGENTO_EU
-  participant M as Magento
-  S->>H: INSERT outbox message {target, payload} in the step transaction
-  S->>H: COMMIT (status, numbers, log, message together)
+  participant M as Magento shop
+  S->>H: INSERT outbox message (same transaction)
+  S->>H: COMMIT status, log and message together
   Q->>H: read pending messages
-  Q->>D: resolve URL + credentials
-  Q->>M: POST ID notification / RejectCusomterSet
+  Q->>M: POST ID notification or RejectCusomterSet (destination MAGENTO_EU)
   alt 2xx
     M-->>Q: OK
-    Q->>H: mark sent, log entry "notification sent" with timestamp
-  else failure
-    M-->>Q: timeout / 5xx
-    Q->>H: attempts+1, lastError, next retry (backoff)
-    Q->>H: log entry "notification failed" (visible in the request)
+    Q->>H: mark sent, log "notification sent"
+  else timeout or 5xx
+    M-->>Q: error
+    Q->>H: attempts+1, next retry (backoff), log "notification failed"
   end
   Note over S,M: Nothing is sent if the step rolls back. Each message is sent at least once and marked exactly once (R-03/R-04)
 ```
