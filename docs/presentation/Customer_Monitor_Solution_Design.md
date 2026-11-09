@@ -6,7 +6,7 @@
 | **In reply to** | Peter Wurst's email of 30 October 2026 ("BTP Services for Customer Monitor") and the meeting invite of 4 November 2026 |
 | **Customer** | HYDAC – Group IT, HYDAC USA, HYDAC Australia |
 | **Prepared by** | purplecat AG – Igor Vorobev, SAP BTP solution architecture |
-| **Version** | 1.1 – takes HYDAC's BTP usage export of October 2026 (`Subaccount_Details.xlsx`) into account |
+| **Version** | 1.2 – adds the summary, the delivery status, the validation caveats and the requirement index; 1.1 took HYDAC's BTP usage export of October 2026 (`Subaccount_Details.xlsx`) into account |
 | **Date** | 9 November 2026 |
 | **Review session** | Tuesday, 10 November 2026, 16:00–17:00 CET (10:00 ET), Microsoft Teams |
 | **Classification** | Confidential – HYDAC / purplecat project documentation |
@@ -21,7 +21,11 @@
 | **Integration:** connection to Q4H / GWQ and later production; HYDAC Australia's S/4HANA Public Cloud; Magento; Cloud Connector resources; OData services / RFC modules / APIs; authentication; relationship to the Integration Suite iFlows | 4 |
 | Invite topics: required BTP services · connection setup · multi-backend architecture · roles and authorizations · user management | 2.2 · 4.2, 4.4, 4.5 · 4.1, 4.7 · 1.2, 4.5 · 3.2 |
 
-**Conventions.** ✅ built and tested · 🟡 designed, not built · 💡 proposal, needs agreement · ❓ open point for HYDAC · *Assumption* = our current understanding, please correct. Identifiers: `UC-nn` use case (chapter 1), `REQ-x` requirement (chapter 2), `I-nn` interface (chapter 4).
+**Conventions.** ✅ built and tested · 🟡 designed, not built · 💡 proposal, needs agreement · ❓ open point for HYDAC · *Assumption* = our current understanding, please correct. Identifiers: `UC-nn` use case (chapter 1), `REQ-x` requirement (chapter 2), `I-nn` interface (chapter 4). An integration or authentication mechanism marked 🟡 or 💡 is designed from SAP's documentation and has **not yet been validated** in HYDAC's systems; chapter 4 names what the first connectivity tests have to confirm.
+
+**Summary and recommended approach.** The Customer Monitor replaces the regional SAP GUI review of shop registrations with one browser-based work queue on SAP BTP. Registrations from the Magento shops are received and stored on BTP, reviewed by the back office and processed against the SAP system of the request's region. The monitor owns the requests and their workflow; the SAP systems stay the system of record for business partner and customer master data and are reached only through the standard API `API_BUSINESS_PARTNER`, so there is nothing to develop in S/4HANA on-premise or in the Australian Public Cloud.
+
+We propose one SAP Fiori Elements application on a SAP CAP service with SAP HANA Cloud, deployed as one archive. Development starts in a new space of HYDAC's existing `DEV` subaccount, using the central launchpads, the shared HANA Cloud instance and the cTMS tenant that HYDAC already operates (chapter 2). For production we recommend one central deployment for all regions, on the condition that HYDAC data protection approves EU-hosted Australian contact data; otherwise Australia is deployed regionally from the same archive (section 4.1).
 
 ---
 
@@ -61,7 +65,7 @@ Business value of the new monitor compared with the SAP GUI report:
 |---|---|---|
 | Access | SAP GUI, transaction, one system | Browser via SAP Build Work Zone, one app for all regions, deep links (for example in emails) |
 | Work queue | One list with filters | Tabs with counters: My work, Errors, Clarification, Release, All; sorted by priority and waiting time; "next step" recommendation per request |
-| Concurrency | Steps run without a lock, so two users can create the same customer twice | Edit lock (draft), version check (ETag) on every step, steps serialized per request in one database transaction |
+| Concurrency | Steps run without a lock, so two users can create the same customer twice | Edit lock (draft), version check (ETag) on every step, steps serialized per request. The request, log and outbox are written in one database transaction; the call to SAP is a separate operation whose returned numbers are persisted at once, so a repeat continues where the step stopped |
 | Authorization | Two different sales-org checks | One sales-org rule in the service for the list, the detail and all sub-data; S/4 checks the real user when master data is created |
 | Robustness | Several known defects found in the analysis of the legacy report (lost ship-to numbers after partial failures, notifications sent before the commit, swallowed send errors, release limit compared without currency) | Fixed by design in the service; nothing depends on changes in S/4 |
 | Custom code in SAP | Tables, customizing, step classes, Gateway services, BAdI (`ZEC_*`, `ZCL_EC_*`) | **None.** The SAP systems serve the standard business-partner API only |
@@ -109,6 +113,8 @@ Other parties: HYDAC IT (BTP, SAP Basis, identity, integration) operates the pla
 | UC-15 | **Migrate open requests** and Magento mappings from `ZEC_CUSTOMER` at cutover | purplecat / HYDAC | 🟡 |
 
 Which steps are allowed is decided **by the service** (customizing per backend plus role). The UI only shows what the service allows; it holds no business rules.
+
+**Delivery status at the time of this review.** The work queue, request review and editing, release, duplicate handling, clarification, rejection, manual completion, reset and the complete step logic are built and tested against mock data (137 service tests, 15 UI journeys). Not yet built: the calls to `API_BUSINESS_PARTNER`, the Magento intake and notifications, and the migration of open requests (phase 2, after the decisions of this review). The admin screen is a proposal. A live demo of the current version is possible in the session.
 
 ### 1.4 Process types, statuses and steps
 
@@ -247,15 +253,17 @@ The UI is SAP Fiori Elements (List Report and Object Page), so it follows the SA
 
 ## 2. Requested elements mapped to requirements
 
-The requirements referenced in this chapter follow from the functional design in chapter 1:
+The requirements referenced in this chapter follow from the functional design in chapter 1. The last column is the index in the other direction: where each requirement is answered in this document.
 
-- **REQ-A Access:** business users in EU, USA and AU open the app in the browser via SAP Build Work Zone, with roles per sales organization (UC-01, UC-02, section 1.2).
-- **REQ-P Persistence:** requests, drafts, log, customizing, Magento mapping and outbox live in SAP HANA Cloud. The edit lock, the version check and the repeatable steps work on local rows (UC-03, UC-04, UC-12).
-- **REQ-I Integration:** Magento intake and notifications; master data through the business-partner API of each SAP system, Q4H/GWQ first (UC-05 to UC-08, UC-10, UC-14).
-- **REQ-S Security:** authorization per role and sales organization; SAP authorizations and change documents on the real user for master-data creation (section 1.2, section 4.5).
-- **REQ-D Delivery:** reproducible builds, automated tests, controlled transport DEV → QAS → PRD.
-- **REQ-O Operation:** health monitoring, logs, backups (chapter 3).
-- **REQ-V Version control:** source code and iFlows versioned and reviewable, owned by HYDAC.
+| Requirement | Meaning | Derived from | Answered in |
+|---|---|---|---|
+| **REQ-A Access** | Business users in EU, USA and AU open the app in the browser via SAP Build Work Zone, with roles per sales organization | UC-01, UC-02, section 1.2 | 2.1–2.3, 3.2, 4.5 |
+| **REQ-P Persistence** | Requests, drafts, log, customizing, Magento mapping and outbox live in SAP HANA Cloud. The edit lock, the version check and the repeatable steps work on local rows | UC-03, UC-04, UC-12 | 1.5, 2.2, 3.4 |
+| **REQ-I Integration** | Magento intake and notifications; master data through the business-partner API of each SAP system, Q4H/GWQ first | UC-05 to UC-08, UC-10, UC-14 | 2.4, 4.1–4.8 |
+| **REQ-S Security** | Authorization per role and sales organization; SAP authorizations and change documents on the real user for master-data creation | Section 1.2, section 4.5 | 2.3, 3.2, 4.4, 4.5 |
+| **REQ-D Delivery** | Reproducible builds, automated tests, controlled transport DEV → QAS → PRD | Chapter 3 | 2.2, 2.3, 2.5, 2.6 |
+| **REQ-O Operation** | Health monitoring, logs, backups, handling of failed steps and notifications | Chapter 3 | 2.2, 3.1, 3.4, 4.6 |
+| **REQ-V Version control** | Source code and iFlows versioned and reviewable, owned by HYDAC | Chapter 3 | 2.5, 4.8 |
 
 The application is a SAP Fiori Elements user interface on a SAP CAP (Node.js) service with SAP HANA Cloud, deployed as one archive into a Cloud Foundry space. BTP is the system of record for the requests; the SAP systems are reached only through the standard API `API_BUSINESS_PARTNER` (chapter 4). The picture shows where each requested service is used:
 
@@ -309,7 +317,7 @@ flowchart TB
 | `HYDAC-AP-AUTOMATE` | SAP HANA Cloud (HYDAC USA accounts payable automation) | Shows that HYDAC USA application data already lives in region eu10 |
 | No application PRD subaccount, no subaccount outside Europe | – | PRD subaccount to be created; a regional AU deployment would be HYDAC's first non-EU subaccount (section 4.1) |
 
-The export lists consumed services. Free services such as XSUAA, Connectivity and Application Logging do not appear in it and are to be confirmed in the entitlements of `DEV`.
+The export lists consumed services. Free services such as XSUAA, Connectivity and Application Logging do not appear in it and are to be confirmed in the entitlements of `DEV`. The export also does not tell whether the shared HANA Cloud instance in `GeneralServices` has the capacity and the policy clearance to serve the monitor; that is a question for HYDAC's BTP admin (section 2.2).
 
 ### 2.1 Subaccount
 
@@ -357,6 +365,8 @@ flowchart TB
 | **Continuous Integration and Delivery** (`cicd-app` / `default`) | REQ-D | Builds the archive on every push to Git, runs lint and service tests, deploys to DEV, uploads to cTMS | When Git is set up | Alternative: GitHub Actions + `cf` CLI (no entitlement, but a pipeline to maintain). Manual builds are possible but not reproducible. The export shows no CI/CD subscription; SAP Build Code (Standard) is active in `DEV` – ❓ check whether its bundle already covers the CI/CD service before a separate entitlement. |
 | **SAP Build Work Zone, standard edition** (`SAPLaunchpad` / `standard`) | REQ-A | Entry point for business users: tile, role-based visibility, later navigation to the S/4 app "Manage Business Partners" | Before user tests | **Not needed in the application subaccount.** HYDAC runs central launchpads in `CFLPDEV` and `CFLPPRD`; the monitor is added there as a content provider (a design-time and a runtime destination from the launchpad subaccount to the application subaccount; both subaccounts use the same identity provider; the app role collections stay in the application subaccount). ❓ Confirm that this is HYDAC's standard and which site serves QAS. |
 | **Cloud Transport Management** (`transport` / `standard`) | REQ-D | Moves the same archive DEV → QAS → PRD with approval and audit trail | Before QAS exists | **Not an entitlement for the application subaccount:** the tenant `ctms-hydac` runs in subaccount `CTMS`. We need from there a transport node per target space, a service key of the `transport` instance for the CI/CD upload, and the TMS role collections (section 2.6). DEV alone works without it. |
+
+**Sizing note.** The 2–4 GB Cloud Foundry quota and the smallest HANA Cloud size are initial estimates from the data volume of the legacy tables and the number of deployment tasks, not measured production sizing. User counts, requests per day and the deployment topology (central or regional, section 4.1) are needed before HYDAC approves the final capacity and cost ❓ (section 1.2).
 
 Services without a new entitlement (in use in `DEV` according to the export, or unmetered and therefore not in the export – ❓ to confirm in the entitlements of `DEV`):
 
@@ -439,7 +449,7 @@ flowchart LR
 
 ### 3.1 Recurring tasks and proposed owners
 
-The table lists the recurring tasks the application and its BTP services require. **"Owner" is for HYDAC to decide.** The proposal is only a starting point.
+The table lists the recurring tasks the application and its BTP services require. **"Owner" is for HYDAC to decide.** The proposal is only a starting point; its principle is simple: HYDAC owns identity, platform, SAP authorizations, production approvals and business rules; regional key users own everything at request level (sales-org assignments, customizing, first-level support); purplecat handles application changes and support as agreed; TechDivision owns the Magento side.
 
 | Area | Task | Frequency | Proposed owner | Owner (HYDAC decision) |
 |---|---|---|---|---|
@@ -508,7 +518,7 @@ Allowed steps per process type and status, approval rules and limits, and status
 | Alerts | Cloud Logging alerts on error rate, outbox age, intake failures 🟡; BTP Alert Notification optional | Operations |
 | Platform | BTP cockpit, `cf app`, HANA Cloud Central (memory, backups) | Capacity |
 
-**Backup and continuity.** HANA Cloud is managed by SAP: daily full backups and log backups at least every 15 minutes, point-in-time recovery, retention 14 days by default (configurable 1–215 days), to be set per HYDAC policy for PRD with a restore rehearsal once a year. The CAP service is stateless and redeployable from the archive at any time. Drafts are database rows and survive restarts. ❓ HYDAC's disaster-recovery requirement decides whether a cross-region replica is needed.
+**Backup and continuity.** HANA Cloud is managed by SAP: daily full backups and log backups at least every 15 minutes, point-in-time recovery, retention 14 days by default (configurable 1–215 days), to be set per HYDAC policy for PRD with a restore rehearsal once a year. The CAP service is stateless and redeployable from the archive at any time. Drafts are database rows and survive restarts. ❓ HYDAC's recovery objectives (how much data loss and how much downtime are acceptable, RPO/RTO) are not defined yet; they decide whether the managed backups suffice or a cross-region replica is needed.
 
 ---
 
@@ -583,6 +593,8 @@ How the steps map to the standard API:
 | CHNG_OLD, CNG_DEBI | `GET A_BusinessPartner('…')?$expand=to_Customer,to_BusinessPartnerRole` | `BP_NOT_FOUND` / `BP_NOT_CUSTOMER`; Magento mapping read locally |
 | Value help | `GET A_BusinessPartner?$filter=…&$expand=to_Customer` | Only in the request's backend, result limited |
 | RELEASE, REJECT, CLARIFY, RESET, CNG_NEW, MANUAL_OK | none | Request in HANA Cloud only |
+
+**What is validated and what is not 🟡.** The call sequence above is designed from the API documentation of `API_BUSINESS_PARTNER` and the field usage of the legacy step classes; it has not yet been run against Q4H/GWQ or the AU tenant. The first connectivity tests on DEV have to confirm: the service activation and release level in Q4H, deep-insert support for business partner + customer + company code + sales area in one call, internal number assignment and grouping per sales org, the contact-person relationship, and the authorization checks on the propagated user. Each of these is a configuration or test question, not development.
 
 A step end to end, here CREATE against Q4H through GWQ:
 
@@ -660,7 +672,7 @@ flowchart LR
 | UI → CAP | OAuth token forwarded by the managed approuter; CSRF protection by Fiori Elements |
 | Magento → CAP (intake) | OAuth 2.0 client credentials: one XSUAA service key per shop/region (identifies the backend), rotated by HYDAC; optionally API key + quota in API Management |
 | CAP → S/4 on-premise (master-data steps, value help) | **Recommended: principal propagation.** The user's token is exchanged, the Cloud Connector issues a short-lived X.509 certificate for the logged-in user, and S/4 maps it to the S/4 user (rule in `CERTRULE`). Alternative: technical user (basic authentication) |
-| CAP → S/4HANA Public Cloud | Communication arrangement `SAP_COM_0008` in the AU tenant; user propagation via OAuth 2.0 SAML bearer assertion; alternative client certificate with a communication user |
+| CAP → S/4HANA Public Cloud | Communication arrangement `SAP_COM_0008` in the AU tenant; user propagation via OAuth 2.0 SAML bearer assertion; alternative client certificate with a communication user. ❓ To validate in the AU tenant: the supported authentication method of the arrangement, the business-user mapping and the business role for business-partner maintenance |
 | CAP → Magento (notifications) | As S/4 does it today (basic authentication or token per shop; ❓ TechDivision), stored in the destination |
 
 Why principal propagation for the master-data steps: S/4 checks the authorization of the real user to create business partners for that sales org and company code; change documents and the created master data show the real user, not a technical one; there is no shared password to rotate. Effort for HYDAC: a one-time Cloud Connector trust setup (system certificate, CA), an ICM/certificate mapping in GWQ/Q4H, and a user mapping rule (for example email → S/4 user). Only editors who run CREATE / CREATE_WE / AP_MODIFY need an S/4 user.
@@ -739,14 +751,14 @@ What changes for Magento and when:
 - **No change for Magento in phase 2** (development and tests on DEV/QAS with test shops or replayed payloads).
 - **Change at cutover:** TechDivision switches each shop's endpoint and credentials from `ZEC_CUSTOMER_CREATE_SRV` to the intake service. The payload structure stays. Notifications then arrive from BTP instead of S/4 with the same content. What Magento reads back today via `ZEC_CUSTOMER_READ_SRV` after an ID notification is either included in the notification or read from the intake service (❓ TechDivision).
 - Parallel run per shop: a shop is switched when its open requests have been migrated; the legacy services are retired after one release cycle.
-- Coordination with TechDivision / Magento is needed for: address-level rejection, keeping `RejectCusomterSet` as is, the read-back, and the switch plan.
+- Coordination with TechDivision / Magento is needed for: address-level rejection, keeping `RejectCusomterSet` as is, the read-back, the switch plan, and the delivery guarantee: notifications are delivered **at least once** (a retry after a lost response can repeat a message), so Magento should treat a repeated notification for the same request as harmless ❓ (today's BAdI notification has no retry at all).
 - ❓ Do the USA and Australia use separate Magento instances, and how do AU registrations reach SAP today?
 
 ### 4.7 S/4HANA Cloud Public Edition (HYDAC Australia)
 
 | Aspect | On-premise S/4 (Q4H) | S/4HANA Cloud Public Edition (Australia) |
 |---|---|---|
-| Connection | Cloud Connector, principal propagation | Internet, no Cloud Connector; communication arrangement `SAP_COM_0008` (OAuth 2.0 SAML bearer for user propagation, or a communication user with certificate) |
+| Connection | Cloud Connector, principal propagation | Internet, no Cloud Connector; communication arrangement `SAP_COM_0008` (OAuth 2.0 SAML bearer for user propagation, or a communication user with certificate; method to validate in the AU tenant ❓) |
 | API | `API_BUSINESS_PARTNER` (activated standard service) | `API_BUSINESS_PARTNER` – **the same API, the same adapter**. In the Public Cloud it is the only way to create customers from outside anyway: the released ABAP Cloud business-partner object cannot create customer roles (SAP note 3655149) |
 | Custom code | None needed | None needed. **No ABAP Cloud development, no developer extensibility required** |
 | Custom fields | Z fields on the customer today (Magento company, CRM number ❓) | Key-user custom fields, if HYDAC wants them visible in S/4; otherwise the mapping lives in the monitor (section 4.3) |
