@@ -28,6 +28,7 @@ Neuentwicklung des SAP-GUI-Kundenmonitors `ZEC_CUSTOMER_MONITOR` (HYDAC eCommerc
 | [docs/10_s4_schnittstelle.md](docs/10_s4_schnittstelle.md) | Backend-Schnittstellen (Entwurf, E-15): Magento-Eingang, Schritte → `API_BUSINESS_PARTNER`, Notifications, Destinations, was in S/4 entfällt | Phase 2 mit HYDAC / TechDivision abstimmen |
 | [docs/11_design_review_hydac.md](docs/11_design_review_hydac.md) | Design-Review für HYDAC IT (EN): Agenda, Fachdesign, BTP-Setup, Entscheidungen D1–D13, offene Fragen | Abstimmung mit HYDAC |
 | [docs/12_solution_design.md](docs/12_solution_design.md) | Solution Design Document (EN) für HYDAC: Kontext, Bausteine, Laufzeit (Sequenzen, Statusmaschine), Integration, Sicherheit, Multi-Region, Betrieb, Architekturentscheidungen AD-01…AD-14, Risiken – mit Diagrammen | Architektur gegenüber HYDAC erklären |
+| [docs/presentation/Customer_Monitor_Solution_Design.md](docs/presentation/Customer_Monitor_Solution_Design.md) | Kundenfassung für die Design-Review (EN): nur die Antworten auf die vier Fragen von Peter Wurst (Fachdesign, angeforderte BTP-Elemente ↔ Anforderungen, laufende Administration, Integration), aus docs/12 abgeleitet; Quelle der Word-Datei `Customer_Monitor_Solution_Design.docx` (Build mit `docs/presentation/md2docx.js`) | Dokument, das an HYDAC geht |
 
 Referenz Altsystem: Confluence EXTHYDAC › Australien › *Kundenmonitor (ZEC_CUSTOMER_MONITOR) – Technische und fachliche Dokumentation*
 (https://techdivision.atlassian.net/wiki/spaces/EXTHYDAC/pages/2419851266)

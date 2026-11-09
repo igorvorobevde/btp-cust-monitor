@@ -21,7 +21,7 @@
 
 **Conventions.** ✅ built and tested · 🟡 designed, not built · 💡 proposal, needs agreement · ❓ open question for HYDAC · *Assumption* = our current understanding, please correct. Identifiers: `AD-nn` architecture decision (this document), `E-nn` / `D-nn` decisions in the engineering docs, `R-nn` legacy findings, `B-nn` backlog items, `UC-nn` use cases, `NFR-nn` non-functional requirements, `I-nn` interfaces.
 
-**Related documents.** `docs/11` is the review agenda for 10 November and lists the decisions requested from HYDAC (D1–D13) and the open questions; this document is the design it refers to. Engineering detail: `docs/01` business logic, `docs/02` target architecture and decisions E-01…E-19, `docs/03` service contract, `docs/04` UI specification, `docs/07` legacy findings, `docs/09` Fiori Elements migration and decision D-15, `docs/10` backend interfaces.
+**Related documents.** `docs/11` is the review agenda for 10 November and lists the decisions requested from HYDAC (D1–D13) and the open questions; this document is the design it refers to. The version sent to HYDAC (`docs/presentation/Customer_Monitor_Solution_Design.md` → `.docx`) contains only the answers to Peter Wurst's four questions and is derived from this document; keep both in sync. Engineering detail: `docs/01` business logic, `docs/02` target architecture and decisions E-01…E-19, `docs/03` service contract, `docs/04` UI specification, `docs/07` legacy findings, `docs/09` Fiori Elements migration and decision D-15, `docs/10` backend interfaces.
 
 ---
 

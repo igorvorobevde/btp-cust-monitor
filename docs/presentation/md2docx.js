@@ -10,6 +10,8 @@
  *   mkdir -p /tmp/deck-tools && cd /tmp/deck-tools && npm init -y && npm i docx marked mermaid puppeteer-core
  *   NODE_PATH=/tmp/deck-tools/node_modules node docs/presentation/md2docx.js docs/11_design_review_hydac.md \
  *       docs/presentation/Customer_Monitor_Design_Review_PreRead.docx
+ *   NODE_PATH=/tmp/deck-tools/node_modules node docs/presentation/md2docx.js \
+ *       docs/presentation/Customer_Monitor_Solution_Design.md docs/presentation/Customer_Monitor_Solution_Design.docx
  *
  * Environment: CHROME = path to a Chrome/Chromium binary (default: Google Chrome on macOS).
  *              MERMAID_DIR = folder where the rendered diagram PNGs are kept (default: a temp folder).
