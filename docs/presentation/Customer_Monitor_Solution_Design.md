@@ -6,7 +6,7 @@
 | **In reply to** | Peter Wurst's email of 30 October 2026 ("BTP Services for Customer Monitor") and the meeting invite of 4 November 2026 |
 | **Customer** | HYDAC – Group IT, HYDAC USA, HYDAC Australia |
 | **Prepared by** | purplecat AG – Igor Vorobev, SAP BTP solution architecture |
-| **Version** | 1.0 |
+| **Version** | 1.1 – takes HYDAC's BTP usage export of October 2026 (`Subaccount_Details.xlsx`) into account |
 | **Date** | 9 November 2026 |
 | **Review session** | Tuesday, 10 November 2026, 16:00–17:00 CET (10:00 ET), Microsoft Teams |
 | **Classification** | Confidential – HYDAC / purplecat project documentation |
@@ -295,61 +295,80 @@ flowchart TB
   SRV -.->|"HTTP via destination"| MAG
 ```
 
+**What HYDAC's global account already provides.** HYDAC's BTP usage export for October 2026 (`Subaccount_Details.xlsx`: 22 subaccounts, all in region eu10 on AWS or eu20 on Azure) shows the following subaccounts that matter for the monitor. The mapping in this chapter takes them into account.
+
+| Subaccount (directory) | What it runs today | Relevance for the monitor |
+|---|---|---|
+| `DEV` (Development), CF space `dev` | Cloud Foundry Runtime (Free plan), Destination, HTML5 Application Repository, Identity Authentication, SAP Build Code, SAP Build Process Automation, AI Core, Document Information Extraction | **Recommended development subaccount** instead of FSM-DEV-CPI |
+| `QAS`, CF space `space_qas` | Market Rates (Bring Your Own Rates) | Candidate for the QAS stage ❓ |
+| `CFLPDEV`, `CFLPPRD` (Workzone) | SAP Build Work Zone, standard edition (DEV and PRD launchpad), Destination | HYDAC's central launchpads: the monitor is integrated there as a content provider; no Work Zone subscription in the application subaccount |
+| `GeneralServices` ("General Services f.e. HanaDB") | SAP HANA Cloud | Shared database instance; can be mapped to the monitor's space (same region) |
+| `CTMS` | Cloud Transport Management, Destination | The cTMS tenant `ctms-hydac` |
+| `FSM-DEV-CPI`, `FSM-PRD-CPI` (Integration) | Integration Suite (standard edition, messages), Destination | Integration only: API Management proxy and iFlows (section 4.8); not the place for the application |
+| `IASIPS` | Identity Provisioning connectivity (Europe) | Identity Authentication and Identity Provisioning exist (section 3.2) |
+| `HYDAC-AP-AUTOMATE` | SAP HANA Cloud (HYDAC USA accounts payable automation) | Shows that HYDAC USA application data already lives in region eu10 |
+| No application PRD subaccount, no subaccount outside Europe | – | PRD subaccount to be created; a regional AU deployment would be HYDAC's first non-EU subaccount (section 4.1) |
+
+The export lists consumed services. Free services such as XSUAA, Connectivity and Application Logging do not appear in it and are to be confirmed in the entitlements of `DEV`.
+
 ### 2.1 Subaccount
 
 | Item | Requirement | Why | Note |
 |---|---|---|---|
-| Development subaccount (FSM-DEV-CPI or a dedicated one) | all | Place for the DEV space, service instances and subscriptions | ❓ FSM-DEV-CPI also hosts Integration Suite. That works for DEV. For QAS/PRD we recommend separate subaccounts (or at least separate spaces) so that application and integration lifecycles stay independent. The region of the productive subaccount(s) depends on the data residency decision (section 4.1). HYDAC decides. |
+| Development subaccount: **`DEV`** (directory Development, eu10) | all | Place for the DEV space, service instances and subscriptions | `DEV` already runs Cloud Foundry, Destination, HTML5 Application Repository and Identity Authentication, so the monitor fits in with a new space `cap-monitor`. We withdraw the question about FSM-DEV-CPI: that subaccount is Integration Suite only. QAS could use the existing `QAS` subaccount ❓; a PRD subaccount for applications does not exist yet and has to be created. The region of the productive subaccount(s) depends on the data residency decision (section 4.1). HYDAC decides. |
+
+All subaccounts below are in HYDAC's global account, region eu10:
 
 ```mermaid
 flowchart TB
-  GA["HYDAC global account"]
-  subgraph DEVSA["Subaccount DEV (FSM-DEV-CPI or dedicated)"]
-    DEVSP["CF space cap-monitor<br/>srv · db-deployer · app-deployer<br/>xsuaa · hdi · destination · html5-repo"]
-    DEVWZ["Work Zone (DEV site)"]
-    DEVHC[("HANA Cloud<br/>shared or own")]
+  GH["GitHub (HYDAC org)<br/>cap-monitor · cpi-iflows"] -->|"webhook"| CICD["SAP CI/CD"]
+  subgraph DEVSA["Subaccount DEV (existing)"]
+    DEVSP["CF space cap-monitor (new)<br/>srv · db-deployer · app-deployer<br/>xsuaa · hdi · destination · html5-repo"]
   end
-  subgraph QASSA["Subaccount QAS (recommended: own)"]
+  subgraph QASSA["Subaccount QAS (existing ❓)"]
     QASSP["CF space"]
-    QASHC[("HANA Cloud")]
   end
-  subgraph PRDSA["Subaccount PRD (central, or one per region)"]
+  subgraph PRDSA["Subaccount PRD (new: central, or one per region)"]
     PRDSP["CF space · 2 instances"]
-    PRDHC[("HANA Cloud<br/>backup retention per policy")]
+    PRDHC[("HANA Cloud<br/>own or GeneralServices ❓")]
   end
-  CTMS["Cloud Transport Management<br/>tenant ctms-hydac (eu10)"]
-  CICD["SAP CI/CD"]
-  GH["GitHub (HYDAC org)<br/>cap-monitor · cpi-iflows"]
-  GA --> DEVSA
-  GA --> QASSA
-  GA --> PRDSA
-  GH -->|"webhook"| CICD -->|"cf deploy"| DEVSP
-  CICD -->|"upload .mtar"| CTMS -->|"import, HYDAC approval"| QASSP
+  CTMS["Subaccount CTMS<br/>Cloud Transport Management<br/>tenant ctms-hydac"]
+  WZD["Subaccount CFLPDEV<br/>Work Zone DEV site"]
+  WZP["Subaccount CFLPPRD<br/>Work Zone PRD site"]
+  GS[("Subaccount GeneralServices<br/>HANA Cloud (existing)")]
+  CICD -->|"cf deploy"| DEVSP
+  CICD -->|"upload .mtar"| CTMS
+  CTMS -->|"import, HYDAC approval"| QASSP
   CTMS -->|"forward, HYDAC approval"| PRDSP
+  WZD -->|"content provider"| DEVSP
+  WZD -.->|"content provider ❓"| QASSP
+  WZP -->|"content provider"| PRDSP
+  GS -.->|"instance mapping"| DEVSP
+  GS -.->|"instance mapping"| QASSP
 ```
 
 ### 2.2 Entitlements
 
 | Entitlement | Requirement | Why it is needed | Needed from | If not granted |
 |---|---|---|---|---|
-| **Cloud Foundry Runtime (MEMORY), 2–4 GB** | REQ-A, REQ-I | Runs the CAP service (≈ 256–512 MB per instance), the HDI deployer task and the content deployers during deployment. Headroom for zero-downtime redeploys. | First deployment | No deployment possible |
-| **SAP HANA Cloud** (`hana-cloud` / `hana` + tools) | REQ-P | Database instance for the HDI container; **the system of record from phase 2**. Data volume stays in the low gigabytes, the smallest size suffices. | First deployment | No persistence at all. ❓ An existing HANA Cloud instance in HYDAC's global account could be shared (instance mapping) to save cost. HANA Cloud is the **main cost item** of the setup. Non-productive instances can be stopped outside working hours; for PRD set the backup retention to HYDAC's policy. |
+| **Cloud Foundry Runtime (MEMORY), 2–4 GB** | REQ-A, REQ-I | Runs the CAP service (≈ 256–512 MB per instance), the HDI deployer task and the content deployers during deployment. Headroom for zero-downtime redeploys. | First deployment | No deployment possible. `DEV` currently uses the **Free** plan; the monitor needs the Standard (MEMORY) plan quota of 2–4 GB in `DEV` ❓ (the Free plan's quota may not suffice). |
+| **SAP HANA Cloud** (`hana-cloud` / `hana` + tools) | REQ-P | Database instance for the HDI container; **the system of record from phase 2**. Data volume stays in the low gigabytes, the smallest size suffices. | First deployment | No persistence at all. **Recommendation:** map the existing HANA Cloud instance in `GeneralServices` to the monitor's DEV (and QAS) space (instance mapping, same region eu10); then no `hana-cloud` entitlement is needed in `DEV`, only `hdi-shared`. HANA Cloud is the **main cost item** of the setup. For PRD: own instance or `GeneralServices` per HYDAC's policy ❓, with the backup retention set to HYDAC's policy. |
 | **SAP HANA Schemas & HDI Containers** (`hana` / `hdi-shared`) | REQ-P | The application's own schema (container) in the HANA Cloud instance, deployed from the archive | First deployment | as above |
-| **Continuous Integration and Delivery** (`cicd-app` / `default`) | REQ-D | Builds the archive on every push to Git, runs lint and service tests, deploys to DEV, uploads to cTMS | When Git is set up | Alternative: GitHub Actions + `cf` CLI (no entitlement, but a pipeline to maintain). Manual builds are possible but not reproducible. |
-| **SAP Build Work Zone, standard edition** (`SAPLaunchpad` / `standard`) | REQ-A | Entry point for business users: tile, role-based visibility, later navigation to the S/4 app "Manage Business Partners" | Before user tests | Users would need a direct app URL. ❓ If HYDAC already runs a Work Zone site, the app can be added there instead. |
-| **Cloud Transport Management** (`transport` / `standard`) | REQ-D | Connects the subaccount to the existing cTMS tenant so that the same archive moves DEV → QAS → PRD with approval and audit trail | Before QAS exists | DEV alone works without it. Without cTMS, transports are manual `cf deploy` runs per space. |
+| **Continuous Integration and Delivery** (`cicd-app` / `default`) | REQ-D | Builds the archive on every push to Git, runs lint and service tests, deploys to DEV, uploads to cTMS | When Git is set up | Alternative: GitHub Actions + `cf` CLI (no entitlement, but a pipeline to maintain). Manual builds are possible but not reproducible. The export shows no CI/CD subscription; SAP Build Code (Standard) is active in `DEV` – ❓ check whether its bundle already covers the CI/CD service before a separate entitlement. |
+| **SAP Build Work Zone, standard edition** (`SAPLaunchpad` / `standard`) | REQ-A | Entry point for business users: tile, role-based visibility, later navigation to the S/4 app "Manage Business Partners" | Before user tests | **Not needed in the application subaccount.** HYDAC runs central launchpads in `CFLPDEV` and `CFLPPRD`; the monitor is added there as a content provider (a design-time and a runtime destination from the launchpad subaccount to the application subaccount; both subaccounts use the same identity provider; the app role collections stay in the application subaccount). ❓ Confirm that this is HYDAC's standard and which site serves QAS. |
+| **Cloud Transport Management** (`transport` / `standard`) | REQ-D | Moves the same archive DEV → QAS → PRD with approval and audit trail | Before QAS exists | **Not an entitlement for the application subaccount:** the tenant `ctms-hydac` runs in subaccount `CTMS`. We need from there a transport node per target space, a service key of the `transport` instance for the CI/CD upload, and the TMS role collections (section 2.6). DEV alone works without it. |
 
-Already entitled in FSM-DEV-CPI (no new entitlement):
+Services without a new entitlement (in use in `DEV` according to the export, or unmetered and therefore not in the export – ❓ to confirm in the entitlements of `DEV`):
 
-| Service | Requirement | Why |
-|---|---|---|
-| `xsuaa` (application) | REQ-A, REQ-S | Login, roles `Viewer` / `Editor` / `Releaser` / `Admin`, attribute `SalesOrg`; technical client per Magento shop |
-| `destination` (lite) | REQ-A, REQ-I | Route UI → CAP; one destination per SAP system and per Magento shop (Q4H/GWQ, AU Public Cloud, shops EU/US/AU) |
-| `connectivity` (lite) | REQ-I | Cloud Connector tunnel from the CF app to the on-premise business-partner API (not needed for the Public Cloud) |
-| `html5-apps-repo` (app-host, app-runtime) | REQ-A | Hosting the UI for Work Zone / managed approuter |
-| `application-logs` / Cloud Logging | REQ-O | Central logs. CAP supports both. Our archive has an optional SAP Cloud Logging binding; without it logs stay available via `cf logs`. |
+| Service | Requirement | Why | In the export |
+|---|---|---|---|
+| `xsuaa` (application) | REQ-A, REQ-S | Login, roles `Viewer` / `Editor` / `Releaser` / `Admin`, attribute `SalesOrg`; technical client per Magento shop | not listed (unmetered) |
+| `destination` (lite) | REQ-A, REQ-I | Route UI → CAP; one destination per SAP system and per Magento shop (Q4H/GWQ, AU Public Cloud, shops EU/US/AU) | in use in `DEV` |
+| `connectivity` (lite) | REQ-I | Cloud Connector tunnel from the CF app to the on-premise business-partner API (not needed for the Public Cloud) | not listed (unmetered) |
+| `html5-apps-repo` (app-host, app-runtime) | REQ-A | Hosting the UI, consumed by the launchpad subaccount | app-host in use in `DEV` |
+| `application-logs` / Cloud Logging | REQ-O | Central logs. CAP supports both. Our archive has an optional SAP Cloud Logging binding; without it logs stay available via `cf logs`. | not listed |
 
-Not requested yet: **SAP Cloud Identity Services** (Identity Authentication) for the user management proposal (section 3.2) – ❓ HYDAC probably already has a tenant (every S/4HANA Public Cloud comes with one). Optional, recommended once personal data is on BTP (section 1.5): **SAP Audit Log service** (audit of personal-data access) and **SAP Job Scheduling Service** (retention job).
+**SAP Cloud Identity Services** exist: Identity Authentication is bound to `DEV` and Identity Provisioning connectivity runs in `IASIPS`. ❓ Confirm that this is the tenant for productive use and whether the AU Public Cloud shares it (section 3.2). Optional, recommended once personal data is on BTP (section 1.5): **SAP Audit Log service** (audit of personal-data access) and **SAP Job Scheduling Service** (retention job).
 
 ### 2.3 Cloud Foundry space and roles
 
@@ -360,7 +379,7 @@ Not requested yet: **SAP Cloud Identity Services** (Identity Authentication) for
 | **Org Manager** | – | Only needed to create spaces or manage org members ourselves | **Not needed if HYDAC creates the spaces.** Space Manager is enough for adding team members to the space. We are happy to drop this. |
 | **Subaccount Service Administrator** (role collection) | REQ-A, REQ-D | Create subscriptions (Work Zone, CI/CD, cTMS) and service instances in the cockpit | HYDAC's BTP admin does the one-time subscriptions and assigns the app role collections. After that Space Developer is enough for daily work. |
 | App role collections `Kundenmonitor_*` for test users | REQ-S | Testing the role and sales-org behaviour | Assigned by HYDAC or by us; in production through IdP groups (section 3.2) |
-| Work Zone `Launchpad_Admin` (DEV) | REQ-A | Add the tile to a site, assign roles | Can stay with HYDAC |
+| Work Zone `Launchpad_Admin` in `CFLPDEV` | REQ-A | Register the content provider, add the tile to the DEV site, assign roles | Can stay with HYDAC's launchpad team; we provide the destination values |
 | CI/CD `CICD Service Administrator` / `Developer` | REQ-D | Configure the pipeline and credentials | – |
 | cTMS roles (for example `TMS_Viewer`, `TMS_Export_Operator`; import roles stay with HYDAC) | REQ-D | Upload archives and track transports; HYDAC controls imports into QAS/PRD | – |
 
@@ -391,9 +410,10 @@ Limitation: the built-in feature covers iFlows only, not message mappings or scr
 
 | Item | Requirement | Why |
 |---|---|---|
-| Confirm owner of the cTMS tenant `ctms-hydac` (eu10) and reuse | REQ-D | One transport tool for all HYDAC BTP content |
-| Transport node for the DEV space, later QAS and PRD nodes (each with a destination to the deploy service of the target space; with regional deployments one PRD node per region) | REQ-D | Same archive through all stages and regions; space-specific values (destinations, backends) via extension descriptors, never a rebuilt archive |
-| TMS role collections for the team | REQ-D | Export/upload by purplecat, import approval by HYDAC |
+| Reuse of the cTMS tenant `ctms-hydac` in subaccount `CTMS` (eu10); confirm its owner | REQ-D | One transport tool for all HYDAC BTP content; the export confirms the tenant |
+| In `CTMS`: transport node for the DEV space, later QAS and PRD nodes (each with a destination to the deploy service of the target space; with regional deployments one PRD node per region) | REQ-D | Same archive through all stages and regions; space-specific values (destinations, backends) via extension descriptors, never a rebuilt archive |
+| Service key of the `transport` (standard) instance in `CTMS` for the CI/CD upload destination | REQ-D | CI/CD uploads the archive to the DEV node after each successful build |
+| TMS role collections in `CTMS` for the team | REQ-D | Export/upload by purplecat, import approval by HYDAC |
 
 ```mermaid
 flowchart LR
@@ -427,11 +447,11 @@ The table lists the recurring tasks the application and its BTP services require
 | | IdP ↔ Identity Services ↔ BTP trust, group → role collection mapping, attribute mapping | One-time + on change | HYDAC IT (identity) | |
 | | Authorization matrix role × region × sales org, periodic review | Quarterly | HYDAC IT + business owners | |
 | **Customizing** | Process steps, approval rules and limits, status/step texts per region in the monitor's admin screen (no deployment, no transport) | On business change | Regional HYDAC key users (`Kundenmonitor_Admin`) | |
-| **Work Zone** | Site, tile, roles; refresh the content provider after a deployment | Per release | HYDAC BTP admin | |
+| **Work Zone** (`CFLPDEV` / `CFLPPRD`) | Content provider for the monitor, site, tile, roles; refresh the content provider after a deployment | Per release | HYDAC launchpad team | |
 | **Cloud Connector** | Operation, upgrades, the one resource path, certificates (system + CA for principal propagation) | Quarterly / on expiry | HYDAC Basis | |
 | **Destinations** | One destination per SAP system and per Magento shop and stage; registry entry for a new region; credential rotation | On change / certificate or password rotation | HYDAC BTP admin | |
 | **SAP systems** | `API_BUSINESS_PARTNER` available and authorized (business-partner creation per sales org), user mapping for principal propagation, number ranges; AU: communication arrangement `SAP_COM_0008`, communication system, business users and roles | On change / joiner-mover-leaver | HYDAC SAP Basis / security per region; HYDAC Australia IT | |
-| **HANA Cloud** | Instance size, start/stop of non-productive instances, upgrades (SAP-managed, scheduled by the customer), backup retention (default 14 days) and a yearly restore test | Monthly check | HYDAC BTP admin | |
+| **HANA Cloud** (`GeneralServices`, PRD instance) | Instance size and mapping to the monitor's spaces, start/stop of non-productive instances, upgrades (SAP-managed, scheduled by the customer), backup retention (default 14 days) and a yearly restore test | Monthly check | HYDAC BTP admin | |
 | **Application** | Monitor health, logs, alerts, outbox (stuck notifications), failed intakes; restart on incidents | Continuous (the health check restarts automatically) | purplecat (AMS) or HYDAC IT | |
 | | Updates of CAP, UI5, Node.js runtime (security patches, SAP maintenance) | ≈ quarterly | purplecat (development / AMS) | |
 | | Deploy through cTMS: upload (DEV) / import approval (QAS, PRD per region) | Per release | purplecat upload, HYDAC approval | |
@@ -527,7 +547,7 @@ flowchart LR
 
 If the USA runs on the same S/4 system as Europe, it is simply more sales organizations in backend EU, with no extra integration.
 
-**Central or regional deployment.** The same archive supports one central deployment (one PRD subaccount, one HANA Cloud, all backends registered, one work queue) or one deployment per region (each region's requests stay in its BTP region, three times the HANA Cloud and operation cost). We recommend central, on the condition that HYDAC data protection confirms that Australian contact data may be stored in an EU BTP region (Australian Privacy Principle 8 restricts cross-border disclosure of personal information). Otherwise regional for AU and central for EU and USA. ❓ The decision is needed before AU goes live, not before DEV.
+**Central or regional deployment.** The same archive supports one central deployment (one PRD subaccount, one HANA Cloud, all backends registered, one work queue) or one deployment per region (each region's requests stay in its BTP region, three times the HANA Cloud and operation cost). We recommend central, on the condition that HYDAC data protection confirms that Australian contact data may be stored in an EU BTP region (Australian Privacy Principle 8 restricts cross-border disclosure of personal information). Otherwise regional for AU and central for EU and USA. HYDAC's global account today has subaccounts only in Europe (eu10 on AWS, eu20 on Azure), and HYDAC USA's accounts-payable automation already keeps its data in eu10, so a central deployment for EU and USA follows existing practice; a regional AU deployment would be HYDAC's first subaccount outside Europe. ❓ The decision is needed before AU goes live, not before DEV.
 
 ### 4.2 Landscape and stage mapping (Q4H / GWQ → production)
 
@@ -539,7 +559,7 @@ If the USA runs on the same S/4 system as Europe, it is simply more sales organi
 | QAS (later) | Q4H (❓ or a separate test client) | ❓ | ❓ AU test tenant | staging shops |
 | PRD (later) | ❓ production S/4 + Gateway | ❓ | ❓ AU production tenant | production shops |
 
-The same archive is deployed on every stage. Only the destinations, which HYDAC's BTP admin maintains per subaccount, point to different systems and shops.
+The same archive is deployed on every stage: DEV in subaccount `DEV`, QAS in `QAS` ❓, PRD in a new subaccount (section 2.1). Only the destinations, which HYDAC's BTP admin maintains per subaccount, point to different systems and shops.
 
 ### 4.3 Interfaces and APIs
 
