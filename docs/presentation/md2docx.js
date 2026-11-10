@@ -345,6 +345,10 @@ class Converter {
       const longestWord = Math.max(...texts.map((r) => Math.max(0, ...(r[c] || "").split(/\s+/).map((w) => w.length))));
       minDxa.push(Math.min(Math.round(TEXT_W * 0.45), longestWord * 95 + 240));
     }
+    // Many columns with long words can ask for more than the page: scale the minima down, otherwise the
+    // deficit redistribution below drives a column negative (docx then throws on the grid).
+    const minSum = minDxa.reduce((a, b) => a + b, 0);
+    if (minSum > TEXT_W) for (let c = 0; c < cols; c++) minDxa[c] = Math.floor((minDxa[c] * TEXT_W) / minSum);
     const sum = widths.reduce((a, b) => a + b, 0);
     const dxa = widths.map((w) => Math.round((TEXT_W * w) / sum));
     let deficit = 0;
